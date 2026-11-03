@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { ArrowLeft, Store, UserRound, LogOut } from "lucide-react";
 
-type Profile = { id: string; full_name: string | null; role: "customer" | "seller" | "admin"; phone?: string | null };
+type Profile = { id: string; full_name: string | null; role: "customer" | "seller" | "admin"; phone?: string | null; is_admin?: boolean };
 type Shop = { id: string; name: string; slug: string; island: string | null };
 
 export default function AccountPage() {
@@ -26,7 +26,7 @@ export default function AccountPage() {
 
   async function loadAccount(id: string) {
     setUserId(id);
-    const { data, error } = await supabase.from("profiles").select("id,full_name,role,phone").eq("id", id).single();
+    const { data, error } = await supabase.from("profiles").select("id,full_name,role,phone,is_admin").eq("id", id).single();
     if (error) { setMessage("Your account was created, but we couldn't load the profile yet. Refresh this page in a moment."); return; }
     setProfile(data as Profile);
     const { data: shops } = await supabase.from("shops").select("id,name,slug,island").eq("owner_id", id).limit(1);
@@ -111,6 +111,7 @@ export default function AccountPage() {
         {profile?.role === "customer" && <div className="seller-panel"><Store size={25}/><h2>Start selling on Island Express</h2><p>Register as a seller and create your own shop. Product listings will be reviewed before they appear publicly.</p><button className="primary account-submit" disabled={busy} onClick={becomeSeller}>{busy ? "Please wait…" : "Become a seller"}</button></div>}
         {profile?.role === "seller" && !shop && <form onSubmit={createShop} className="account-form shop-form"><h2>Create your shop</h2><label>Shop name<input required value={shopName} onChange={e=>setShopName(e.target.value)} placeholder="e.g. Island Finds"/></label><label>About your shop<textarea value={shopDescription} onChange={e=>setShopDescription(e.target.value)} placeholder="Tell customers what you sell"/></label><label>Island<select value={island} onChange={e=>setIsland(e.target.value)}><option>Mahé</option><option>Praslin</option><option>La Digue</option><option>Other</option></select></label><button className="primary account-submit" disabled={busy}>{busy ? "Creating shop…" : "Create my shop"}</button></form>}
         {shop && <div className="shop-success"><Store size={22}/><h2>{shop.name}</h2><p>Your shop is set up on {shop.island || "Seychelles"}.</p><small>Shop address: /shops/{shop.slug}</small><p className="account-sub">Your seller centre is ready to manage product listings.</p><Link className="primary account-submit" href="/seller">Open seller dashboard</Link></div>}
+        {profile?.is_admin && <Link href="/admin" className="primary account-submit">Open Admin Centre</Link>}
         <button className="logout-button" onClick={signOut}><LogOut size={16}/> Sign out</button>
       </>}
       {message && <div className="account-message" role="status">{message}</div>}
