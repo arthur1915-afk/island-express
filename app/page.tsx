@@ -17,7 +17,21 @@ export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [notice, setNotice] = useState("");
-  useEffect(() => {\n    let active = true;\n    supabase.from("products").select("id,title,category,price_scr,description,image_urls,shops(name,island)").eq("status","approved").order("created_at",{ascending:false}).then(({data,error}) => {\n      if (!active) return;\n      if (error) setNotice("Could not load marketplace listings.");\n      setProducts((data ?? []) as unknown as Product[]);\n      setProductsLoading(false);\n    });\n    return () => { active = false; };\n  }, []);\n  const filtered = useMemo(() => products.filter(p =>\n    (category === "All" || p.category === category) &&\n    (p.title.toLowerCase().includes(query.toLowerCase()) || (p.shops?.name ?? "").toLowerCase().includes(query.toLowerCase()))\n  ), [category, query, products]);\n  function addToCart(id: string) { setCart(old => [...old, id]); setNotice("Added to your demo cart"); window.setTimeout(() => setNotice(""), 1800); }
+  useEffect(() => {
+    let active = true;
+    supabase.from("products").select("id,title,category,price_scr,description,image_urls,shops(name,island)").eq("status","approved").order("created_at",{ascending:false}).then(({data,error}) => {
+      if (!active) return;
+      if (error) setNotice("Could not load marketplace listings.");
+      setProducts((data ?? []) as unknown as Product[]);
+      setProductsLoading(false);
+    });
+    return () => { active = false; };
+  }, []);
+  const filtered = useMemo(() => products.filter(p =>
+    (category === "All" || p.category === category) &&
+    (p.title.toLowerCase().includes(query.toLowerCase()) || (p.shops?.name ?? "").toLowerCase().includes(query.toLowerCase()))
+  ), [category, query, products]);
+  function addToCart(id: string) { setCart(old => [...old, id]); setNotice("Added to your demo cart"); window.setTimeout(() => setNotice(""), 1800); }
 
   return <main>
     <div className="topline"><span><MapPin size={13}/> Shopping across Seychelles</span><span>SCR · Seychelles Rupee</span></div>
