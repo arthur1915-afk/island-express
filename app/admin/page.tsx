@@ -23,7 +23,9 @@ export default function AdminPage() {
   async function load() {
     setLoading(true);
     const {data:{user}} = await supabase.auth.getUser();
-    if(!user){router.replace("/account");return;}
+    if(!user){router.replace("/admin/login");return;}
+    const {data:assurance}=await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if(assurance.currentLevel!=="aal2"){router.replace("/admin/login");return;}
     const {data:profile} = await supabase.from("profiles").select("is_admin").eq("id",user.id).single();
     if(!profile?.is_admin){setAuthorized(false);setLoading(false);return;}
     setAuthorized(true);
