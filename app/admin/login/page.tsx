@@ -19,7 +19,7 @@ export default function AdminLogin(){
   const {data:profile,error}=await supabase.from("profiles").select("is_admin").eq("id",user.id).single();
   if(error||!profile?.is_admin){await supabase.auth.signOut();setMessage("This account is not authorised for administration.");return;}
   const {data:aal}=await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if(aal.currentLevel==="aal2"){router.replace("/admin");return;}
+  if(aal?.currentLevel==="aal2"){router.replace("/admin");return;}
   const {data,error:listError}=await supabase.auth.mfa.listFactors();
   if(listError)throw listError;
   const verified=(data.totp??[]).find((f:Factor)=>f.status==="verified");
