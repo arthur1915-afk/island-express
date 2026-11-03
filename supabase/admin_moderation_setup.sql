@@ -29,3 +29,10 @@ where id = (
   select id from auth.users
   where lower(email) = lower('arthur1915@gmail.com')
 );
+
+
+-- Admins need to read all listings to review the moderation queue.
+drop policy if exists "Admins can view all products" on public.products;
+create policy "Admins can view all products"
+on public.products for select to authenticated
+using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin = true));
