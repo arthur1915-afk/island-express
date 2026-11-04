@@ -24,6 +24,7 @@ type Order = {
   status: string;
   created_at: string;
   order_items: OrderItem[];
+  seller_order_fulfillments?: { shop_id: string; status: string; courier: string | null; tracking_number: string | null; estimated_delivery: string | null; shipping_note: string | null; updated_at: string }[];
 };
 
 function label(value?: string) {
@@ -83,6 +84,17 @@ export default function CustomerOrdersPage() {
               </div>)}
             </div>
             <div className="seller-order-total"><span>Order total</span><b>SCR {Number(order.total_scr).toLocaleString()}</b></div>
+            {(order.seller_order_fulfillments ?? []).length > 0 && <div className="seller-order-customer">
+              <h3>Shipping updates</h3>
+              {(order.seller_order_fulfillments ?? []).map((shipping, index) => <div key={shipping.shop_id || index} className="customer-shipping-update">
+                <b>{shipping.status.replaceAll("_", " ")}</b>
+                {shipping.courier && <span>Courier: {shipping.courier}</span>}
+                {shipping.tracking_number && <span>Tracking number: {shipping.tracking_number}</span>}
+                {shipping.estimated_delivery && <span>Estimated delivery: {new Date(shipping.estimated_delivery + "T00:00:00").toLocaleDateString()}</span>}
+                {shipping.shipping_note && <span>{shipping.shipping_note}</span>}
+                <small>Updated: {new Date(shipping.updated_at).toLocaleString()}</small>
+              </div>)}
+            </div>}
             <div className="seller-order-customer">
               <h3>Payment</h3>
               <b>{label(order.payment_status || "unpaid")}</b>
