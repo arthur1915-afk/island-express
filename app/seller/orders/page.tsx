@@ -113,6 +113,7 @@ export default function SellerOrdersPage() {
             {fulfilment?.estimated_delivery && <div className="seller-order-payment">Estimated delivery: {new Date(fulfilment.estimated_delivery + "T00:00:00").toLocaleDateString()}</div>}
             {fulfilment?.shipping_note && <div className="seller-order-payment">Customer update: {fulfilment.shipping_note}</div>}
             <div className="seller-order-actions">
+              <button disabled={actionBusy===order.id} onClick={()=>updateShipping(order.id, fulfilment)}>Update shipping info</button>
               {(!fulfilment || sellerStatus === "processing") && <button disabled={actionBusy===order.id} onClick={()=>fulfil(order.id,"shipped")}>Mark as shipped</button>}
               {(!fulfilment || sellerStatus === "new" || sellerStatus === "processing") && <button className="seller-cancel-action" disabled={actionBusy===order.id} onClick={()=>fulfil(order.id,"cancellation_requested")}>Request cancellation</button>}
               {sellerStatus === "shipped" && <span className="seller-order-payment">Awaiting delivery confirmation</span>}
