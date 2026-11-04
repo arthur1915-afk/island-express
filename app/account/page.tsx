@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { ArrowLeft, Store, UserRound, LogOut, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Store, UserRound, LogOut, ShoppingBag, Heart } from "lucide-react";
 
 type Profile = { id: string; full_name: string | null; role: "customer" | "seller" | "admin"; phone?: string | null; is_admin?: boolean };
 type Shop = { id: string; name: string; slug: string; island: string | null };
@@ -120,6 +120,7 @@ export default function AccountPage() {
             <span className="account-role">{profile?.role || "customer"}</span>
           </div>
           <div className="account-section-label">YOUR ACTIVITY</div>
+          <Link className="account-action-card" href="/wishlist"><span className="account-action-icon"><Heart size={20}/></span><span><b>My Favourites</b><small>Products you have saved for later</small></span><span className="account-action-arrow">›</span></Link>
           <Link className="account-action-card" href="/orders">
             <span className="account-action-icon"><ShoppingBag size={20}/></span>
             <span><b>My Orders</b><small>View purchases, order status and shipping updates</small></span>
