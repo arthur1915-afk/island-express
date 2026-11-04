@@ -198,3 +198,9 @@
 .seller-balance-grid small{font-size:10px;color:#7d8b81}.seller-balance-grid strong{font:800 20px Manrope;color:#24372c;overflow-wrap:anywhere}.seller-balance-grid span{font-size:9px;color:#94a097}
 .seller-balance-note{margin-top:14px;padding:11px 13px;background:#fff8f2;border-radius:8px;color:#92704e;font-size:10px;line-height:1.6}
 @media(max-width:600px){.seller-balance-panel{padding:17px}.seller-balance-grid{grid-template-columns:1fr}.seller-balance-grid strong{font-size:18px}}
+
+.seller-balance-footer{display:flex;align-items:center;gap:15px;margin-top:14px}
+.seller-balance-footer .seller-balance-note{flex:1;margin:0}
+.seller-withdraw-button{flex:none;border:0;border-radius:8px;background:var(--orange);color:#fff;padding:12px 17px;font-size:11px;font-weight:800;box-shadow:0 6px 16px #f26a3528}
+.seller-withdraw-button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+@media(max-width:650px){.seller-balance-footer{align-items:stretch;flex-direction:column}.seller-withdraw-button{width:100%;min-height:42px}}
