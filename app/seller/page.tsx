@@ -51,11 +51,15 @@ export default function SellerDashboard() {
   async function requestWithdrawal() {
     const available = earnings.filter(e=>e.status==="available").reduce((s,e)=>s+Number(e.amount_scr),0);
     if (available <= 0) { setMessage("There is no available balance to withdraw."); return; }
-    if (!window.confirm("Request withdrawal of your full available balance of SCR " + available.toFixed(2) + "? This amount will move to Withdrawal pending.")) return;
+    const raw = window.prompt("How much would you like to withdraw?\nAvailable balance: SCR " + available.toFixed(2), available.toFixed(2));
+    if (raw === null) return;
+    const amount = Number(raw.trim());
+    if (!Number.isFinite(amount) || amount <= 0) { setMessage("Enter a valid withdrawal amount greater than zero."); return; }
+    if (amount > available + 0.0001) { setMessage("You cannot withdraw more than your available balance of SCR " + available.toFixed(2) + "."); return; }
     setWithdrawalBusy(true); setMessage("");
-    const { error } = await supabase.rpc("seller_request_withdrawal");
+    const { error } = await supabase.rpc("seller_request_withdrawal", { requested_amount: Number(amount.toFixed(2)) });
     if (error) setMessage(error.message);
-    else { setMessage("Withdrawal request submitted. The amount is now reserved as pending."); setOpenWithdrawal(true); }
+    else { setMessage("Withdrawal request for SCR " + amount.toFixed(2) + " submitted."); setOpenWithdrawal(true); }
     await refresh(); setWithdrawalBusy(false);
   }
 
