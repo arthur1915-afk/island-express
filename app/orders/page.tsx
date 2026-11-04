@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Package, RefreshCw, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Package, RefreshCw, ShoppingBag, Star } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 
 type OrderItem = {
@@ -35,7 +35,7 @@ export default function CustomerOrdersPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState("");\n  const [reviewed, setReviewed] = useState<string[]>([]);\n  const [reviewProduct, setReviewProduct] = useState<string | null>(null);\n  const [reviewRating, setReviewRating] = useState(5);\n  const [reviewTitle, setReviewTitle] = useState("");\n  const [reviewBody, setReviewBody] = useState("");\n  const [reviewBusy, setReviewBusy] = useState(false);
 
   async function loadOrders() {
     setLoading(true);
@@ -45,7 +45,7 @@ export default function CustomerOrdersPage() {
 
     const { data, error } = await supabase
       .from("orders")
-      .select("id,customer_name,subtotal_scr,delivery_fee_scr,total_scr,payment_method,payment_status,status,created_at,order_items(id,product_title,unit_price_scr,quantity,shop_name),seller_order_fulfillments(shop_id,status,courier,tracking_number,estimated_delivery,shipping_note,updated_at)")
+      .select("id,customer_name,subtotal_scr,delivery_fee_scr,total_scr,payment_method,payment_status,status,created_at,order_items(id,product_id,product_title,unit_price_scr,quantity,shop_name),seller_order_fulfillments(shop_id,status,courier,tracking_number,estimated_delivery,shipping_note,updated_at)")
       .eq("customer_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -54,7 +54,7 @@ export default function CustomerOrdersPage() {
     setLoading(false);
   }
 
-  useEffect(() => { loadOrders(); }, []);
+  useEffect(() => { loadOrders(); }, []);\n\n  async function submitReview(orderId:string, productId:string) {\n    if (!reviewBody.trim()) { setMessage("Please write a short review before submitting."); return; }\n    setReviewBusy(true); setMessage("");\n    const { data: { user } } = await supabase.auth.getUser();\n    if (!user) { setMessage("Please sign in again."); setReviewBusy(false); return; }\n    const { error } = await supabase.from("product_reviews").insert({ order_id:orderId, product_id:productId, customer_id:user.id, rating:reviewRating, title:reviewTitle.trim() || null, body:reviewBody.trim(), status:"pending" });\n    if (error) setMessage(error.message);\n    else { setReviewed(old => [...old, productId]); setReviewProduct(null); setReviewTitle(""); setReviewBody(""); setMessage("Thank you! Your review has been submitted for approval."); }\n    setReviewBusy(false);\n  }
 
   return <main className="cart-page">
     <header className="cart-page-header">
