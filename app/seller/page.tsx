@@ -17,6 +17,8 @@ export default function SellerDashboard() {
   const [shop,setShop] = useState<Shop|null>(null);
   const [products,setProducts] = useState<Product[]>([]);
   const [earnings,setEarnings] = useState<Earning[]>([]);
+  const [withdrawalBusy,setWithdrawalBusy] = useState(false);
+  const [openWithdrawal,setOpenWithdrawal] = useState(false);
   const [loading,setLoading] = useState(true);
   const [busy,setBusy] = useState(false);
   const [message,setMessage] = useState("");
@@ -45,6 +47,17 @@ export default function SellerDashboard() {
   }
 
   useEffect(()=>{ refresh(); },[]);
+
+  async function requestWithdrawal() {
+    const available = earnings.filter(e=>e.status==="available").reduce((s,e)=>s+Number(e.amount_scr),0);
+    if (available <= 0) { setMessage("There is no available balance to withdraw."); return; }
+    if (!window.confirm("Request withdrawal of your full available balance of SCR " + available.toFixed(2) + "? This amount will move to Withdrawal pending.")) return;
+    setWithdrawalBusy(true); setMessage("");
+    const { error } = await supabase.rpc("seller_request_withdrawal");
+    if (error) setMessage(error.message);
+    else { setMessage("Withdrawal request submitted. The amount is now reserved as pending."); setOpenWithdrawal(true); }
+    await refresh(); setWithdrawalBusy(false);
+  }
 
   async function adjustStock(product: Product, direction: number) {
     const raw = window.prompt(direction > 0 ? "How many units would you like to add?" : "How many units would you like to remove?", "1");
@@ -110,7 +123,7 @@ export default function SellerDashboard() {
           <div><small>Withdrawal pending</small><strong>SCR {earnings.filter(e=>e.status==="withdrawal_pending").reduce((s,e)=>s+Number(e.amount_scr),0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong><span>Awaiting admin processing</span></div>
           <div><small>Total paid out</small><strong>SCR {earnings.filter(e=>e.status==="paid").reduce((s,e)=>s+Number(e.amount_scr),0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong><span>Marked as paid by admin</span></div>
         </div>
-        <div className="seller-balance-note">Your earnings appear here only after a card-paid order is marked delivered and the customer confirms receipt. Cash on delivery is paid directly to you and is not included.</div>
+        <div className="seller-balance-footer"><div className="seller-balance-note">All orders are paid in the app. Earnings become available after the customer confirms receipt. A withdrawal request reserves your full available balance until the admin processes it.</div><button type="button" className="seller-withdraw-button" onClick={requestWithdrawal} disabled={withdrawalBusy || earnings.every(e=>e.status!=="available")}>{withdrawalBusy ? "Submitting request…" : "Request withdrawal"}</button></div>
       </section>
       <div className="seller-dash-grid">
         <section className="seller-dash-panel"><h2>Add a product</h2><p>New listings are checked before they become visible to shoppers.</p>
