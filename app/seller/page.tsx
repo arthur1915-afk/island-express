@@ -8,6 +8,7 @@ import { ArrowLeft, ImagePlus, Package, Store, ShoppingBag, BarChart3 } from "lu
 
 type Shop = { id: string; name: string; island: string | null };
 type Product = { id: string; title: string; price_scr: number; stock_quantity: number; status: string; created_at: string; image_urls: string[]; is_archived?: boolean };
+type Earning = { id: string; amount_scr: number; status: "available" | "withdrawal_pending" | "paid" | "reversed"; order_id: string; released_at: string };
 
 const categories = ["Electronics","Fashion","Home & Living","Beauty","Sports","Automotive","Food & Groceries","Other"];
 
@@ -15,6 +16,7 @@ export default function SellerDashboard() {
   const router = useRouter();
   const [shop,setShop] = useState<Shop|null>(null);
   const [products,setProducts] = useState<Product[]>([]);
+  const [earnings,setEarnings] = useState<Earning[]>([]);
   const [loading,setLoading] = useState(true);
   const [busy,setBusy] = useState(false);
   const [message,setMessage] = useState("");
@@ -33,6 +35,9 @@ export default function SellerDashboard() {
     const { data: shops, error } = await supabase.from("shops").select("id,name,island").eq("owner_id",user.id).limit(1);
     if (error || !shops?.length) { setMessage("We couldn't find your shop. Please create it from your account page."); setLoading(false); return; }
     setShop(shops[0] as Shop);
+    const { data: earningRows, error: earningsError } = await supabase.from("seller_earnings").select("id,amount_scr,status,order_id,released_at").eq("seller_id",user.id).order("released_at",{ascending:false});
+    if (earningsError) setMessage("Balance could not be loaded: " + earningsError.message);
+    setEarnings((earningRows ?? []) as Earning[]);
     const { data: rows, error: productsError } = await supabase.from("products").select("id,title,price_scr,stock_quantity,status,created_at,image_urls,is_archived").eq("shop_id",shops[0].id).order("created_at",{ascending:false});
     if (productsError) setMessage(productsError.message);
     setProducts((rows ?? []) as Product[]);
@@ -97,6 +102,16 @@ export default function SellerDashboard() {
     <header className="seller-dash-header"><Link href="/account" className="account-back"><ArrowLeft size={16}/> My account</Link><Link href="/" className="account-brand">island<span>express</span></Link></header>
     <div className="seller-dash-wrap">
       <div className="seller-dash-title"><div><div className="eyebrow">SELLER CENTRE</div><h1>{shop?.name || "Your shop"}</h1><p><Store size={15}/> {shop?.island || "Seychelles"} · Manage your listings</p></div><div className="seller-title-actions"><Link href="/seller/analytics" className="seller-orders-link"><BarChart3 size={16}/> Analytics</Link><Link href="/seller/orders" className="seller-orders-link"><ShoppingBag size={16}/> Customer orders</Link><div className="seller-count"><Package size={19}/><b>{products.length}</b><span>Products</span></div></div></div>
+      
+      <section className="seller-balance-panel">
+        <div className="seller-balance-heading"><div><div className="eyebrow">SELLER WALLET</div><h2>Your balance</h2><p>Card-payment earnings released after customers confirm delivery.</p></div><span className="seller-wallet-icon">SCR</span></div>
+        <div className="seller-balance-grid">
+          <div><small>Available balance</small><strong>SCR {earnings.filter(e=>e.status==="available").reduce((s,e)=>s+Number(e.amount_scr),0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong><span>Ready for withdrawal request</span></div>
+          <div><small>Withdrawal pending</small><strong>SCR {earnings.filter(e=>e.status==="withdrawal_pending").reduce((s,e)=>s+Number(e.amount_scr),0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong><span>Awaiting admin processing</span></div>
+          <div><small>Total paid out</small><strong>SCR {earnings.filter(e=>e.status==="paid").reduce((s,e)=>s+Number(e.amount_scr),0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong><span>Marked as paid by admin</span></div>
+        </div>
+        <div className="seller-balance-note">Your earnings appear here only after a card-paid order is marked delivered and the customer confirms receipt. Cash on delivery is paid directly to you and is not included.</div>
+      </section>
       <div className="seller-dash-grid">
         <section className="seller-dash-panel"><h2>Add a product</h2><p>New listings are checked before they become visible to shoppers.</p>
           <form className="account-form" onSubmit={addProduct}>
