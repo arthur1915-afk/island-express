@@ -187,3 +187,14 @@
 .profile-activity-grid a b{font-size:12px;color:#2d3b33}.profile-activity-grid a small{font-size:10px;color:#87938b;line-height:1.5}
 .profile-activity-grid a:hover{border-color:#f3b99e}
 @media(max-width:650px){.account-page:has(.profile-page-heading){padding:16px 12px 35px}.account-page:has(.profile-page-heading) .account-card{padding:23px 18px}.profile-hero{gap:13px;flex-wrap:wrap}.profile-photo-wrap,.profile-photo{width:78px;height:78px}.profile-hero-copy h2{font-size:16px}.profile-hero-actions{width:100%;display:flex;justify-content:flex-start}.profile-fields{grid-template-columns:1fr}.profile-bio-field{grid-column:auto}.profile-activity-grid{grid-template-columns:1fr}.profile-page-heading h1{font-size:25px}}
+
+/* Seller wallet balance */
+.seller-balance-panel{background:#fff;border:1px solid #e4ebe6;border-radius:14px;padding:23px 25px;margin:0 0 20px;box-shadow:0 6px 22px #20382b08}
+.seller-balance-heading{display:flex;align-items:center;justify-content:space-between;gap:15px}
+.seller-balance-heading h2{font:800 19px Manrope;margin:5px 0}.seller-balance-heading p{font-size:11px;color:#829087;margin:0}
+.seller-wallet-icon{width:47px;height:47px;border-radius:13px;background:#eaf4ed;color:#39704c;display:grid;place-items:center;font-size:11px;font-weight:900}
+.seller-balance-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px}
+.seller-balance-grid>div{background:#f7faf7;border:1px solid #edf1ed;border-radius:10px;padding:15px;display:grid;gap:7px;min-width:0}
+.seller-balance-grid small{font-size:10px;color:#7d8b81}.seller-balance-grid strong{font:800 20px Manrope;color:#24372c;overflow-wrap:anywhere}.seller-balance-grid span{font-size:9px;color:#94a097}
+.seller-balance-note{margin-top:14px;padding:11px 13px;background:#fff8f2;border-radius:8px;color:#92704e;font-size:10px;line-height:1.6}
+@media(max-width:600px){.seller-balance-panel{padding:17px}.seller-balance-grid{grid-template-columns:1fr}.seller-balance-grid strong{font-size:18px}}
