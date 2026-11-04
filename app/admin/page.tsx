@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { ArrowLeft, ShieldCheck, Check, X, Ban, RefreshCw, Package } from "lucide-react";
+import { ArrowLeft, ShieldCheck, Check, X, Ban, RefreshCw, Package, Headset } from "lucide-react";
 
 type Listing = {
   id: string; title: string; description: string | null; category: string;
@@ -61,7 +61,7 @@ export default function AdminPage() {
   return <main className="admin-page">
     <header className="seller-dash-header"><Link href="/" className="account-back"><ArrowLeft size={16}/> Marketplace</Link><Link href="/" className="account-brand">island<span>express</span></Link></header>
     <div className="admin-wrap">
-      <div className="admin-heading"><div><div className="eyebrow">ISLAND EXPRESS · ADMINISTRATION</div><h1>Product moderation</h1><p>Review listings before they become visible to shoppers.</p></div><button className="admin-refresh" onClick={load}><RefreshCw size={15}/> Refresh</button></div>
+      <div className="admin-heading"><div><div className="eyebrow">ISLAND EXPRESS · ADMINISTRATION</div><h1>Product moderation</h1><p>Review listings before they become visible to shoppers.</p></div><div className="admin-heading-actions"><Link className="admin-refresh" href="/admin/support"><Headset size={15}/> Customer Care Inbox</Link><button className="admin-refresh" onClick={load}><RefreshCw size={15}/> Refresh</button></div></div>
       <div className="admin-stats"><ShieldCheck size={20}/><b>{items.length}</b><span>Listings awaiting review</span></div>
       {message&&<div className="account-message">{message}</div>}
       {items.length===0?<div className="admin-empty"><Package size={36}/><b>You're all caught up</b><span>New seller submissions will appear here.</span></div>:
