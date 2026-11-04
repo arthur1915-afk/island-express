@@ -86,3 +86,16 @@ with check (
 
 grant select, insert, update on public.product_reviews to authenticated;
 grant select on public.product_reviews to anon;
+
+
+-- Allow authenticated administrators with MFA (AAL2) to review all submissions.
+drop policy if exists "AAL2 admins can view product reviews" on public.product_reviews;
+create policy "AAL2 admins can view product reviews"
+on public.product_reviews for select to authenticated
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.is_admin = true
+  )
+  and (auth.jwt()->>'aal') = 'aal2'
+);
