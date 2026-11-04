@@ -51,7 +51,7 @@ export default function SellerOrdersPage() {
     if (eta === null) return;
     const note = window.prompt("Shipping update for the customer (optional):", current?.shipping_note || "");
     if (note === null) return;
-    if (eta.trim() && !/^\\d{4}-\\d{2}-\\d{2}$/.test(eta.trim())) {
+    if (eta.trim() && !/^\d{4}-\d{2}-\d{2}$/.test(eta.trim())) {
       setMessage("Enter the estimated delivery date as YYYY-MM-DD."); return;
     }
     setActionBusy(orderId); setMessage("");
