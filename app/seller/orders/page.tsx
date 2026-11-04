@@ -7,7 +7,7 @@ import { supabase } from "../../../lib/supabase";
 import { ArrowLeft, Package, RefreshCw, ShoppingBag } from "lucide-react";
 
 type OrderItem = { id: string; product_title: string; unit_price_scr: number; quantity: number; shop_name: string | null };
-type Fulfilment = { id: string; shop_id: string; status: string; tracking_number: string | null; courier: string | null; updated_at: string };
+type Fulfilment = { id: string; shop_id: string; status: string; tracking_number: string | null; courier: string | null; estimated_delivery: string | null; shipping_note: string | null; updated_at: string };
 type Order = {
   id: string; customer_name: string; phone: string; email: string | null; island: string;
   delivery_address: string; delivery_notes: string | null; subtotal_scr: number;
@@ -33,7 +33,7 @@ export default function SellerOrdersPage() {
     const currentShopId = shops?.[0]?.id ?? "";
     setShopId(currentShopId);
     const { data, error } = await supabase.from("orders")
-      .select("id,customer_name,phone,email,island,delivery_address,delivery_notes,subtotal_scr,delivery_fee_scr,total_scr,payment_method,status,created_at,order_items(id,product_title,unit_price_scr,quantity,shop_name),seller_order_fulfillments(id,shop_id,status,tracking_number,courier,updated_at)")
+      .select("id,customer_name,phone,email,island,delivery_address,delivery_notes,subtotal_scr,delivery_fee_scr,total_scr,payment_method,status,created_at,order_items(id,product_title,unit_price_scr,quantity,shop_name),seller_order_fulfillments(id,shop_id,status,tracking_number,courier,estimated_delivery,shipping_note,updated_at)")
       .order("created_at", { ascending: false });
     if (error) setMessage(error.message);
     setOrders((data ?? []) as unknown as Order[]);
@@ -41,6 +41,31 @@ export default function SellerOrdersPage() {
   }
 
   useEffect(() => { loadOrders(); }, []);
+
+  async function updateShipping(orderId: string, current?: Fulfilment) {
+    const courier = window.prompt("Courier / delivery company:", current?.courier || "") ;
+    if (courier === null) return;
+    const tracking = window.prompt("Tracking number (leave blank if not available):", current?.tracking_number || "");
+    if (tracking === null) return;
+    const eta = window.prompt("Estimated delivery date (YYYY-MM-DD):", current?.estimated_delivery || "");
+    if (eta === null) return;
+    const note = window.prompt("Shipping update for the customer (optional):", current?.shipping_note || "");
+    if (note === null) return;
+    if (eta.trim() && !/^\\d{4}-\\d{2}-\\d{2}$/.test(eta.trim())) {
+      setMessage("Enter the estimated delivery date as YYYY-MM-DD."); return;
+    }
+    setActionBusy(orderId); setMessage("");
+    const { error } = await supabase.rpc("seller_update_shipping", {
+      target_order_id: orderId,
+      courier_name: courier.trim() || null,
+      tracking: tracking.trim() || null,
+      eta_date: eta.trim() || null,
+      customer_note: note.trim() || null
+    });
+    if (error) setMessage(error.message);
+    else setMessage("Shipping information updated. The customer can now see the latest details.");
+    setActionBusy(""); await loadOrders();
+  }
 
   async function fulfil(orderId: string, status: string) {
     if (status === "cancellation_requested" && !window.confirm("Request cancellation? Admin review will be required.")) return;
@@ -84,7 +109,9 @@ export default function SellerOrdersPage() {
             <div className="seller-order-total"><span>Your items subtotal</span><b>SCR {ownItems.reduce((sum,item)=>sum+Number(item.unit_price_scr)*item.quantity,0).toLocaleString()}</b></div>
             <div className="seller-order-customer"><h3>Delivery details</h3><b>{order.customer_name}</b><span>{order.phone}{order.email ? " · " + order.email : ""}</span><span>{order.delivery_address}, {order.island}</span>{order.delivery_notes && <small>Note: {order.delivery_notes}</small>}</div>
             <div className="seller-order-payment">Payment: {order.payment_method === "cash_on_delivery" ? "Cash on delivery / arrange with seller" : order.payment_method}</div>
-            {fulfilment?.tracking_number && <div className="seller-order-payment">Tracking: {fulfilment.courier ? fulfilment.courier + " · " : ""}{fulfilment.tracking_number}</div>}
+            {(fulfilment?.tracking_number || fulfilment?.courier) && <div className="seller-order-payment">Shipping: {fulfilment.courier || "Courier not specified"}{fulfilment.tracking_number ? " · Tracking: " + fulfilment.tracking_number : ""}</div>}
+            {fulfilment?.estimated_delivery && <div className="seller-order-payment">Estimated delivery: {new Date(fulfilment.estimated_delivery + "T00:00:00").toLocaleDateString()}</div>}
+            {fulfilment?.shipping_note && <div className="seller-order-payment">Customer update: {fulfilment.shipping_note}</div>}
             <div className="seller-order-actions">
               {(!fulfilment || sellerStatus === "processing") && <button disabled={actionBusy===order.id} onClick={()=>fulfil(order.id,"shipped")}>Mark as shipped</button>}
               {(!fulfilment || sellerStatus === "new" || sellerStatus === "processing") && <button className="seller-cancel-action" disabled={actionBusy===order.id} onClick={()=>fulfil(order.id,"cancellation_requested")}>Request cancellation</button>}
