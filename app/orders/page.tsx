@@ -8,6 +8,7 @@ import { supabase } from "../../lib/supabase";
 
 type OrderItem = {
   id: string;
+  product_id: string | null;
   product_title: string;
   unit_price_scr: number;
   quantity: number;
@@ -35,7 +36,13 @@ export default function CustomerOrdersPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");\n  const [reviewed, setReviewed] = useState<string[]>([]);\n  const [reviewProduct, setReviewProduct] = useState<string | null>(null);\n  const [reviewRating, setReviewRating] = useState(5);\n  const [reviewTitle, setReviewTitle] = useState("");\n  const [reviewBody, setReviewBody] = useState("");\n  const [reviewBusy, setReviewBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [reviewed, setReviewed] = useState<string[]>([]);
+  const [reviewProduct, setReviewProduct] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewTitle, setReviewTitle] = useState("");
+  const [reviewBody, setReviewBody] = useState("");
+  const [reviewBusy, setReviewBusy] = useState(false);
 
   async function loadOrders() {
     setLoading(true);
@@ -51,10 +58,23 @@ export default function CustomerOrdersPage() {
 
     if (error) setMessage(error.message);
     setOrders((data ?? []) as unknown as Order[]);
+    const { data: reviews } = await supabase.from("product_reviews").select("product_id").eq("customer_id", user.id);
+    setReviewed((reviews ?? []).map((r: { product_id: string }) => r.product_id));
     setLoading(false);
   }
 
-  useEffect(() => { loadOrders(); }, []);\n\n  async function submitReview(orderId:string, productId:string) {\n    if (!reviewBody.trim()) { setMessage("Please write a short review before submitting."); return; }\n    setReviewBusy(true); setMessage("");\n    const { data: { user } } = await supabase.auth.getUser();\n    if (!user) { setMessage("Please sign in again."); setReviewBusy(false); return; }\n    const { error } = await supabase.from("product_reviews").insert({ order_id:orderId, product_id:productId, customer_id:user.id, rating:reviewRating, title:reviewTitle.trim() || null, body:reviewBody.trim(), status:"pending" });\n    if (error) setMessage(error.message);\n    else { setReviewed(old => [...old, productId]); setReviewProduct(null); setReviewTitle(""); setReviewBody(""); setMessage("Thank you! Your review has been submitted for approval."); }\n    setReviewBusy(false);\n  }
+  useEffect(() => { loadOrders(); }, []);
+
+  async function submitReview(orderId:string, productId:string) {
+    if (!reviewBody.trim()) { setMessage("Please write a short review before submitting."); return; }
+    setReviewBusy(true); setMessage("");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setMessage("Please sign in again."); setReviewBusy(false); return; }
+    const { error } = await supabase.from("product_reviews").insert({ order_id:orderId, product_id:productId, customer_id:user.id, rating:reviewRating, title:reviewTitle.trim() || null, body:reviewBody.trim(), status:"pending" });
+    if (error) setMessage(error.message);
+    else { setReviewed(old => [...old, productId]); setReviewProduct(null); setReviewTitle(""); setReviewBody(""); setMessage("Thank you! Your review has been submitted for approval."); }
+    setReviewBusy(false);
+  }
 
   return <main className="cart-page">
     <header className="cart-page-header">
@@ -81,6 +101,13 @@ export default function CustomerOrdersPage() {
               {(order.order_items ?? []).map(item => <div className="seller-order-item" key={item.id}>
                 <Package size={17}/><span>{item.product_title} <small>× {item.quantity} · {item.shop_name || "Island Express seller"}</small></span>
                 <b>SCR {(Number(item.unit_price_scr) * item.quantity).toLocaleString()}</b>
+                {order.status === "completed" && item.product_id && (reviewed.includes(item.product_id) ? <span className="review-submitted">Review submitted</span> : <button className="review-open-button" onClick={() => { setReviewProduct(reviewProduct === item.product_id ? null : item.product_id); setReviewRating(5); }}><Star size={14}/> Write a review</button>)}
+                {reviewProduct === item.product_id && order.status === "completed" && item.product_id && <div className="review-form">
+                  <div className="review-rating-picker">{[1,2,3,4,5].map(n=><button type="button" key={n} onClick={()=>setReviewRating(n)} aria-label={n+" stars"}><Star size={19} fill={n<=reviewRating?"currentColor":"none"}/></button>)}</div>
+                  <input value={reviewTitle} onChange={e=>setReviewTitle(e.target.value)} placeholder="Review title (optional)" maxLength={100}/>
+                  <textarea value={reviewBody} onChange={e=>setReviewBody(e.target.value)} placeholder="Share your experience (at least 5 characters)" maxLength={2000}/>
+                  <button disabled={reviewBusy||reviewBody.trim().length<5} onClick={()=>submitReview(order.id,item.product_id!)}>{reviewBusy?"Submitting…":"Submit review"}</button>
+                </div>}
               </div>)}
             </div>
             <div className="seller-order-total"><span>Order total</span><b>SCR {Number(order.total_scr).toLocaleString()}</b></div>
