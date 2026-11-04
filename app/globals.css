@@ -57,3 +57,7 @@
 .seller-order-status.status-processing{background:#fff3e7;color:#a5682c}
 .seller-order-status.status-cancellation_requested{background:#fff0ec;color:#a44d3b}
 @media(max-width:600px){.seller-product-controls{gap:5px}.seller-product-controls button{padding:7px}.seller-order-actions{align-items:stretch}.seller-order-actions button{flex:1}}
+
+.customer-shipping-update{display:grid;gap:4px;padding:9px 0;border-top:1px solid #e8eeea}
+.customer-shipping-update>b{font-size:11px;text-transform:capitalize;color:#315d45}
+.customer-shipping-update>span,.customer-shipping-update>small{font-size:11px;color:#718078;line-height:1.5}
