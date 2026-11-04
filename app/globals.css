@@ -157,3 +157,33 @@
 .review-admin-item{align-items:flex-start}
 .review-admin-item .admin-info{flex:1}
 @media(max-width:600px){.review-form{min-width:0}.review-admin-item{flex-direction:column}}
+
+/* Customer profile page */
+.account-page:has(.profile-page-heading) .account-card{width:min(100%,900px);padding:36px 40px}
+.profile-page-heading{display:flex;align-items:center;justify-content:space-between;padding-bottom:24px;border-bottom:1px solid #edf0ee}
+.profile-page-heading h1{font:800 29px Manrope;letter-spacing:-1px;margin:7px 0 4px}
+.profile-page-heading p{margin:0;color:#829087;font-size:12px}
+.profile-hero{display:flex;align-items:center;gap:20px;padding:26px 0;border-bottom:1px solid #edf0ee}
+.profile-photo-wrap{width:100px;height:100px;position:relative;flex:none}
+.profile-photo{width:100px;height:100px;object-fit:cover;border-radius:50%;border:4px solid #fff;box-shadow:0 0 0 1px #e5ebe6}
+.profile-photo-placeholder{display:grid;place-items:center;background:#fff0e8;color:var(--orange)}
+.profile-camera{position:absolute;right:0;bottom:0;width:34px;height:34px;border:3px solid white;border-radius:50%;background:var(--orange);color:white;display:grid;place-items:center}
+.profile-hero-copy{flex:1;min-width:0}.profile-hero-copy h2{font:800 20px Manrope;margin:0 0 5px}.profile-hero-copy p{font-size:12px;color:#849087;margin:0 0 9px;overflow-wrap:anywhere}.profile-hero-copy span{display:flex;align-items:center;gap:5px;color:#75847a;font-size:11px}
+.profile-hero-actions{display:grid;gap:8px;justify-items:end}.profile-edit-button,.profile-remove-photo{display:flex;align-items:center;gap:7px;border:1px solid #e5ebe6;background:#fff;border-radius:8px;padding:9px 12px;font-size:11px;font-weight:700;color:#41534a}.profile-remove-photo{border:0;color:#b56a59;padding:3px}
+.profile-about,.profile-edit-panel{padding:22px 0;border-bottom:1px solid #edf0ee}
+.profile-panel-title{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:13px}.profile-panel-title h2{font:800 15px Manrope;margin:0}.profile-panel-title>span{font-size:10px;color:#929d96}.profile-panel-title>button{display:flex;align-items:center;gap:5px;border:0;background:none;color:var(--orange);font-size:11px;font-weight:700}
+.profile-about>p{font-size:12px;line-height:1.7;color:#75827a;margin:0 0 15px}
+.profile-detail-row{display:flex;justify-content:space-between;gap:15px;padding:11px 0;border-top:1px solid #f0f2f0;font-size:11px}.profile-detail-row span{color:#929d96}.profile-detail-row b{color:#35443c;font-weight:700}
+.profile-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.profile-fields label{display:grid;gap:6px;font-size:11px;font-weight:700;color:#536158}
+.profile-fields input,.profile-fields select,.profile-fields textarea{width:100%;border:1px solid #dfe7e1;border-radius:8px;padding:11px;font:12px 'DM Sans';color:var(--ink);background:#fff}
+.profile-fields input:disabled{background:#f6f8f6;color:#89948d}
+.profile-fields small{font-size:9px;font-weight:400;color:#929d96}
+.profile-fields textarea{min-height:85px;resize:vertical}.profile-bio-field{grid-column:1/-1}
+.profile-edit-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px}.profile-edit-actions button{height:39px;border-radius:8px;padding:0 13px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:6px}.profile-cancel{background:#fff;border:1px solid #e4e9e5;color:#69776e}.profile-edit-actions .primary{border:0;color:#fff}
+.profile-activity-heading{font-size:10px;font-weight:800;letter-spacing:1.2px;color:#89968e;margin:23px 0 11px}
+.profile-activity-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+.profile-activity-grid a{display:grid;gap:7px;padding:17px;border:1px solid #e8ede9;border-radius:10px;color:var(--orange);background:#fff}
+.profile-activity-grid a b{font-size:12px;color:#2d3b33}.profile-activity-grid a small{font-size:10px;color:#87938b;line-height:1.5}
+.profile-activity-grid a:hover{border-color:#f3b99e}
+@media(max-width:650px){.account-page:has(.profile-page-heading){padding:16px 12px 35px}.account-page:has(.profile-page-heading) .account-card{padding:23px 18px}.profile-hero{gap:13px;flex-wrap:wrap}.profile-photo-wrap,.profile-photo{width:78px;height:78px}.profile-hero-copy h2{font-size:16px}.profile-hero-actions{width:100%;display:flex;justify-content:flex-start}.profile-fields{grid-template-columns:1fr}.profile-bio-field{grid-column:auto}.profile-activity-grid{grid-template-columns:1fr}.profile-page-heading h1{font-size:25px}}
