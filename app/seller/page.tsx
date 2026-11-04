@@ -8,7 +8,7 @@ import { ArrowLeft, ImagePlus, Package, Store, ShoppingBag, BarChart3 } from "lu
 
 type Shop = { id: string; name: string; island: string | null };
 type Product = { id: string; title: string; price_scr: number; stock_quantity: number; status: string; created_at: string; image_urls: string[]; is_archived?: boolean };
-type Earning = { id: string; amount_scr: number; status: "available" | "withdrawal_pending" | "paid" | "reversed"; order_id: string; released_at: string };
+type Earning = { id: string; amount_scr: number; status: "available" | "withdrawal_pending" | "paid" | "reversed"; order_id: string; released_at: string };\ntype Withdrawal = { id:string; amount_scr:number; status:string };\ntype Allocation = { amount_scr:number; request_id:string };
 
 const categories = ["Electronics","Fashion","Home & Living","Beauty","Sports","Automotive","Food & Groceries","Other"];
 
@@ -16,7 +16,7 @@ export default function SellerDashboard() {
   const router = useRouter();
   const [shop,setShop] = useState<Shop|null>(null);
   const [products,setProducts] = useState<Product[]>([]);
-  const [earnings,setEarnings] = useState<Earning[]>([]);
+  const [earnings,setEarnings] = useState<Earning[]>([]);\n  const [withdrawals,setWithdrawals] = useState<Withdrawal[]>([]);\n  const [allocations,setAllocations] = useState<Allocation[]>([]);
   const [withdrawalBusy,setWithdrawalBusy] = useState(false);
   const [openWithdrawal,setOpenWithdrawal] = useState(false);
   const [loading,setLoading] = useState(true);
@@ -39,7 +39,7 @@ export default function SellerDashboard() {
     setShop(shops[0] as Shop);
     const { data: earningRows, error: earningsError } = await supabase.from("seller_earnings").select("id,amount_scr,status,order_id,released_at").eq("seller_id",user.id).order("released_at",{ascending:false});
     if (earningsError) setMessage("Balance could not be loaded: " + earningsError.message);
-    setEarnings((earningRows ?? []) as Earning[]);
+    setEarnings((earningRows ?? []) as Earning[]);\n    const { data: withdrawalRows } = await supabase.from("seller_withdrawal_requests").select("id,amount_scr,status").eq("seller_id",user.id);\n    setWithdrawals((withdrawalRows ?? []) as Withdrawal[]);\n    const requestIds = (withdrawalRows ?? []).map((w:any)=>w.id);\n    if (requestIds.length) {\n      const { data: allocationRows } = await supabase.from("seller_withdrawal_allocations").select("amount_scr,request_id").in("request_id",requestIds);\n      setAllocations((allocationRows ?? []) as Allocation[]);\n    } else setAllocations([]);
     const { data: rows, error: productsError } = await supabase.from("products").select("id,title,price_scr,stock_quantity,status,created_at,image_urls,is_archived").eq("shop_id",shops[0].id).order("created_at",{ascending:false});
     if (productsError) setMessage(productsError.message);
     setProducts((rows ?? []) as Product[]);
@@ -49,7 +49,7 @@ export default function SellerDashboard() {
   useEffect(()=>{ refresh(); },[]);
 
   async function requestWithdrawal() {
-    const available = earnings.filter(e=>e.status==="available").reduce((s,e)=>s+Number(e.amount_scr),0);
+    const grossAvailable = earnings.filter(e=>e.status==="available").reduce((s,e)=>s+Number(e.amount_scr),0);\n    const reserved = allocations.reduce((s,a)=>s+Number(a.amount_scr),0);\n    const available = Math.max(0,grossAvailable-reserved);
     if (available <= 0) { setMessage("There is no available balance to withdraw."); return; }
     const raw = window.prompt("How much would you like to withdraw?\nAvailable balance: SCR " + available.toFixed(2), available.toFixed(2));
     if (raw === null) return;
@@ -123,11 +123,11 @@ export default function SellerDashboard() {
       <section className="seller-balance-panel">
         <div className="seller-balance-heading"><div><div className="eyebrow">SELLER WALLET</div><h2>Your balance</h2><p>Card-payment earnings released after customers confirm delivery.</p></div><span className="seller-wallet-icon">SCR</span></div>
         <div className="seller-balance-grid">
-          <div><small>Available balance</small><strong>SCR {earnings.filter(e=>e.status==="available").reduce((s,e)=>s+Number(e.amount_scr),0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong><span>Ready for withdrawal request</span></div>
-          <div><small>Withdrawal pending</small><strong>SCR {earnings.filter(e=>e.status==="withdrawal_pending").reduce((s,e)=>s+Number(e.amount_scr),0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong><span>Awaiting admin processing</span></div>
-          <div><small>Total paid out</small><strong>SCR {earnings.filter(e=>e.status==="paid").reduce((s,e)=>s+Number(e.amount_scr),0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong><span>Marked as paid by admin</span></div>
+          <div><small>Available balance</small><strong>SCR {Math.max(0,earnings.filter(e=>e.status==="available").reduce((s,e)=>s+Number(e.amount_scr),0)-allocations.reduce((s,a)=>s+Number(a.amount_scr),0)).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong><span>Ready for withdrawal request</span></div>
+          <div><small>Withdrawal pending</small><strong>SCR {(earnings.filter(e=>e.status==="withdrawal_pending").reduce((s,e)=>s+Number(e.amount_scr),0)+withdrawals.filter(w=>w.status==="pending"||w.status==="processing").reduce((s,w)=>s+Number(w.amount_scr),0)).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong><span>Awaiting admin processing</span></div>
+          <div><small>Total paid out</small><strong>SCR {(earnings.filter(e=>e.status==="paid").reduce((s,e)=>s+Number(e.amount_scr),0)+withdrawals.filter(w=>w.status==="paid").reduce((s,w)=>s+Number(w.amount_scr),0)).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong><span>Marked as paid by admin</span></div>
         </div>
-        <div className="seller-balance-footer"><div className="seller-balance-note">All orders are paid in the app. Earnings become available after the customer confirms receipt. A withdrawal request reserves your full available balance until the admin processes it.</div><button type="button" className="seller-withdraw-button" onClick={requestWithdrawal} disabled={withdrawalBusy || earnings.every(e=>e.status!=="available")}>{withdrawalBusy ? "Submitting request…" : "Request withdrawal"}</button></div>
+        <div className="seller-balance-footer"><div className="seller-balance-note">All orders are paid in the app. Earnings become available after the customer confirms receipt. A withdrawal request reserves your full available balance until the admin processes it.</div><button type="button" className="seller-withdraw-button" onClick={requestWithdrawal} disabled={withdrawalBusy || earnings.every(e=>e.status!=="available") || Math.max(0,earnings.filter(e=>e.status==="available").reduce((s,e)=>s+Number(e.amount_scr),0)-allocations.reduce((s,a)=>s+Number(a.amount_scr),0))<=0}>{withdrawalBusy ? "Submitting request…" : "Request withdrawal"}</button></div>
       </section>
       <div className="seller-dash-grid">
         <section className="seller-dash-panel"><h2>Add a product</h2><p>New listings are checked before they become visible to shoppers.</p>
