@@ -44,7 +44,7 @@ export default function CustomerOrdersPage() {
 
     const { data, error } = await supabase
       .from("orders")
-      .select("id,customer_name,subtotal_scr,delivery_fee_scr,total_scr,payment_method,payment_status,status,created_at,order_items(id,product_title,unit_price_scr,quantity,shop_name)")
+      .select("id,customer_name,subtotal_scr,delivery_fee_scr,total_scr,payment_method,payment_status,status,created_at,order_items(id,product_title,unit_price_scr,quantity,shop_name),seller_order_fulfillments(shop_id,status,courier,tracking_number,estimated_delivery,shipping_note,updated_at)")
       .eq("customer_id", user.id)
       .order("created_at", { ascending: false });
 
