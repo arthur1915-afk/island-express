@@ -7,7 +7,7 @@ import { supabase } from "../../lib/supabase";
 import { ArrowLeft, ImagePlus, Package, Store, ShoppingBag, BarChart3 } from "lucide-react";
 
 type Shop = { id: string; name: string; island: string | null };
-type Product = { id: string; title: string; price_scr: number; stock_quantity: number; status: string; created_at: string; image_urls: string[] };
+type Product = { id: string; title: string; price_scr: number; stock_quantity: number; status: string; created_at: string; image_urls: string[]; is_archived?: boolean };
 
 const categories = ["Electronics","Fashion","Home & Living","Beauty","Sports","Automotive","Food & Groceries","Other"];
 
@@ -33,13 +33,32 @@ export default function SellerDashboard() {
     const { data: shops, error } = await supabase.from("shops").select("id,name,island").eq("owner_id",user.id).limit(1);
     if (error || !shops?.length) { setMessage("We couldn't find your shop. Please create it from your account page."); setLoading(false); return; }
     setShop(shops[0] as Shop);
-    const { data: rows, error: productsError } = await supabase.from("products").select("id,title,price_scr,stock_quantity,status,created_at,image_urls").eq("shop_id",shops[0].id).order("created_at",{ascending:false});
+    const { data: rows, error: productsError } = await supabase.from("products").select("id,title,price_scr,stock_quantity,status,created_at,image_urls,is_archived").eq("shop_id",shops[0].id).order("created_at",{ascending:false});
     if (productsError) setMessage(productsError.message);
     setProducts((rows ?? []) as Product[]);
     setLoading(false);
   }
 
   useEffect(()=>{ refresh(); },[]);
+
+  async function adjustStock(product: Product, direction: number) {
+    const raw = window.prompt(direction > 0 ? "How many units would you like to add?" : "How many units would you like to remove?", "1");
+    if (raw === null) return;
+    const amount = Number(raw);
+    if (!Number.isInteger(amount) || amount <= 0) { setMessage("Enter a positive whole number."); return; }
+    setBusy(true); setMessage("");
+    const { error } = await supabase.rpc("seller_adjust_stock", { target_product_id: product.id, stock_change: amount * direction });
+    if (error) setMessage(error.message); else setMessage("Stock updated for " + product.title + ".");
+    await refresh(); setBusy(false);
+  }
+
+  async function archiveProduct(product: Product) {
+    if (!window.confirm("Remove " + product.title + " from the public marketplace? Existing order records will be kept.")) return;
+    setBusy(true); setMessage("");
+    const { error } = await supabase.rpc("seller_archive_product", { target_product_id: product.id });
+    if (error) setMessage(error.message); else setMessage("Product removed from the marketplace. Its order history is preserved.");
+    await refresh(); setBusy(false);
+  }
 
   async function addProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -91,7 +110,7 @@ export default function SellerDashboard() {
           {message&&<div className="account-message" role="status">{message}</div>}
         </section>
         <section className="seller-dash-panel"><h2>Your products</h2><p>Track the review status of your listings.</p>
-          {products.length===0?<div className="seller-empty"><Package size={32}/><b>No products yet</b><span>Your submitted products will appear here.</span></div>:<div className="seller-products">{products.map(p=><article className="seller-product-row" key={p.id}><div className="seller-product-thumb">{p.image_urls?.[0]?<img src={p.image_urls[0]} alt=""/>:<Package size={22}/>}</div><div className="seller-product-detail"><b>{p.title}</b><span>SCR {Number(p.price_scr).toLocaleString()} · Stock {p.stock_quantity}</span><small className={"status-"+p.status}>{p.status.replace("_"," ")}</small></div></article>)}</div>}
+          {products.length===0?<div className="seller-empty"><Package size={32}/><b>No products yet</b><span>Your submitted products will appear here.</span></div>:<div className="seller-products">{products.map(p=><article className="seller-product-row" key={p.id}><div className="seller-product-thumb">{p.image_urls?.[0]?<img src={p.image_urls[0]} alt=""/>:<Package size={22}/>}</div><div className="seller-product-detail"><b>{p.title}</b><span>SCR {Number(p.price_scr).toLocaleString()} · Stock {p.stock_quantity}</span><small className={"status-"+p.status}>{p.is_archived ? "archived" : p.status.replace("_"," ")}</small><div className="seller-product-controls">{!p.is_archived && <><button type="button" disabled={busy} onClick={()=>adjustStock(p,1)}>+ Add stock</button><button type="button" disabled={busy} onClick={()=>adjustStock(p,-1)}>− Remove stock</button><button type="button" className="seller-archive-button" disabled={busy} onClick={()=>archiveProduct(p)}>Delete listing</button></>}</div></div></article>)}</div>}
         </section>
       </div>
     </div>
