@@ -85,6 +85,16 @@ export default function SellerOrdersPage() {
     setActionBusy(""); await loadOrders();
   }
 
+
+  async function markDelivered(orderId: string) {
+    if (!window.confirm("Confirm that you have handed this order to the customer or delivery service and it is ready for customer confirmation?")) return;
+    setActionBusy(orderId); setMessage("");
+    const { error } = await supabase.rpc("seller_mark_order_delivered", { target_order_id: orderId });
+    if (error) setMessage(error.message);
+    else setMessage("Marked as delivered. The customer must now confirm receipt before funds are released.");
+    setActionBusy(""); await loadOrders();
+  }
+
   return <main className="seller-dashboard">
     <header className="seller-dash-header">
       <Link href="/seller" className="account-back"><ArrowLeft size={16}/> Seller Centre</Link>
@@ -116,7 +126,7 @@ export default function SellerOrdersPage() {
               <button disabled={actionBusy===order.id} onClick={()=>updateShipping(order.id, fulfilment)}>Update shipping info</button>
               {(!fulfilment || sellerStatus === "processing") && <button disabled={actionBusy===order.id} onClick={()=>fulfil(order.id,"shipped")}>Mark as shipped</button>}
               {(!fulfilment || sellerStatus === "new" || sellerStatus === "processing") && <button className="seller-cancel-action" disabled={actionBusy===order.id} onClick={()=>fulfil(order.id,"cancellation_requested")}>Request cancellation</button>}
-              {sellerStatus === "shipped" && <span className="seller-order-payment">Awaiting delivery confirmation</span>}
+              {sellerStatus === "shipped" && <button disabled={actionBusy===order.id} onClick={()=>markDelivered(order.id)}>Mark as delivered</button>}{sellerStatus === "delivered" && <span className="seller-order-payment">Awaiting customer confirmation — funds not yet released</span>}{sellerStatus === "completed" && <span className="seller-order-payment">Customer confirmed receipt</span>}
               {sellerStatus === "cancellation_requested" && <span className="seller-order-payment">Cancellation awaiting admin review</span>}
             </div>
           </article>;
