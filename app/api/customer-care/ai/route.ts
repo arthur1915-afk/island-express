@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     if (!supabaseUrl || !anonKey || !serviceKey) {
       return NextResponse.json({ error: "Customer Care is not fully configured." }, { status: 503 });
     }
-    const token = request.headers.get("authorization")?.replace(/^Bearer\\s+/i, "");
+    const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
     if (!token) return NextResponse.json({ error: "Please sign in to use Customer Care." }, { status: 401 });
     const auth = createClient(supabaseUrl, anonKey);
     const { data: { user }, error: authError } = await auth.auth.getUser(token);
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     if (messagesError) return NextResponse.json({ error: "Unable to load your conversation." }, { status: 500 });
     const lastCustomer = [...(messages ?? [])].reverse().find(m => m.sender_type === "customer");
     if (!lastCustomer) return NextResponse.json({ error: "Send a message before asking the assistant." }, { status: 400 });
-    const asksHuman = /\\b(human|person|agent|real person|customer care|customer support|speak to someone|talk to someone)\\b/i.test(lastCustomer.body);
+    const asksHuman = /\b(human|person|agent|real person|customer care|customer support|speak to someone|talk to someone)\b/i.test(lastCustomer.body);
     if (asksHuman) {
       await db.from("support_conversations").update({ handoff_requested: true, status: "waiting_for_support" }).eq("id", conversationId);
       const reply = "Of course. I've passed this conversation to our Customer Care team. A human agent will continue here.";
