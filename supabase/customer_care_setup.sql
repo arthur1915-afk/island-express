@@ -118,3 +118,14 @@ drop trigger if exists support_message_touch_conversation on public.support_mess
 create trigger support_message_touch_conversation
 after insert on public.support_messages
 for each row execute function public.touch_support_conversation();
+
+-- Allow a customer to request human handover on their own conversation only.
+drop policy if exists "Customers request human support handover" on public.support_conversations;
+create policy "Customers request human support handover"
+on public.support_conversations for update to authenticated
+using (customer_id = auth.uid())
+with check (
+  customer_id = auth.uid()
+  and handoff_requested = true
+  and status = 'waiting_for_support'
+);
