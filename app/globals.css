@@ -61,3 +61,47 @@
 .customer-shipping-update{display:grid;gap:4px;padding:9px 0;border-top:1px solid #e8eeea}
 .customer-shipping-update>b{font-size:11px;text-transform:capitalize;color:#315d45}
 .customer-shipping-update>span,.customer-shipping-update>small{font-size:11px;color:#718078;line-height:1.5}
+
+
+/* Refined signed-in account overview */
+.account-page:has(.account-overview){background:#f6f8f7;padding:28px 24px 70px}
+.account-page:has(.account-overview) .account-top{max-width:1080px;margin-bottom:34px}
+.account-page:has(.account-overview) .account-card{width:min(100%,760px);padding:38px 42px;border:1px solid #e7ece9;border-radius:16px;box-shadow:0 8px 30px #1d33250a}
+.account-overview-heading{display:flex;align-items:center;gap:18px;padding-bottom:24px;border-bottom:1px solid #edf0ee}
+.account-avatar{width:62px;height:62px;flex:none;border-radius:50%;display:grid;place-items:center;background:#fff0e8;color:var(--orange)}
+.account-overview-heading h1{font:800 27px Manrope;letter-spacing:-.9px;margin:6px 0 2px}
+.account-overview-heading .account-sub{margin:4px 0 0}
+.account-member-card{display:flex;justify-content:space-between;align-items:center;gap:14px;background:#fafbfa;border:1px solid #edf0ee;border-radius:10px;padding:15px 17px;margin:22px 0 27px}
+.account-member-details{display:grid;gap:5px;min-width:0}.account-member-details span{font-size:11px;color:#829087;overflow-wrap:anywhere}
+.account-member-details .account-member-name{font-size:14px;font-weight:800;color:#26343c}
+.account-role,.account-shop-status{font-size:9px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;background:#eaf4ed;color:#39704c;padding:7px 10px;border-radius:20px}
+.account-section-label{font-size:10px;font-weight:800;letter-spacing:1.2px;color:#8a9690;margin:0 0 10px}
+.account-action-card{display:flex;align-items:center;gap:14px;padding:15px;border:1px solid #e8ede9;border-radius:10px;background:#fff;transition:border-color .2s,transform .2s}
+.account-action-card:hover{border-color:#f3b99e;transform:translateY(-1px)}
+.account-action-icon,.account-shop-icon,.account-feature-icon{width:42px;height:42px;flex:none;border-radius:10px;display:grid;place-items:center;background:#fff2eb;color:var(--orange)}
+.account-action-card>span:nth-child(2){display:grid;gap:4px;flex:1}
+.account-action-card b{font-size:13px;color:#26343c}.account-action-card small{font-size:11px;color:#849087;line-height:1.5}
+.account-action-arrow{font-size:25px;color:#9aa59e}
+.account-shop-card,.account-feature-card{margin-top:18px;padding:21px;border:1px solid #e3ebe5;border-radius:11px;background:#f7faf7}
+.account-shop-card-top{display:flex;align-items:center;justify-content:space-between}
+.account-shop-icon{background:#eaf4ed;color:#39704c}
+.account-shop-card h2,.account-feature-card h2,.account-shop-form h2{font:800 18px Manrope;margin:14px 0 5px;color:#26343c}
+.account-shop-card p,.account-feature-card p{font-size:12px;color:#75827a;line-height:1.7;margin:0 0 10px}
+.account-shop-card>small{display:block;font-size:10px;color:#9aa49e;overflow-wrap:anywhere}
+.account-shop-button{margin-top:17px;width:auto;min-width:190px;justify-content:center}
+.account-feature-card{display:grid;grid-template-columns:42px 1fr;column-gap:13px;align-items:start;background:#fffaf6;border-color:#f3e8df}
+.account-feature-icon{grid-row:span 2}
+.account-feature-card h2{margin:1px 0 5px}.account-feature-card p{margin:0}
+.account-feature-card .account-submit{grid-column:2;width:auto;justify-self:start;padding:0 18px;margin-top:14px}
+.account-shop-form{margin-top:18px;padding:21px;border:1px solid #e8ede9;border-radius:11px}
+.account-footer-actions{display:flex;justify-content:flex-end;margin-top:20px;padding-top:14px;border-top:1px solid #edf0ee}
+.account-footer-actions .logout-button{margin:0;color:#89948d}
+@media(max-width:600px){
+ .account-page:has(.account-overview){padding:17px 14px 40px}
+ .account-page:has(.account-overview) .account-card{padding:23px 18px}
+ .account-overview-heading{gap:12px}.account-avatar{width:49px;height:49px}
+ .account-overview-heading h1{font-size:22px}
+ .account-member-card{padding:12px}.account-action-card{gap:10px;padding:12px}
+ .account-action-card small{font-size:10px}.account-feature-card{padding:15px}
+ .account-feature-card .account-submit{grid-column:1/-1;width:100%}
+}
