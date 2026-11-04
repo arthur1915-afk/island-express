@@ -65,6 +65,15 @@ export default function CustomerOrdersPage() {
 
   useEffect(() => { loadOrders(); }, []);
 
+  async function confirmReceived(orderId: string, shopId: string) {
+    if (!window.confirm("Have you received this delivery? Confirming will complete it and release the seller's eligible funds.")) return;
+    setMessage("");
+    const { error } = await supabase.rpc("customer_confirm_order_received", { target_order_id: orderId, target_shop_id: shopId });
+    if (error) setMessage(error.message);
+    else setMessage("Receipt confirmed. Thank you!");
+    await loadOrders();
+  }
+
   async function submitReview(orderId:string, productId:string) {
     if (!reviewBody.trim()) { setMessage("Please write a short review before submitting."); return; }
     setReviewBusy(true); setMessage("");
@@ -118,7 +127,7 @@ export default function CustomerOrdersPage() {
                 {shipping.courier && <span>Courier: {shipping.courier}</span>}
                 {shipping.tracking_number && <span>Tracking number: {shipping.tracking_number}</span>}
                 {shipping.estimated_delivery && <span>Estimated delivery: {new Date(shipping.estimated_delivery + "T00:00:00").toLocaleDateString()}</span>}
-                {shipping.shipping_note && <span>{shipping.shipping_note}</span>}
+                {shipping.shipping_note && <span>{shipping.shipping_note}</span>}{shipping.status === "delivered" && <button className="review-open-button" onClick={() => confirmReceived(order.id, shipping.shop_id)}>Confirm order received</button>}{shipping.status === "completed" && <span className="review-submitted">Receipt confirmed</span>}
                 <small>Updated: {new Date(shipping.updated_at).toLocaleString()}</small>
               </div>)}
             </div>}
