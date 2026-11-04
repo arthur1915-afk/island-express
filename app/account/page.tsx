@@ -103,16 +103,47 @@ export default function AccountPage() {
           <button className="primary account-submit" disabled={busy}>{busy ? "Please wait…" : mode === "signup" ? "Create account" : "Log in"}</button>
         </form>
       </> : <>
-        <div className="account-icon"><UserRound size={25}/></div>
-        <div className="eyebrow">YOUR ISLAND EXPRESS ACCOUNT</div>
-        <h1>Hello{profile?.full_name ? ", " + profile.full_name.split(" ")[0] : ""}!</h1>
-        <p className="account-sub">{profile?.role === "seller" ? "Your seller account is ready." : "You're signed in as a customer."}</p>
-        <div className="profile-summary"><span>{profile?.full_name || "Island Express member"}</span><small>{email || "Signed-in account"} · {profile?.role || "customer"}</small></div>
-        <Link className="seller-orders-link" href="/orders"><ShoppingBag size={16}/> My Orders</Link>
-        {profile?.role === "customer" && <div className="seller-panel"><Store size={25}/><h2>Start selling on Island Express</h2><p>Register as a seller and create your own shop. Product listings will be reviewed before they appear publicly.</p><button className="primary account-submit" disabled={busy} onClick={becomeSeller}>{busy ? "Please wait…" : "Become a seller"}</button></div>}
-        {profile?.role === "seller" && !shop && <form onSubmit={createShop} className="account-form shop-form"><h2>Create your shop</h2><label>Shop name<input required value={shopName} onChange={e=>setShopName(e.target.value)} placeholder="e.g. Island Finds"/></label><label>About your shop<textarea value={shopDescription} onChange={e=>setShopDescription(e.target.value)} placeholder="Tell customers what you sell"/></label><label>Island<select value={island} onChange={e=>setIsland(e.target.value)}><option>Mahé</option><option>Praslin</option><option>La Digue</option><option>Other</option></select></label><button className="primary account-submit" disabled={busy}>{busy ? "Creating shop…" : "Create my shop"}</button></form>}
-        {shop && <div className="shop-success"><Store size={22}/><h2>{shop.name}</h2><p>Your shop is set up on {shop.island || "Seychelles"}.</p><small>Shop address: /shops/{shop.slug}</small><p className="account-sub">Your seller centre is ready to manage product listings.</p><Link className="primary account-submit" href="/seller">Open seller dashboard</Link></div>}
-        <button className="logout-button" onClick={signOut}><LogOut size={16}/> Sign out</button>
+        <div className="account-overview">
+          <div className="account-overview-heading">
+            <div className="account-avatar"><UserRound size={27}/></div>
+            <div>
+              <div className="eyebrow">ACCOUNT OVERVIEW</div>
+              <h1>Welcome back{profile?.full_name ? ", " + profile.full_name.split(" ")[0] : ""}</h1>
+              <p className="account-sub">Manage your Island Express account and activity.</p>
+            </div>
+          </div>
+          <div className="account-member-card">
+            <div className="account-member-details">
+              <span className="account-member-name">{profile?.full_name || "Island Express member"}</span>
+              <span>{email || "Signed-in account"}</span>
+            </div>
+            <span className="account-role">{profile?.role || "customer"}</span>
+          </div>
+          <div className="account-section-label">YOUR ACTIVITY</div>
+          <Link className="account-action-card" href="/orders">
+            <span className="account-action-icon"><ShoppingBag size={20}/></span>
+            <span><b>My Orders</b><small>View purchases, order status and shipping updates</small></span>
+            <span className="account-action-arrow">›</span>
+          </Link>
+          {profile?.role === "customer" && <div className="account-feature-card">
+            <div className="account-feature-icon"><Store size={22}/></div>
+            <div><h2>Start selling on Island Express</h2><p>Open your own shop and reach customers across Seychelles. Product listings are reviewed before they go live.</p></div>
+            <button className="primary account-submit" disabled={busy} onClick={becomeSeller}>{busy ? "Please wait…" : "Become a seller"}</button>
+          </div>}
+          {profile?.role === "seller" && !shop && <form onSubmit={createShop} className="account-form shop-form account-shop-form">
+            <h2>Create your shop</h2><label>Shop name<input required value={shopName} onChange={e=>setShopName(e.target.value)} placeholder="e.g. Island Finds"/></label>
+            <label>About your shop<textarea value={shopDescription} onChange={e=>setShopDescription(e.target.value)} placeholder="Tell customers what you sell"/></label>
+            <label>Island<select value={island} onChange={e=>setIsland(e.target.value)}><option>Mahé</option><option>Praslin</option><option>La Digue</option><option>Other</option></select></label>
+            <button className="primary account-submit" disabled={busy}>{busy ? "Creating shop…" : "Create my shop"}</button>
+          </form>}
+          {shop && <div className="account-shop-card">
+            <div className="account-shop-card-top"><span className="account-shop-icon"><Store size={22}/></span><span className="account-shop-status">SHOP ACTIVE</span></div>
+            <h2>{shop.name}</h2><p>Your shop is set up on {shop.island || "Seychelles"}.</p>
+            <small>island-express-one.vercel.app/shops/{shop.slug}</small>
+            <Link className="primary account-shop-button" href="/seller">Open seller dashboard</Link>
+          </div>}
+          <div className="account-footer-actions"><button className="logout-button" onClick={signOut}><LogOut size={16}/> Sign out</button></div>
+        </div>
       </>}
       {message && <div className="account-message" role="status">{message}</div>}
     </section>
