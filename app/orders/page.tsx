@@ -25,7 +25,7 @@ type Order = {
   status: string;
   created_at: string;
   order_items: OrderItem[];
-  seller_order_fulfillments?: { shop_id: string; status: string; courier: string | null; tracking_number: string | null; estimated_delivery: string | null; shipping_note: string | null; updated_at: string }[];
+  seller_order_fulfillments?: { shop_id: string; status: string; courier: string | null; tracking_number: string | null; estimated_delivery: string | null; shipping_note: string | null; seller_note: string | null; updated_at: string }[];
 };
 
 function label(value?: string) {
@@ -52,7 +52,7 @@ export default function CustomerOrdersPage() {
 
     const { data, error } = await supabase
       .from("orders")
-      .select("id,customer_name,subtotal_scr,delivery_fee_scr,total_scr,payment_method,payment_status,status,created_at,order_items(id,product_id,product_title,unit_price_scr,quantity,shop_name),seller_order_fulfillments(shop_id,status,courier,tracking_number,estimated_delivery,shipping_note,updated_at)")
+      .select("id,customer_name,subtotal_scr,delivery_fee_scr,total_scr,payment_method,payment_status,status,created_at,order_items(id,product_id,product_title,unit_price_scr,quantity,shop_name),seller_order_fulfillments(shop_id,status,courier,tracking_number,estimated_delivery,shipping_note,seller_note,updated_at)")
       .eq("customer_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -168,7 +168,7 @@ export default function CustomerOrdersPage() {
                 {shipping.courier && <span>Courier: {shipping.courier}</span>}
                 {shipping.tracking_number && <span>Tracking number: {shipping.tracking_number}</span>}
                 {shipping.estimated_delivery && <span>Estimated delivery: {new Date(shipping.estimated_delivery + "T00:00:00").toLocaleDateString()}</span>}
-                {shipping.shipping_note && <span>{shipping.shipping_note}</span>}{shipping.status === "delivered" && <button className="review-open-button" onClick={() => confirmReceived(order.id, shipping.shop_id)}>Confirm order received</button>}{shipping.status === "completed" && <span className="review-submitted">Receipt confirmed</span>}
+                {shipping.shipping_note && <span>{shipping.shipping_note}</span>}{shipping.status === "cancellation_requested" && <span><b>Seller cancellation reason:</b> {shipping.seller_note || "Reason not provided"}</span>}{shipping.status === "cancelled" && shipping.seller_note && <span><b>Cancellation reason:</b> {shipping.seller_note}</span>}{shipping.status === "delivered" && <button className="review-open-button" onClick={() => confirmReceived(order.id, shipping.shop_id)}>Confirm order received</button>}{shipping.status === "completed" && <span className="review-submitted">Receipt confirmed</span>}
                 <small>Updated: {new Date(shipping.updated_at).toLocaleString()}</small>
               </div>)}
             </div>}
