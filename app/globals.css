@@ -337,3 +337,5 @@
 .search-results-empty{padding:65px 20px;text-align:center;color:#7f8d84;font-size:13px;background:#fff;border:1px solid #e6ece7;border-radius:12px}
 @media(max-width:850px){.search-results-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:600px){.search-page-header{height:60px;padding:0 15px}.search-results-wrap{margin:20px auto;padding:0 13px}.search-results-form{height:46px;margin-bottom:25px}.search-results-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.search-result-image{height:135px}.search-result-info{padding:10px}.search-results-heading h1{font-size:23px}}
+
+.checkout-auth-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:20px 0}.checkout-auth-actions .primary,.checkout-auth-actions .secondary{min-width:170px;text-align:center;justify-content:center;padding:13px 20px;border-radius:10px;text-decoration:none;font-weight:700}.checkout-auth-actions .secondary{border:1px solid #d8dedb;color:#24352e;background:#fff}
