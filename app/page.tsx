@@ -82,7 +82,7 @@ export default function Home() {
     <div className="topline"><span><MapPin size={13}/> Shopping across Seychelles</span><span>SCR · Seychelles Rupee</span></div>
     <header className="header wrap">
       <a className="brand" href="#"><span className="brandmark"><ShoppingBag size={23}/></span><span>island<span className="brand-orange">express</span><small>SHOP LOCAL. DISCOVER MORE.</small></span></a>
-      <div className="search"><Search size={19}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search products, shops and more..."/><button>Search</button></div>
+      <form className="search" action="/search" method="get"><Search size={19}/><input name="q" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search products, shops and more..." aria-label="Search products"/><button type="submit">Search</button></form>
       <div className="head-actions"><a className="iconbtn" aria-label="Account" href="/account"><UserRound/></a><Link className="iconbtn" aria-label="Favourites" href="/wishlist"><Heart/></Link><Link className="cart" href="/cart"><ShoppingBag size={19}/> Cart <b>{cart.length}</b></Link><button className="mobilemenu" aria-label="Menu"><Menu/></button></div>
     </header>
     <nav className="nav"><div className="wrap navinner"><span className="navlabel"><Menu size={16}/> Categories</span>{categories.slice(1,6).map(c=><button type="button" key={c} className={category===c?"nav-category-active":""} aria-pressed={category===c} onClick={()=>{setCategory(c);document.getElementById("products")?.scrollIntoView({behavior:"smooth",block:"start"});}}>{c}</button>)}<a href="#sell">Sell on Island Express <ChevronRight size={14}/></a></div></nav>
