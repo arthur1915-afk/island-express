@@ -42,7 +42,8 @@ export default function CustomerOrdersPage() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewTitle, setReviewTitle] = useState("");
   const [reviewBody, setReviewBody] = useState("");
-  const [reviewBusy, setReviewBusy] = useState(false);\n  const [actionOrder, setActionOrder] = useState<string | null>(null);
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [actionOrder, setActionOrder] = useState<string | null>(null);
 
   async function loadOrders() {
     setLoading(true);
