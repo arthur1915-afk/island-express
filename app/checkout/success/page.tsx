@@ -7,6 +7,13 @@ import { CheckCircle2, Clock3 } from "lucide-react";
 export default function CheckoutSuccessPage() {
   const [checking, setChecking] = useState(true);
   useEffect(() => {
+    // Stripe redirects here with a session_id only after checkout succeeds.
+    // Clear the saved cart now that the customer has completed payment.
+    const sessionId = new URLSearchParams(window.location.search).get("session_id");
+    if (sessionId) {
+      localStorage.removeItem("island-express-cart");
+      window.dispatchEvent(new Event("island-express-cart-updated"));
+    }
     const timer = window.setTimeout(() => setChecking(false), 2500);
     return () => window.clearTimeout(timer);
   }, []);
