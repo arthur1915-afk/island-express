@@ -324,7 +324,6 @@ export default function SellerDashboard() {
           <Link href="/seller/products" className="seller-tool-card"><span><Package size={23}/></span><div><b>Your products</b><small>View listings, check approval status, update stock and edit products.</small></div><strong>{products.length} listings <span>→</span></strong></Link>
         </div>
       </section>
-      </div>
     </div>
   </main>;
 }
