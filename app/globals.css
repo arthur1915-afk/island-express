@@ -552,3 +552,25 @@
 .account-page:not(:has(.account-dashboard)) .account-top{max-width:1080px;margin:0 auto 35px}
 .account-page:not(:has(.account-dashboard)) .account-card{width:min(100%,480px)!important;max-width:480px!important;margin:0 auto!important;padding:34px!important;background:#fff!important;border:1px solid #e9edef!important;border-radius:18px!important;box-shadow:0 16px 50px #243b3210!important;overflow:hidden!important}
 @media(max-width:600px){.account-page:not(:has(.account-dashboard)){padding:16px}.account-page:not(:has(.account-dashboard)) .account-top{margin-bottom:22px}.account-page:not(:has(.account-dashboard)) .account-card{padding:25px 20px!important}}
+
+/* Dedicated seller catalogue pages */
+.seller-tools-overview{margin-top:22px}
+.seller-tools-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:18px}
+.seller-tool-card{display:flex;align-items:center;gap:14px;padding:20px;border:1px solid #e5ebe6;border-radius:13px;background:#fff;text-decoration:none;color:#2d4034;transition:border-color .18s,transform .18s,box-shadow .18s}
+.seller-tool-card:hover{border-color:#edb18d;transform:translateY(-2px);box-shadow:0 9px 25px #263c3010}
+.seller-tool-card>span{width:46px;height:46px;flex:none;border-radius:12px;background:#fff0e8;color:#e66d38;display:grid;place-items:center}
+.seller-tool-card>div{display:grid;gap:5px;flex:1;min-width:0}
+.seller-tool-card>div b{font-size:14px}.seller-tool-card>div small{font-size:11px;line-height:1.55;color:#7b897f}
+.seller-tool-card>strong{font-size:10px;color:#df6d3b;white-space:nowrap}.seller-tool-card>strong span{font-size:16px;margin-left:4px}
+.seller-add-product-panel{max-width:920px;margin:0 auto}
+.seller-add-product-panel .account-form{gap:17px}
+.seller-add-product-panel .account-form>label,.seller-add-product-panel .account-form .seller-form-row label{font-size:12px}
+.seller-add-product-panel .account-submit{width:auto;min-width:230px}
+.seller-product-filter{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0}
+.seller-product-filter button{padding:9px 13px;border:1px solid #e1e8e2;border-radius:22px;background:#fff;color:#68776d;font-size:10px;font-weight:800;text-transform:capitalize}
+.seller-product-filter button.active{border-color:#e96f37;background:#fff0e8;color:#d85f2d}
+.seller-products-page-list{gap:12px}
+.seller-products-page-list .seller-product-row{padding:16px;border:1px solid #e7ece8;border-radius:12px;background:#fff}
+.seller-products-page-list .seller-product-detail{gap:6px}
+.seller-products-page-list .seller-product-controls a{display:inline-flex;align-items:center;padding:7px 10px;border:1px solid #dfe7e1;border-radius:7px;color:#40574a;text-decoration:none;font-size:10px;font-weight:800}
+@media(max-width:650px){.seller-tools-grid{grid-template-columns:1fr}.seller-tool-card{padding:15px}.seller-add-product-panel{padding:16px}.seller-add-product-panel .account-submit{width:100%}}
