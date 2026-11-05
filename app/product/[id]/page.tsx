@@ -8,7 +8,7 @@ import { supabase } from "../../../lib/supabase";
 
 type ProductDetails = {
   id: string; title: string; description: string | null; category: string;
-  price_scr: number; stock_quantity: number; image_urls: string[];
+  price_scr: number; stock_quantity: number; image_urls: string[]; shipping_days_min: number | null; shipping_days_max: number | null;
   shops: { name: string; island: string | null; description: string | null; logo_url: string | null } | null;
 };
 
@@ -25,7 +25,7 @@ export default function ProductDetailsPage() {
     let active = true;
     async function load() {
       const { data,error } = await supabase.from("products")
-        .select("id,title,description,category,price_scr,stock_quantity,image_urls,shops(name,island,description,logo_url)")
+        .select("id,title,description,category,price_scr,stock_quantity,image_urls,shipping_days_min,shipping_days_max,shops(name,island,description,logo_url)")
         .eq("id",productId).eq("status","approved").single();
       if (!active) return;
       if (error || !data) setError("This product could not be found or is no longer available.");
@@ -74,7 +74,7 @@ export default function ProductDetailsPage() {
           <button className="primary product-detail-add" type="button" onClick={addToCart} disabled={product.stock_quantity<=0}><ShoppingBag size={17}/> Add to cart</button>
           {notice&&<div className="product-detail-notice" role="status">{notice}</div>}
           <div className="product-detail-section"><h2>Product details</h2><p>{product.description?.trim()||"The seller has not added a product description yet."}</p><div className="product-detail-meta"><span>Category</span><b>{product.category}</b></div><div className="product-detail-meta"><span>Availability</span><b>{product.stock_quantity>0?"In stock":"Out of stock"}</b></div></div>
-          <div className="product-shipping-card"><div className="product-shipping-icon"><Truck size={20}/></div><div><b>Shipping & delivery</b><p>Delivery is available across Seychelles. The seller will confirm the estimated delivery date based on your island and delivery address after an order is placed. Please check the shipping details in your order updates.</p><small>Delivery timing may vary by island and seller.</small></div></div>
+          <div className="product-shipping-card"><div className="product-shipping-icon"><Truck size={20}/></div><div><b>Estimated shipping time</b>{product.shipping_days_min!=null&&product.shipping_days_max!=null?<><strong className="product-shipping-range">{product.shipping_days_min===product.shipping_days_max?product.shipping_days_min+" days":product.shipping_days_min+"–"+product.shipping_days_max+" days"}</strong><p>Seller's estimated delivery time after dispatch. Actual timing may vary by destination island and delivery address.</p></>:<p>The seller will confirm the estimated delivery time after your order, based on your island and delivery address.</>}<small>Delivery estimate provided by the seller.</small></div></div>
         </section>
       </div>
       <section className="product-shop-card"><div className="product-shop-avatar">{product.shops?.logo_url?<img src={product.shops.logo_url} alt=""/>:<Store size={25}/>}</div><div className="product-shop-copy"><small>Sold by</small><h2>{product.shops?.name||"Island Express seller"}</h2><p><MapPin size={14}/>{product.shops?.island||"Seychelles"}</p>{product.shops?.description&&<span>{product.shops.description}</span>}</div></section>
