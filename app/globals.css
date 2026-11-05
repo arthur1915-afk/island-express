@@ -498,3 +498,39 @@
 .shop-profile-banner.has-shop-banner{background-size:cover;background-position:center;color:#fff}
 .shop-profile-banner.has-shop-banner h1,.shop-profile-banner.has-shop-banner p,.shop-profile-banner.has-shop-banner>div>small{color:#fff}
 @media(max-width:650px){.seller-voucher-card{grid-template-columns:1fr auto}.seller-voucher-meta{grid-column:1/-1}.seller-voucher-actions{justify-content:flex-start}.seller-shopfront-actions{align-items:stretch}.seller-shopfront-actions .account-submit{width:100%}}
+
+/* Modern account dashboard refresh */
+.account-page{background:radial-gradient(circle at 8% 5%,#fff0e7 0,transparent 27%),#f5f7f5;padding:26px 24px 64px}
+.account-top{max-width:1280px;margin:0 auto 20px}
+.account-card{max-width:1280px;padding:0;background:transparent;border:0;box-shadow:none;overflow:visible}
+.account-dashboard{display:grid;grid-template-columns:245px minmax(0,1fr);gap:24px;align-items:start}
+.account-sidebar{position:sticky;top:22px;min-height:650px;padding:20px 14px;background:#fff;border:1px solid #e8eee9;border-radius:18px;box-shadow:0 12px 35px #20382b08;display:flex;flex-direction:column}
+.account-sidebar-user{display:flex;align-items:center;gap:11px;padding:7px 7px 20px;border-bottom:1px solid #edf1ed;min-width:0}
+.account-sidebar-avatar{width:43px;height:43px;flex:none;border-radius:14px;background:#fff0e8;color:#e86c37;display:grid;place-items:center;overflow:hidden}
+.account-sidebar-avatar img{width:100%;height:100%;object-fit:cover}
+.account-sidebar-user>div:last-child{display:grid;gap:4px;min-width:0}
+.account-sidebar-user b{font-size:12px;color:#26372e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-sidebar-user small{font-size:10px;color:#8b978f;overflow:hidden;text-overflow:ellipsis}
+.account-sidebar-label{margin:22px 9px 9px;font-size:9px;letter-spacing:1.2px;font-weight:900;color:#a0aaa3}
+.account-side-link{width:100%;min-height:42px;padding:0 11px;display:flex;align-items:center;gap:11px;border:0;border-radius:9px;background:transparent;color:#68766d;text-decoration:none;font:700 11px 'DM Sans',sans-serif;text-align:left;cursor:pointer;transition:background .18s,color .18s}
+.account-side-link svg{color:#89968d}
+.account-side-link:hover{background:#f7f8f6;color:#34483a}
+.account-side-link.active{background:#fff0e8;color:#dc6735}
+.account-side-link.active svg{color:#dc6735}
+.account-sidebar-bottom{margin-top:auto;padding-top:18px;border-top:1px solid #edf1ed}
+.account-side-logout{color:#a65c50}
+.account-dashboard-main{min-width:0;padding:28px 30px;background:#fff;border:1px solid #e8eee9;border-radius:18px;box-shadow:0 12px 35px #20382b08}
+.account-dashboard-main .profile-page-heading{padding-bottom:22px;margin-bottom:0;border-bottom:1px solid #edf1ed}
+.account-dashboard-main .profile-page-heading h1{font-size:29px;letter-spacing:-1px}
+.account-dashboard-main .profile-hero{padding:24px 0;border-bottom:1px solid #edf1ed}
+.account-dashboard-main .profile-about,.account-dashboard-main .profile-edit-panel{padding:22px 0;border-bottom:1px solid #edf1ed}
+.account-dashboard-main .profile-activity-heading{margin:25px 0 13px;font-size:9px;letter-spacing:1.3px;color:#99a49c}
+.account-dashboard-main .profile-activity-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.account-dashboard-main .profile-activity-grid a{min-height:92px;padding:16px;border-radius:12px;background:#fbfcfb;transition:transform .18s,border-color .18s,background .18s}
+.account-dashboard-main .profile-activity-grid a:hover{transform:translateY(-2px);border-color:#f0c4aa;background:#fffaf7}
+.account-dashboard-main .profile-activity-grid a svg{width:20px;height:20px;margin-bottom:7px}
+.account-dashboard-main .account-feature-card,.account-dashboard-main .account-shop-card{margin-top:18px;border-radius:13px}
+.account-dashboard-main .account-footer-actions{margin-top:22px;padding-top:15px;border-top:1px solid #edf1ed;color:#9aa49d;font-size:10px}
+.account-dashboard-main .account-footer-actions .logout-button{display:none}
+@media(max-width:850px){.account-page{padding:18px 14px 45px}.account-dashboard{grid-template-columns:1fr;gap:14px}.account-sidebar{position:static;min-height:0;padding:12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.account-sidebar-user{grid-column:1/-1;padding:4px 5px 12px}.account-sidebar-label{display:none}.account-sidebar-bottom{margin:0;padding:0;border:0}.account-side-link{justify-content:center;gap:7px;padding:0 5px;font-size:10px}.account-dashboard-main{padding:22px 20px}}
+@media(max-width:520px){.account-page{padding:12px 9px 35px}.account-top{margin-bottom:12px}.account-dashboard-main{padding:19px 15px;border-radius:14px}.account-dashboard-main .profile-page-heading h1{font-size:25px}.account-dashboard-main .profile-activity-grid{grid-template-columns:1fr 1fr}.account-dashboard-main .profile-activity-grid a{padding:12px;min-height:100px}.account-sidebar{grid-template-columns:repeat(3,minmax(0,1fr));border-radius:13px}.account-side-link{font-size:9px}.account-side-link svg{width:15px;height:15px}.account-dashboard-main .profile-hero{gap:13px;flex-wrap:wrap}.account-dashboard-main .profile-hero-actions{margin-left:auto}}
