@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { ArrowLeft, ImagePlus, Package, Store, ShoppingBag, BarChart3 } from "lucide-react";
 
-type Shop = { id: string; name: string; island: string | null; holiday_mode: boolean };
+type Shop = { id: string; name: string; island: string | null; holiday_mode: boolean; description: string | null; banner_url: string | null };
 type Product = { id: string; title: string; price_scr: number; stock_quantity: number; status: string; created_at: string; image_urls: string[]; is_archived?: boolean };
 type Earning = { id: string; amount_scr: number; status: "available" | "withdrawal_pending" | "paid" | "reversed"; order_id: string; released_at: string };
 type Withdrawal = { id:string; amount_scr:number; status:string };
@@ -48,6 +48,9 @@ export default function SellerDashboard() {
   const [shippingMin,setShippingMin] = useState("2");
   const [shippingMax,setShippingMax] = useState("5");
   const [images,setImages] = useState<File[]>([]);
+  const [shopDescription,setShopDescription] = useState("");
+  const [shopBannerUrl,setShopBannerUrl] = useState("");
+  const [shopfrontBusy,setShopfrontBusy] = useState(false);
 
   const [editingProduct,setEditingProduct] = useState<Product|null>(null);
   const [editTitle,setEditTitle] = useState("");
@@ -66,9 +69,11 @@ export default function SellerDashboard() {
     if (!user) { router.replace("/account"); return; }
     const { data: profile } = await supabase.from("profiles").select("role").eq("id",user.id).single();
     if (profile?.role !== "seller") { router.replace("/account"); return; }
-    const { data: shops, error } = await supabase.from("shops").select("id,name,island,holiday_mode").eq("owner_id",user.id).limit(1);
+    const { data: shops, error } = await supabase.from("shops").select("id,name,island,holiday_mode,description,banner_url").eq("owner_id",user.id).limit(1);
     if (error || !shops?.length) { setMessage("We couldn't find your shop. Please create it from your account page."); setLoading(false); return; }
     setShop(shops[0] as Shop);
+    setShopDescription(shops[0].description ?? "");
+    setShopBannerUrl(shops[0].banner_url ?? "");
     const { data: earningRows, error: earningsError } = await supabase.from("seller_earnings").select("id,amount_scr,status,order_id,released_at").eq("seller_id",user.id).order("released_at",{ascending:false});
     if (earningsError) setMessage("Balance could not be loaded: " + earningsError.message);
     setEarnings((earningRows ?? []) as Earning[]);
@@ -86,6 +91,22 @@ export default function SellerDashboard() {
   }
 
   useEffect(()=>{ refresh(); },[]);
+
+  async function saveShopfront(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!shop) return;
+    const banner = shopBannerUrl.trim();
+    if (banner && !/^https:\/\//i.test(banner)) { setMessage("Please use a secure https:// image URL for your shop banner."); return; }
+    setShopfrontBusy(true); setMessage("");
+    const { data, error } = await supabase.from("shops")
+      .update({ description: shopDescription.trim(), banner_url: banner || null })
+      .eq("id", shop.id)
+      .select("id,name,island,holiday_mode,description,banner_url")
+      .single();
+    if (error) setMessage("Could not save your shopfront. Please run the seller shopfront SQL migration. " + error.message);
+    else { setShop(data as Shop); setMessage("Your shopfront has been updated."); }
+    setShopfrontBusy(false);
+  }
 
   async function toggleHolidayMode() {
     if (!shop) return;
@@ -276,6 +297,16 @@ export default function SellerDashboard() {
         </div>
         <div className="seller-balance-footer"><div className="seller-balance-note">All orders are paid in the app. Earnings become available after the customer confirms receipt. A withdrawal request reserves your full available balance until the admin processes it.</div><button type="button" className="seller-withdraw-button" onClick={requestWithdrawal} disabled={withdrawalBusy || earnings.every(e=>e.status!=="available") || Math.max(0,earnings.filter(e=>e.status==="available").reduce((s,e)=>s+Number(e.amount_scr),0)-allocations.reduce((s,a)=>s+Number(a.amount_scr),0))<=0}>{withdrawalBusy ? "Submitting request…" : "Request withdrawal"}</button></div>
       </section>
+      <section className="seller-dash-panel seller-shopfront-editor">
+        <h2>Customise your shopfront</h2>
+        <p>Give customers a better first impression when they visit your public shop page.</p>
+        <form className="account-form" onSubmit={saveShopfront}>
+          <label>Shop description<textarea maxLength={500} value={shopDescription} onChange={e=>setShopDescription(e.target.value)} placeholder="Tell customers what your shop sells, what makes it special and where you operate."/></label>
+          <label>Shop banner image URL<input type="url" value={shopBannerUrl} onChange={e=>setShopBannerUrl(e.target.value)} placeholder="https://example.com/your-shop-banner.jpg"/></label>
+          {shopBannerUrl && <div className="seller-shopfront-preview"><img src={shopBannerUrl} alt="Shop banner preview"/></div>}
+          <div className="seller-shopfront-actions"><button className="primary account-submit" disabled={shopfrontBusy}>{shopfrontBusy ? "Saving shopfront…" : "Save shopfront"}</button><Link href={shop ? "/shop/"+shop.id : "/"} className="seller-orders-link">Preview public shop</Link></div>
+        </form>
+      </section>
       <section className={"seller-holiday-panel " + (shop?.holiday_mode ? "is-on" : "")}>
         <div className="seller-holiday-copy">
           <span className="seller-holiday-icon">🌴</span>
@@ -336,6 +367,13 @@ export default function SellerDashboard() {
           </form>
         </section>}
 
+      <section className="seller-dash-panel seller-inventory-panel">
+        <div className="seller-section-heading"><div><h2>Inventory alerts</h2><p>Keep an eye on products that may need restocking.</p></div><span className="seller-alert-count">{products.filter(p=>!p.is_archived && p.status==="approved" && p.stock_quantity<=3).length} low stock</span></div>
+        {products.filter(p=>!p.is_archived && p.status==="approved" && p.stock_quantity<=3).length===0
+          ? <div className="seller-inventory-clear">✓ All approved products have more than 3 units in stock.</div>
+          : <div className="seller-inventory-list">{products.filter(p=>!p.is_archived && p.status==="approved" && p.stock_quantity<=3).map(product=><div className="seller-inventory-row" key={product.id}><div><b>{product.title}</b><small>{product.stock_quantity===0?"Out of stock":"Only "+product.stock_quantity+" left"}</small></div><button type="button" disabled={busy} onClick={()=>adjustStock(product,1)}>Add stock</button></div>)}</div>}
+        <small className="seller-inventory-hint">The low-stock alert threshold is 3 units. Out-of-stock listings remain visible with their availability status.</small>
+      </section>
         <section className="seller-dash-panel"><h2>Your products</h2><p>Track the review status of your listings.</p>
           {products.length===0?<div className="seller-empty"><Package size={32}/><b>No products yet</b><span>Your submitted products will appear here.</span></div>:<div className="seller-products">{products.map(p=><article className="seller-product-row" key={p.id}><div className="seller-product-thumb">{p.image_urls?.[0]?<img src={p.image_urls[0]} alt=""/>:<Package size={22}/>}</div><div className="seller-product-detail"><b>{p.title}</b><span>SCR {Number(p.price_scr).toLocaleString()} · Stock {p.stock_quantity}</span><small className={"status-"+p.status}>{p.is_archived ? "archived" : p.status.replace("_"," ")}</small><div className="seller-product-controls">{!p.is_archived && <><button type="button" disabled={busy} onClick={()=>startEditing(p)}>Edit product</button><button type="button" disabled={busy} onClick={()=>adjustStock(p,1)}>+ Add stock</button><button type="button" disabled={busy} onClick={()=>adjustStock(p,-1)}>− Remove stock</button><button type="button" className="seller-archive-button" disabled={busy} onClick={()=>archiveProduct(p)}>Delete listing</button></>}</div></div></article>)}</div>}
         </section>
