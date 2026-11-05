@@ -30,6 +30,12 @@ export default function AccountPage() {
   const [resetSending, setResetSending] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("mode") === "signup") setMode("signup");
+    if (params.get("mode") === "login") setMode("login");
+  }, []);
+
   async function loadAccount(id: string) {
     setUserId(id);
     const { data: authData } = await supabase.auth.getUser();
@@ -61,12 +67,19 @@ export default function AccountPage() {
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({ email: email.trim(), password, options: { data: { full_name: fullName.trim() }, emailRedirectTo: window.location.origin + "/account" } });
         if (error) throw error;
-        if (data.session?.user) await loadAccount(data.session.user.id);
-        else setMessage("Registration received. Check your email and confirm your address, then return here to log in.");
+        if (data.session?.user) {
+          await loadAccount(data.session.user.id);
+          const next = new URLSearchParams(window.location.search).get("next");
+          if (next?.startsWith("/") && !next.startsWith("//")) window.location.href = next;
+        } else setMessage("Registration received. Check your email and confirm your address, then return here to log in.");
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
-        if (data.user) await loadAccount(data.user.id);
+        if (data.user) {
+          await loadAccount(data.user.id);
+          const next = new URLSearchParams(window.location.search).get("next");
+          if (next?.startsWith("/") && !next.startsWith("//")) window.location.href = next;
+        }
       }
     } catch (error) { setMessage(error instanceof Error ? error.message : "Something went wrong. Please try again."); }
     finally { setBusy(false); }
