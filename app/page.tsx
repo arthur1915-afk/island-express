@@ -65,7 +65,7 @@ export default function Home() {
   }
   useEffect(() => {
     let active = true;
-    supabase.from("products").select("id,title,category,price_scr,description,image_urls,created_at,shops(name,island)").eq("status","approved").order("created_at",{ascending:false}).then(({data,error}) => {
+    supabase.from("products").select("id,title,category,price_scr,description,image_urls,created_at,shops(name,island)").eq("status","approved").order("created_at",{ascending:false}).then(async ({data,error}) => {
       if (!active) return;
       if (error) setNotice("Could not load marketplace listings.");
       setProducts((data ?? []) as unknown as Product[]);
