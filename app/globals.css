@@ -546,3 +546,9 @@
 .account-dashboard-main .profile-hero{min-height:145px}
 @media(max-width:1100px){.account-dashboard-main .profile-activity-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:850px){.account-page{padding:18px 14px 45px}.account-dashboard{min-height:0}.account-sidebar,.account-dashboard-main{min-height:0}}
+
+/* Keep the login and signup card compact; full-width layout is only for signed-in dashboard */
+.account-page:not(:has(.account-dashboard)){padding:24px}
+.account-page:not(:has(.account-dashboard)) .account-top{max-width:1080px;margin:0 auto 35px}
+.account-page:not(:has(.account-dashboard)) .account-card{width:min(100%,480px)!important;max-width:480px!important;margin:0 auto!important;padding:34px!important;background:#fff!important;border:1px solid #e9edef!important;border-radius:18px!important;box-shadow:0 16px 50px #243b3210!important;overflow:hidden!important}
+@media(max-width:600px){.account-page:not(:has(.account-dashboard)){padding:16px}.account-page:not(:has(.account-dashboard)) .account-top{margin-bottom:22px}.account-page:not(:has(.account-dashboard)) .account-card{padding:25px 20px!important}}
