@@ -33,6 +33,16 @@ export default function SellerDashboard() {
   const [stock,setStock] = useState("1");
   const [images,setImages] = useState<File[]>([]);
 
+  const [editingProduct,setEditingProduct] = useState<Product|null>(null);
+  const [editTitle,setEditTitle] = useState("");
+  const [editDescription,setEditDescription] = useState("");
+  const [editCategory,setEditCategory] = useState(categories[0]);
+  const [editPrice,setEditPrice] = useState("");
+  const [editStock,setEditStock] = useState("1");
+  const [keptImageUrls,setKeptImageUrls] = useState<string[]>([]);
+  const [editImages,setEditImages] = useState<File[]>([]);
+
+
   async function refresh() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.replace("/account"); return; }
@@ -50,7 +60,7 @@ export default function SellerDashboard() {
     if (requestIds.length) {\n      const { data: allocationRows } = await supabase.from("seller_withdrawal_allocations").select("amount_scr,request_id").in("request_id",requestIds);
       setAllocations((allocationRows ?? []) as Allocation[]);
     } else setAllocations([]);
-    const { data: rows, error: productsError } = await supabase.from("products").select("id,title,price_scr,stock_quantity,status,created_at,image_urls,is_archived").eq("shop_id",shops[0].id).order("created_at",{ascending:false});
+    const { data: rows, error: productsError } = await supabase.from("products").select("id,title,description,category,price_scr,stock_quantity,status,created_at,image_urls,is_archived").eq("shop_id",shops[0].id).order("created_at",{ascending:false});
     if (productsError) setMessage(productsError.message);
     setProducts((rows ?? []) as Product[]);
     setLoading(false);
@@ -92,6 +102,70 @@ export default function SellerDashboard() {
     const { error } = await supabase.rpc("seller_archive_product", { target_product_id: product.id });
     if (error) setMessage(error.message); else setMessage("Product removed from the marketplace. Its order history is preserved.");
     await refresh(); setBusy(false);
+  }
+
+
+  function startEditing(product: Product) {
+    setEditingProduct(product);
+    setEditTitle(product.title);
+    setEditDescription((product as Product & {description?:string}).description ?? "");
+    setEditCategory((product as Product & {category?:string}).category ?? categories[0]);
+    setEditPrice(String(product.price_scr));
+    setEditStock(String(product.stock_quantity));
+    setKeptImageUrls([...(product.image_urls ?? [])]);
+    setEditImages([]);
+    setMessage("");
+  }
+
+  function storagePathFromPublicUrl(url: string) {
+    const marker = "/storage/v1/object/public/product-images/";
+    const index = url.indexOf(marker);
+    if (index < 0) return null;
+    try { return decodeURIComponent(url.slice(index + marker.length).split("?")[0]); }
+    catch { return null; }
+  }
+
+  async function saveProductEdits(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!shop || !editingProduct) return;
+    const parsedPrice=Number(editPrice), parsedStock=Number(editStock);
+    if (!Number.isFinite(parsedPrice) || parsedPrice<0 || !Number.isInteger(parsedStock) || parsedStock<0) {
+      setMessage("Enter a valid price and whole-number stock quantity."); return;
+    }
+    setBusy(true); setMessage("");
+    const uploadedPaths:string[]=[];
+    try {
+      const nextImageUrls=[...keptImageUrls];
+      for (const file of editImages) {
+        const extension=file.name.split(".").pop()?.toLowerCase() || "jpg";
+        const path=shop.id+"/"+crypto.randomUUID()+"."+extension;
+        const {error:uploadError}=await supabase.storage.from("product-images").upload(path,file,{
+          contentType:file.type,cacheControl:"3600",upsert:false
+        });
+        if (uploadError) throw new Error("Image upload failed ("+file.name+"): "+uploadError.message+". Check the product-images bucket and storage policies.");
+        uploadedPaths.push(path);
+        nextImageUrls.push(supabase.storage.from("product-images").getPublicUrl(path).data.publicUrl);
+      }
+      const {error:updateError}=await supabase.from("products").update({
+        title:editTitle.trim(),description:editDescription.trim(),category:editCategory,
+        price_scr:parsedPrice,stock_quantity:parsedStock,image_urls:nextImageUrls,status:"pending_review"
+      }).eq("id",editingProduct.id).eq("shop_id",shop.id);
+      if (updateError) throw updateError;
+      const removedPaths=(editingProduct.image_urls ?? [])
+        .filter(url=>!keptImageUrls.includes(url))
+        .map(storagePathFromPublicUrl)
+        .filter((path):path is string=>!!path && path.startsWith(shop.id+"/"));
+      if (removedPaths.length) {
+        const {error:removeError}=await supabase.storage.from("product-images").remove(removedPaths);
+        if (removeError) setMessage("Product saved, but an old image could not be deleted: "+removeError.message);
+      }
+      setEditingProduct(null);setEditImages([]);setKeptImageUrls([]);
+      if (!message) setMessage("Product updated and sent for admin review. It will appear publicly again after approval.");
+      await refresh();
+    } catch(error) {
+      if(uploadedPaths.length) await supabase.storage.from("product-images").remove(uploadedPaths);
+      setMessage(error instanceof Error?error.message:"Couldn't update the product.");
+    } finally { setBusy(false); }
   }
 
   async function addProduct(event: FormEvent<HTMLFormElement>) {
@@ -174,8 +248,34 @@ export default function SellerDashboard() {
           </form>
           {message&&<div className="account-message" role="status">{message}</div>}
         </section>
+
+        {editingProduct && <section className="seller-dash-panel seller-edit-panel">
+          <div className="seller-edit-heading"><div><h2>Edit product</h2><p>Changes to a live listing go back to admin review.</p></div><button type="button" onClick={()=>setEditingProduct(null)}>Cancel</button></div>
+          <form className="account-form" onSubmit={saveProductEdits}>
+            <label>Product name<input required maxLength={120} value={editTitle} onChange={e=>setEditTitle(e.target.value)}/></label>
+            <label>Description<textarea value={editDescription} onChange={e=>setEditDescription(e.target.value)}/></label>
+            <label>Category<select value={editCategory} onChange={e=>setEditCategory(e.target.value)}>{categories.map(item=><option key={item}>{item}</option>)}</select></label>
+            <div className="seller-form-row"><label>Price (SCR)<input required type="number" min="0" step="0.01" value={editPrice} onChange={e=>setEditPrice(e.target.value)}/></label><label>Stock quantity<input required type="number" min="0" step="1" value={editStock} onChange={e=>setEditStock(e.target.value)}/></label></div>
+            <div className="seller-edit-images"><b>Current pictures</b>
+              {keptImageUrls.length===0?<small>No pictures currently attached.</small>:<div className="seller-edit-image-grid">{keptImageUrls.map((url,index)=><div className="seller-edit-image" key={url}><img src={url} alt={"Product image "+(index+1)}/><button type="button" onClick={()=>setKeptImageUrls(current=>current.filter(item=>item!==url))}>Remove</button></div>)}</div>}
+            </div>
+            <label className="upload-label"><ImagePlus size={18}/> Add more pictures (JPG, PNG or WebP, max 5 MB each)
+              <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>{
+                const selected=Array.from(e.target.files ?? []);
+                const invalid=selected.find(file=>!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>5*1024*1024);
+                if(invalid){setMessage(invalid.size>5*1024*1024?invalid.name+" is larger than 5 MB.":invalid.name+" is not a supported image type.");e.target.value="";return;}
+                setEditImages(current=>[...current,...selected].filter((file,index,all)=>all.findIndex(other=>other.name===file.name&&other.size===file.size&&other.lastModified===file.lastModified)===index));
+                e.target.value="";
+              }}/>
+              <small>{editImages.length?editImages.length+" new picture(s) selected":"Choose one or more new pictures."}</small>
+              {editImages.map((file,index)=><div className="seller-selected-image" key={file.name+file.lastModified+index}><span>{file.name}</span><button type="button" onClick={()=>setEditImages(current=>current.filter((_,i)=>i!==index))}>Remove</button></div>)}
+            </label>
+            <button className="primary account-submit" disabled={busy}>{busy?"Saving changes…":"Save product changes"}</button>
+          </form>
+        </section>}
+
         <section className="seller-dash-panel"><h2>Your products</h2><p>Track the review status of your listings.</p>
-          {products.length===0?<div className="seller-empty"><Package size={32}/><b>No products yet</b><span>Your submitted products will appear here.</span></div>:<div className="seller-products">{products.map(p=><article className="seller-product-row" key={p.id}><div className="seller-product-thumb">{p.image_urls?.[0]?<img src={p.image_urls[0]} alt=""/>:<Package size={22}/>}</div><div className="seller-product-detail"><b>{p.title}</b><span>SCR {Number(p.price_scr).toLocaleString()} · Stock {p.stock_quantity}</span><small className={"status-"+p.status}>{p.is_archived ? "archived" : p.status.replace("_"," ")}</small><div className="seller-product-controls">{!p.is_archived && <><button type="button" disabled={busy} onClick={()=>adjustStock(p,1)}>+ Add stock</button><button type="button" disabled={busy} onClick={()=>adjustStock(p,-1)}>− Remove stock</button><button type="button" className="seller-archive-button" disabled={busy} onClick={()=>archiveProduct(p)}>Delete listing</button></>}</div></div></article>)}</div>}
+          {products.length===0?<div className="seller-empty"><Package size={32}/><b>No products yet</b><span>Your submitted products will appear here.</span></div>:<div className="seller-products">{products.map(p=><article className="seller-product-row" key={p.id}><div className="seller-product-thumb">{p.image_urls?.[0]?<img src={p.image_urls[0]} alt=""/>:<Package size={22}/>}</div><div className="seller-product-detail"><b>{p.title}</b><span>SCR {Number(p.price_scr).toLocaleString()} · Stock {p.stock_quantity}</span><small className={"status-"+p.status}>{p.is_archived ? "archived" : p.status.replace("_"," ")}</small><div className="seller-product-controls">{!p.is_archived && <><button type="button" disabled={busy} onClick={()=>startEditing(p)}>Edit product</button><button type="button" disabled={busy} onClick={()=>adjustStock(p,1)}>+ Add stock</button><button type="button" disabled={busy} onClick={()=>adjustStock(p,-1)}>− Remove stock</button><button type="button" className="seller-archive-button" disabled={busy} onClick={()=>archiveProduct(p)}>Delete listing</button></>}</div></div></article>)}</div>}
         </section>
       </div>
     </div>
