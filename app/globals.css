@@ -534,3 +534,15 @@
 .account-dashboard-main .account-footer-actions .logout-button{display:none}
 @media(max-width:850px){.account-page{padding:18px 14px 45px}.account-dashboard{grid-template-columns:1fr;gap:14px}.account-sidebar{position:static;min-height:0;padding:12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.account-sidebar-user{grid-column:1/-1;padding:4px 5px 12px}.account-sidebar-label{display:none}.account-sidebar-bottom{margin:0;padding:0;border:0}.account-side-link{justify-content:center;gap:7px;padding:0 5px;font-size:10px}.account-dashboard-main{padding:22px 20px}}
 @media(max-width:520px){.account-page{padding:12px 9px 35px}.account-top{margin-bottom:12px}.account-dashboard-main{padding:19px 15px;border-radius:14px}.account-dashboard-main .profile-page-heading h1{font-size:25px}.account-dashboard-main .profile-activity-grid{grid-template-columns:1fr 1fr}.account-dashboard-main .profile-activity-grid a{padding:12px;min-height:100px}.account-sidebar{grid-template-columns:repeat(3,minmax(0,1fr));border-radius:13px}.account-side-link{font-size:9px}.account-side-link svg{width:15px;height:15px}.account-dashboard-main .profile-hero{gap:13px;flex-wrap:wrap}.account-dashboard-main .profile-hero-actions{margin-left:auto}}
+
+/* Full-width account workspace */
+.account-page{width:100%;min-height:100vh;padding:24px clamp(18px,3vw,52px) 56px}
+.account-top{width:100%;max-width:1600px;margin:0 auto 22px}
+.account-card{width:100%!important;max-width:1600px!important;margin:0 auto!important;padding:0!important}
+.account-dashboard{width:100%;min-height:calc(100vh - 112px);grid-template-columns:270px minmax(0,1fr);gap:22px}
+.account-sidebar{min-height:calc(100vh - 125px)}
+.account-dashboard-main{width:100%;min-height:calc(100vh - 125px);padding:clamp(26px,3vw,46px)}
+.account-dashboard-main .profile-activity-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.account-dashboard-main .profile-hero{min-height:145px}
+@media(max-width:1100px){.account-dashboard-main .profile-activity-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:850px){.account-page{padding:18px 14px 45px}.account-dashboard{min-height:0}.account-sidebar,.account-dashboard-main{min-height:0}}
