@@ -18,8 +18,6 @@ export default function AdminReviewsPage(){
   setLoading(true);setNotice("");
   const {data:{user}}=await supabase.auth.getUser();
   if(!user){router.replace("/admin/login");return;}
-  const {data:aal}=await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if(aal?.currentLevel!=="aal2"){router.replace("/admin/login");return;}
   const {data:profile}=await supabase.from("profiles").select("is_admin").eq("id",user.id).single();
   if(!profile?.is_admin){setNotice("Administrator access required.");setLoading(false);return;}
   const {data,error}=await supabase.from("product_reviews").select("id,product_id,customer_id,rating,title,body,created_at,products(title)").eq("status","pending").order("created_at",{ascending:true});
