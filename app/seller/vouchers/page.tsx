@@ -74,7 +74,7 @@ export default function SellerVouchersPage() {
   return <main className="seller-dashboard">
     <header className="seller-dash-header"><Link href="/seller" className="account-back"><ArrowLeft size={16}/> Seller Centre</Link><Link href="/" className="account-brand">island<span>express</span></Link></header>
     <div className="seller-orders-wrap">
-      <div className="seller-orders-heading"><div><div className="eyebrow">SELLER CENTRE · PROMOTIONS</div><h1>{shopName} vouchers</h1><p>Create and manage discount codes for your shop.</p></div><Link href="/shop" className="seller-orders-link"><Ticket size={16}/> Shop vouchers</Link></div>
+      <div className="seller-orders-heading"><div><div className="eyebrow">SELLER CENTRE · PROMOTIONS</div><h1>{shopName} vouchers</h1><p>Create and manage discount codes for your shop.</p></div><Link href={shopId ? "/shop/"+shopId : "/seller"} className="seller-orders-link"><Ticket size={16}/> View public shop</Link></div>
       {message&&<div className="account-message" role="status">{message}</div>}
       <section className="seller-dash-panel">
         <h2>{editing?"Edit voucher":"Create a voucher"}</h2>
