@@ -201,6 +201,22 @@ export default function AccountPage() {
         </form>
         {mode === "login" && <button type="button" className="forgot-password-link" onClick={sendPasswordReset} disabled={resetSending}>{resetSending ? "Sending reset link…" : "Forgot password?"}</button>}
       </> : <>
+        <div className="account-dashboard">
+          <aside className="account-sidebar">
+            <div className="account-sidebar-user">
+              <div className="account-sidebar-avatar">{profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : <UserRound size={24}/>}</div>
+              <div><b>{profile?.full_name || "Island Express member"}</b><small>{accountEmail}</small></div>
+            </div>
+            <div className="account-sidebar-label">YOUR ACCOUNT</div>
+            <Link href="/account" className="account-side-link active"><UserRound size={17}/> My profile</Link>
+            <Link href="/orders" className="account-side-link"><ShoppingBag size={17}/> My orders</Link>
+            <Link href="/notifications" className="account-side-link"><Bell size={17}/> Notifications</Link>
+            <Link href="/wishlist" className="account-side-link"><Heart size={17}/> Favourites</Link>
+            <Link href="/support" className="account-side-link"><Headset size={17}/> Customer care</Link>
+            {profile?.role === "seller" && <><div className="account-sidebar-label">SELLER TOOLS</div><Link href="/seller" className="account-side-link"><Store size={17}/> Seller Centre</Link></>}
+            <div className="account-sidebar-bottom"><button className="account-side-link account-side-logout" onClick={signOut}><LogOut size={17}/> Sign out</button></div>
+          </aside>
+          <div className="account-dashboard-main">
         <div className="profile-page-heading"><div><div className="eyebrow">MY ISLAND EXPRESS</div><h1>My profile</h1><p>Manage your personal information and account activity.</p></div><span className="account-role">{profile?.role || "customer"}</span></div>
         <div className="profile-hero">
           <div className="profile-photo-wrap">
@@ -232,7 +248,9 @@ export default function AccountPage() {
         {profile?.role === "customer" && <div className="account-feature-card"><div className="account-feature-icon"><Store size={22}/></div><div><h2>Start selling on Island Express</h2><p>Open your own shop and reach customers across Seychelles. Product listings are reviewed before they go live.</p></div><button className="primary account-submit" disabled={busy} onClick={becomeSeller}>{busy ? "Please wait…" : "Become a seller"}</button></div>}
         {profile?.role === "seller" && !shop && <form onSubmit={createShop} className="account-form shop-form account-shop-form"><h2>Create your shop</h2><label>Shop name<input required value={shopName} onChange={e=>setShopName(e.target.value)} placeholder="e.g. Island Finds"/></label><label>About your shop<textarea value={shopDescription} onChange={e=>setShopDescription(e.target.value)} placeholder="Tell customers what you sell"/></label><label>Island<select value={shopIsland} onChange={e=>setShopIsland(e.target.value)}><option>Mahé</option><option>Praslin</option><option>La Digue</option><option>Other</option></select></label><button className="primary account-submit" disabled={busy}>{busy ? "Creating shop…" : "Create my shop"}</button></form>}
         {shop && <div className="account-shop-card"><div className="account-shop-card-top"><span className="account-shop-icon"><Store size={22}/></span><span className="account-shop-status">SHOP ACTIVE</span></div><div className="account-shop-logo-editor">{shop.logo_url ? <img src={shop.logo_url} alt={shop.name+" logo"}/> : <span className="account-shop-logo-placeholder"><Store size={27}/></span>}<div><b>Shop profile picture</b><small>Upload your shop logo or business photo (JPG, PNG or WebP, max 5 MB).</small><button type="button" className="profile-edit-button" onClick={()=>shopLogoRef.current?.click()} disabled={busy}>{busy ? "Uploading…" : shop.logo_url ? "Change shop picture" : "Upload shop picture"}</button><input ref={shopLogoRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={e=>{uploadShopLogo(e.target.files?.[0]);e.currentTarget.value="";}}/></div></div><h2>{shop.name}</h2><p>Your shop is set up on {shop.island || "Seychelles"}.</p><small>island-express-one.vercel.app/shop/{shop.id}</small><Link className="primary account-shop-button" href="/seller">Open seller dashboard</Link></div>}
-        <div className="account-footer-actions"><button className="logout-button" onClick={signOut}><LogOut size={16}/> Sign out</button></div>
+        <div className="account-footer-actions"><span>Island Express · Your account, all in one place</span></div>
+          </div>
+        </div>
       </>}
       {message && <div className="account-message" role="status">{message}</div>}
     </section>
