@@ -22,9 +22,9 @@ function LocalImagePreview({ file, onRemove }: { file: File; onRemove: () => voi
     setPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [file]);
-  return <div className="seller-edit-image seller-upload-preview">
+  return <div className="seller-upload-thumb">
     {preview && <img src={preview} alt={file.name}/>}
-    <button type="button" onClick={onRemove} aria-label={"Remove " + file.name}>×</button>
+    <button type="button" onClick={event=>{event.preventDefault();event.stopPropagation();onRemove();}} aria-label={"Remove " + file.name}>×</button>
   </div>;
 }
 
@@ -245,7 +245,7 @@ export default function SellerDashboard() {
         <section className="seller-dash-panel"><h2>Add a product</h2><p>New listings are checked before they become visible to shoppers.</p>
           <form className="account-form" onSubmit={addProduct}>
             <label className="upload-label seller-upload-first"><ImagePlus size={18}/> Product images (JPG, PNG or WebP, max 5 MB each)
-              <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>{
+              <input className="seller-upload-input" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>{
                 const selected = Array.from(e.target.files ?? []);
                 const invalid = selected.find(file=>!["image/jpeg","image/png","image/webp"].includes(file.type) || file.size > 5*1024*1024);
                 if (invalid) { setMessage(invalid.size > 5*1024*1024 ? invalid.name + " is larger than 5 MB." : invalid.name + " is not a supported image type."); e.target.value=""; return; }
@@ -274,8 +274,8 @@ export default function SellerDashboard() {
             <div className="seller-edit-images"><b>Current pictures</b>
               {keptImageUrls.length===0?<small>No pictures currently attached.</small>:<div className="seller-edit-image-grid">{keptImageUrls.map((url,index)=><div className="seller-edit-image" key={url}><img src={url} alt={"Product image "+(index+1)}/><button type="button" onClick={()=>setKeptImageUrls(current=>current.filter(item=>item!==url))}>Remove</button></div>)}</div>}
             </div>
-            <label className="upload-label"><ImagePlus size={18}/> Add more pictures (JPG, PNG or WebP, max 5 MB each)
-              <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>{
+            <label className="upload-label"><span className="seller-upload-title"><ImagePlus size={18}/> Add more pictures</span><small>JPG, PNG or WebP, max 5 MB each.</small>
+              <input className="seller-upload-input" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>{
                 const selected=Array.from(e.target.files ?? []);
                 const invalid=selected.find(file=>!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>5*1024*1024);
                 if(invalid){setMessage(invalid.size>5*1024*1024?invalid.name+" is larger than 5 MB.":invalid.name+" is not a supported image type.");e.target.value="";return;}
