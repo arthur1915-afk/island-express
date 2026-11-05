@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     const redirectTo = new URL("/admin/set-password", request.url).toString();
     const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, { redirectTo });
-    let targetUser = inviteData.user;
+    let targetUser: { id: string; email?: string } | null = inviteData.user;
     let alreadyRegistered = false;
 
     if (inviteError) {
