@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { ArrowLeft, ShieldCheck, Check, X, Ban, RefreshCw, Package, Headset, Star, Wallet } from "lucide-react";
+import { ArrowLeft, ShieldCheck, Check, X, Ban, RefreshCw, Package, Headset, Star, Wallet, UserPlus, UserMinus, Users } from "lucide-react";
+
+type AdminAccount = { user_id: string; email: string };
 
 type Listing = {
   id: string; title: string; description: string | null; category: string;
@@ -19,6 +21,9 @@ export default function AdminPage() {
   const [message,setMessage] = useState("");
   const [busyId,setBusyId] = useState("");
   const [authorized,setAuthorized] = useState(false);
+  const [admins,setAdmins] = useState<AdminAccount[]>([]);
+  const [adminEmail,setAdminEmail] = useState("");
+  const [adminBusy,setAdminBusy] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -29,6 +34,9 @@ export default function AdminPage() {
     const {data:profile} = await supabase.from("profiles").select("is_admin").eq("id",user.id).single();
     if(!profile?.is_admin){setAuthorized(false);setLoading(false);return;}
     setAuthorized(true);
+    const {data:adminRows,error:adminError}=await supabase.rpc("admin_list_accounts");
+    if(adminError)setMessage("Admin accounts could not be loaded: "+adminError.message);
+    setAdmins((adminRows??[]) as AdminAccount[]);
     const {data,error} = await supabase.from("products")
       .select("id,title,description,category,price_scr,stock_quantity,image_urls,created_at,shop_id,shops(name,island)")
       .eq("status","pending_review").order("created_at",{ascending:true});
@@ -38,6 +46,14 @@ export default function AdminPage() {
   }
 
   useEffect(()=>{load();},[]);
+
+  async function changeAdminAccess(email:string,makeAdmin:boolean) {
+    setAdminBusy(true);setMessage("");
+    const {error}=await supabase.rpc("admin_set_account_access",{target_email:email,make_admin:makeAdmin});
+    if(error)setMessage(error.message);
+    else {setMessage(makeAdmin?"Administrator access granted to "+email+".":"Administrator access removed from "+email+".");const {data}=await supabase.rpc("admin_list_accounts");setAdmins((data??[]) as AdminAccount[]);setAdminEmail("");}
+    setAdminBusy(false);
+  }
 
   async function decide(item:Listing,status:"approved"|"rejected"|"blocked") {
     setBusyId(item.id);setMessage("");
@@ -63,6 +79,16 @@ export default function AdminPage() {
     <div className="admin-wrap">
       <div className="admin-heading"><div><div className="eyebrow">ISLAND EXPRESS · ADMINISTRATION</div><h1>Product moderation</h1><p>Review listings before they become visible to shoppers.</p></div><div className="admin-heading-actions"><Link className="admin-refresh" href="/admin/support"><Headset size={15}/> Customer Care Inbox</Link><Link className="admin-refresh" href="/admin/reviews"><Star size={15}/> Product Reviews</Link><Link className="admin-refresh" href="/admin/withdrawals"><Wallet size={15}/> Seller Withdrawals</Link><button className="admin-refresh" onClick={load}><RefreshCw size={15}/> Refresh</button></div></div>
       <div className="admin-stats"><ShieldCheck size={20}/><b>{items.length}</b><span>Listings awaiting review</span></div>
+      <section className="admin-account-manager">
+        <div className="admin-account-manager-heading"><div><div className="eyebrow">ACCESS CONTROL</div><h2><Users size={18}/> Administrator accounts</h2><p>Grant admin access to an existing Island Express account.</p></div><span>{admins.length} admin{admins.length===1?"":"s"}</span></div>
+        <form className="admin-add-account-form" onSubmit={e=>{e.preventDefault();if(adminEmail.trim())changeAdminAccess(adminEmail.trim(),true);}}>
+          <input type="email" required placeholder="Enter registered account email" value={adminEmail} onChange={e=>setAdminEmail(e.target.value)}/>
+          <button type="submit" disabled={adminBusy}><UserPlus size={15}/>{adminBusy?"Updating…":"Add administrator"}</button>
+        </form>
+        <small className="admin-account-hint">The person must register for an Island Express account first. They will sign in through the Admin portal and set up their own authenticator (2FA).</small>
+        <div className="admin-account-list">{admins.map(account=><div className="admin-account-row" key={account.user_id}><span><ShieldCheck size={15}/>{account.email}</span><button type="button" disabled={adminBusy} onClick={()=>{if(window.confirm("Remove administrator access from "+account.email+"?"))changeAdminAccess(account.email,false);}}><UserMinus size={14}/> Remove access</button></div>)}</div>
+      </section>
+
       {message&&<div className="account-message">{message}</div>}
       {items.length===0?<div className="admin-empty"><Package size={36}/><b>You're all caught up</b><span>New seller submissions will appear here.</span></div>:
         <div className="admin-list">{items.map(item=><article className="admin-item" key={item.id}>
