@@ -155,7 +155,7 @@ export default function SellerDashboard() {
     if (!Number.isFinite(parsedPrice) || parsedPrice<0 || !Number.isInteger(parsedStock) || parsedStock<0) {
       setMessage("Enter a valid price and whole-number stock quantity."); return;
     }
-    if ((minDays===null)!==(maxDays===null) || (minDays!==null && (!Number.isInteger(minDays)||maxDays===null||!Number.isInteger(maxDays)||minDays<1||maxDays<minDays||maxDays>90))) { setMessage("Enter both shipping estimates in days (1–90), with the maximum equal to or greater than the minimum."); return; }
+    if ((minDays===null)!==(maxDays===null) || (minDays!==null && (!Number.isInteger(minDays)||maxDays===null||maxDays===null||!Number.isInteger(maxDays)||minDays<1||maxDays<minDays||maxDays>90))) { setMessage("Enter both shipping estimates in days (1–90), with the maximum equal to or greater than the minimum."); return; }
     setBusy(true); setMessage("");
     const uploadedPaths:string[]=[];
     try {
@@ -200,7 +200,7 @@ export default function SellerDashboard() {
     if (!Number.isFinite(parsedPrice) || parsedPrice < 0 || !Number.isInteger(parsedStock) || parsedStock < 0) {
       setMessage("Enter a valid price and whole-number stock quantity."); return;
     }
-    if ((minDays===null)!==(maxDays===null) || (minDays!==null && (!Number.isInteger(minDays)||!Number.isInteger(maxDays)||minDays<1||maxDays<minDays||maxDays>90))) { setMessage("Enter both shipping estimates in days (1–90), with the maximum equal to or greater than the minimum."); return; }
+    if ((minDays===null)!==(maxDays===null) || (minDays!==null && (!Number.isInteger(minDays)||maxDays===null||!Number.isInteger(maxDays)||minDays<1||maxDays<minDays||maxDays>90))) { setMessage("Enter both shipping estimates in days (1–90), with the maximum equal to or greater than the minimum."); return; }
     setBusy(true); setMessage("");
     try {
       const imageUrls: string[] = [];
