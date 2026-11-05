@@ -14,6 +14,20 @@ type Allocation = { amount_scr:number; request_id:string };
 
 const categories = ["Electronics","Fashion","Home & Living","Beauty","Sports","Automotive","Food & Groceries","Other"];
 
+
+function LocalImagePreview({ file, onRemove }: { file: File; onRemove: () => void }) {
+  const [preview, setPreview] = useState("");
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  return <div className="seller-edit-image seller-upload-preview">
+    {preview && <img src={preview} alt={file.name}/>}
+    <button type="button" onClick={onRemove} aria-label={"Remove " + file.name}>×</button>
+  </div>;
+}
+
 export default function SellerDashboard() {
   const router = useRouter();
   const [shop,setShop] = useState<Shop|null>(null);
@@ -230,11 +244,7 @@ export default function SellerDashboard() {
       <div className="seller-dash-grid">
         <section className="seller-dash-panel"><h2>Add a product</h2><p>New listings are checked before they become visible to shoppers.</p>
           <form className="account-form" onSubmit={addProduct}>
-            <label>Product name<input required maxLength={120} value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Mountain bike"/></label>
-            <label>Description<textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Describe the product, condition and details"/></label>
-            <label>Category<select value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></label>
-            <div className="seller-form-row"><label>Price (SCR)<input required type="number" min="0" step="0.01" value={price} onChange={e=>setPrice(e.target.value)} placeholder="0.00"/></label><label>Stock quantity<input required type="number" min="0" step="1" value={stock} onChange={e=>setStock(e.target.value)}/></label></div>
-            <label className="upload-label"><ImagePlus size={18}/> Product images (select multiple; JPG, PNG or WebP, max 5 MB each)
+            <label className="upload-label seller-upload-first"><ImagePlus size={18}/> Product images (JPG, PNG or WebP, max 5 MB each)
               <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>{
                 const selected = Array.from(e.target.files ?? []);
                 const invalid = selected.find(file=>!["image/jpeg","image/png","image/webp"].includes(file.type) || file.size > 5*1024*1024);
@@ -242,9 +252,13 @@ export default function SellerDashboard() {
                 setImages(current=>[...current,...selected].filter((file,index,all)=>all.findIndex(other=>other.name===file.name && other.size===file.size && other.lastModified===file.lastModified)===index));
                 e.target.value="";
               }}/>
-              <small>{images.length ? images.length + " image(s) selected" : "You can select more than one image."}</small>
-              {images.length>0 && <div className="seller-selected-images">{images.map((file,index)=><div className="seller-selected-image" key={file.name+file.lastModified+index}><span>{file.name}</span><button type="button" onClick={()=>setImages(current=>current.filter((_,i)=>i!==index))} aria-label={"Remove "+file.name}>Remove</button></div>)}</div>}
+              <small>{images.length ? images.length + " image(s) selected" : "Select multiple images. Previews will appear here."}</small>
+              {images.length>0 && <div className="seller-edit-image-grid seller-upload-preview-grid">{images.map((file,index)=><LocalImagePreview key={file.name+file.lastModified+index} file={file} onRemove={()=>setImages(current=>current.filter((_,i)=>i!==index))}/>)}</div>}
             </label>
+            <label>Product name<input required maxLength={120} value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Mountain bike"/></label>
+            <label>Description<textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Describe the product, condition and details"/></label>
+            <label>Category<select value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></label>
+            <div className="seller-form-row"><label>Price (SCR)<input required type="number" min="0" step="0.01" value={price} onChange={e=>setPrice(e.target.value)} placeholder="0.00"/></label><label>Stock quantity<input required type="number" min="0" step="1" value={stock} onChange={e=>setStock(e.target.value)}/></label></div>
             <button className="primary account-submit" disabled={busy}>{busy ? "Submitting…" : "Submit for review"}</button>
           </form>
           {message&&<div className="account-message" role="status">{message}</div>}
@@ -269,7 +283,7 @@ export default function SellerDashboard() {
                 e.target.value="";
               }}/>
               <small>{editImages.length?editImages.length+" new picture(s) selected":"Choose one or more new pictures."}</small>
-              {editImages.map((file,index)=><div className="seller-selected-image" key={file.name+file.lastModified+index}><span>{file.name}</span><button type="button" onClick={()=>setEditImages(current=>current.filter((_,i)=>i!==index))}>Remove</button></div>)}
+              {editImages.length>0 && <div className="seller-edit-image-grid seller-upload-preview-grid">{editImages.map((file,index)=><LocalImagePreview key={file.name+file.lastModified+index} file={file} onRemove={()=>setEditImages(current=>current.filter((_,i)=>i!==index))}/>)}</div>}
             </label>
             <button className="primary account-submit" disabled={busy}>{busy?"Saving changes…":"Save product changes"}</button>
           </form>
