@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, ShoppingBag, MapPin, Menu, Heart, ShieldCheck, Truck, ChevronRight, UserRound, Plus, Star } from "lucide-react";
+import { Search, ShoppingBag, MapPin, Menu, Heart, ShieldCheck, Truck, ChevronRight, UserRound, Plus, Star, Bell } from "lucide-react";
 import { useEffect } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
@@ -22,6 +22,7 @@ export default function Home() {
   const [productsLoading, setProductsLoading] = useState(true);
   const [notice, setNotice] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [favourites, setFavourites] = useState<string[]>([]);
   useEffect(() => {
     try { setCart(JSON.parse(localStorage.getItem("island-express-cart") || "[]")); } catch { setCart([]); }
@@ -33,14 +34,18 @@ export default function Home() {
       if (!active) return;
       const id = data.user?.id ?? null;
       setUserId(id);
-      if (!id) { setFavourites([]); return; }
+      if (!id) { setFavourites([]); setUnreadNotifications(0); return; }
+      const { count } = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", id).is("read_at", null);
+      if (active) setUnreadNotifications(count ?? 0);
       const { data: rows } = await supabase.from("wishlists").select("product_id").eq("user_id", id);
       if (active) setFavourites((rows ?? []).map(row => row.product_id));
     });
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const id = session?.user?.id ?? null;
       setUserId(id);
-      if (!id) { setFavourites([]); return; }
+      if (!id) { setFavourites([]); setUnreadNotifications(0); return; }
+      const { count } = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", id).is("read_at", null);
+      setUnreadNotifications(count ?? 0);
       const { data: rows } = await supabase.from("wishlists").select("product_id").eq("user_id", id);
       setFavourites((rows ?? []).map(row => row.product_id));
     });
@@ -87,7 +92,7 @@ export default function Home() {
     <header className="header wrap">
       <a className="brand" href="#"><span className="brandmark"><ShoppingBag size={23}/></span><span>island<span className="brand-orange">express</span><small>SHOP LOCAL. DISCOVER MORE.</small></span></a>
       <form className="search" action="/search" method="get"><Search size={19}/><input name="q" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search products, shops and more..." aria-label="Search products"/><button type="submit">Search</button></form>
-      <div className="head-actions"><a className="iconbtn" aria-label="Account" href="/account"><UserRound/></a><Link className="iconbtn" aria-label="Favourites" href="/wishlist"><Heart/></Link><Link className="cart" href="/cart"><ShoppingBag size={19}/> Cart <b>{cart.length}</b></Link><button className="mobilemenu" aria-label="Menu"><Menu/></button></div>
+      <div className="head-actions"><a className="iconbtn" aria-label="Account" href="/account"><UserRound/></a><Link className="iconbtn notification-bell" aria-label={"Notifications" + (unreadNotifications ? ", " + unreadNotifications + " unread" : "")} href="/notifications"><Bell/>{unreadNotifications > 0 && <span className="notification-badge">{unreadNotifications > 99 ? "99+" : unreadNotifications}</span>}</Link><Link className="iconbtn" aria-label="Favourites" href="/wishlist"><Heart/></Link><Link className="cart" href="/cart"><ShoppingBag size={19}/> Cart <b>{cart.length}</b></Link><button className="mobilemenu" aria-label="Menu"><Menu/></button></div>
     </header>
     <nav className="nav"><div className="wrap navinner"><span className="navlabel"><Menu size={16}/> Categories</span>{categories.slice(1,6).map(c=><button type="button" key={c} className={category===c?"nav-category-active":""} aria-pressed={category===c} onClick={()=>{setCategory(c);document.getElementById("products")?.scrollIntoView({behavior:"smooth",block:"start"});}}>{c}</button>)}<a href="#sell">Sell on Island Express <ChevronRight size={14}/></a></div></nav>
     <section className="hero wrap"><div className="hero-copy"><div className="eyebrow"><span/> THE SEYCHELLES MARKETPLACE</div><h1>Everything you need.<br/><em>Right here on the islands.</em></h1><p>Discover local shops, find great deals and support sellers across Seychelles — all in one place.</p><div className="hero-buttons"><a className="primary" href="#products">Start shopping <ChevronRight size={17}/></a><a className="secondary" href="#sell">Open your shop</a></div><div className="hero-trust"><span><ShieldCheck size={16}/> Safer shopping</span><span><Truck size={16}/> Island-wide sellers</span></div></div><div className="hero-art"><div className="sun"></div><div className="island island-back"></div><div className="island island-front"></div><div className="bag">🛍️</div><div className="float-card card-one">🌴 <b>Made for the islands</b></div><div className="float-card card-two">📦 <b>Shop local</b></div></div></section>
