@@ -22,8 +22,6 @@ export default function AdminSupportPage(){
   setLoading(true);
   const {data:{user}}=await supabase.auth.getUser();
   if(!user){router.replace("/admin/login");return;}
-  const {data:aal}=await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if(aal?.currentLevel!=="aal2"){router.replace("/admin/login");return;}
   const {data:profile}=await supabase.from("profiles").select("is_admin").eq("id",user.id).single();
   if(!profile?.is_admin){setNotice("Administrator access required.");setLoading(false);return;}
   const {data,error}=await supabase.from("support_conversations").select("id,customer_id,subject,category,status,handoff_requested,created_at").order("updated_at",{ascending:false});
