@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../../lib/supabase";
+import { supabase } from "../../../lib/supabase";
 import { ShieldCheck, LockKeyhole } from "lucide-react";
 
 export default function AdminSetPasswordPage() {
