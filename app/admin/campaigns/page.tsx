@@ -11,7 +11,7 @@ type Campaign = {
   image_url: string | null; cta_label: string; cta_url: string; background_style: string;
   starts_at: string; ends_at: string | null; is_active: boolean; sort_order: number;
 };
-type Draft = Omit<Campaign,"id"|"starts_at"|"ends_at"> & { id?: string; starts_at: string; ends_at: string };
+type Draft = { id?: string; eyebrow: string; title: string; subtitle: string; description: string; image_url: string; cta_label: string; cta_url: string; background_style: string; starts_at: string; ends_at: string; is_active: boolean; sort_order: number };
 const blank: Draft = {
   eyebrow:"SPECIAL CAMPAIGN",title:"",subtitle:"",description:"",image_url:"",cta_label:"Explore offers",
   cta_url:"/search",background_style:"island",starts_at:new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16),
