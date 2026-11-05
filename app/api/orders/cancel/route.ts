@@ -39,7 +39,8 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: "This payment has already completed. Refresh your orders." }, { status: 409 });
         }
       } catch (stripeError) {
-        console.error("Stripe session expiry during cancellation:", stripeError);
+        console.error("Stripe session check during cancellation:", stripeError);
+        return NextResponse.json({ error: "We could not verify the payment status with Stripe. Please try again." }, { status: 502 });
       }
     }
 
