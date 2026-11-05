@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { ArrowLeft, ShoppingBag, MapPin, Truck, Store, ChevronLeft, ChevronRight, Package } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 
@@ -14,7 +14,6 @@ type ProductDetails = {
 
 export default function ProductDetailsPage() {
   const params = useParams();
-  const router = useRouter();
   const productId = String(params.id ?? "");
   const [product,setProduct] = useState<ProductDetails|null>(null);
   const [loading,setLoading] = useState(true);
