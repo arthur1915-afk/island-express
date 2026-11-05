@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Search, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Search, ShoppingBag, Star } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 
 type Product = {
@@ -21,6 +21,7 @@ function SearchResults() {
   const term = (params.get("q") || "").trim();
   const [input, setInput] = useState(term);
   const [products, setProducts] = useState<Product[]>([]);
+  const [ratings, setRatings] = useState<Record<string, {average:number;count:number}>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -45,6 +46,8 @@ function SearchResults() {
         if (!active) return;
         if (searchError) setError("We couldn't load search results. Please try again.");
         setProducts((data ?? []) as unknown as Product[]);
+        const ids=(data??[]).map((p:any)=>p.id);
+        if(ids.length){const {data:rows}=await supabase.from("product_reviews").select("product_id,rating").in("product_id",ids).eq("status","approved");const grouped:Record<string,{total:number;count:number}>={};(rows??[]).forEach((r:{product_id:string;rating:number})=>{grouped[r.product_id]??={total:0,count:0};grouped[r.product_id].total+=r.rating;grouped[r.product_id].count++;});setRatings(Object.fromEntries(Object.entries(grouped).map(([id,v])=>[id,{average:v.total/v.count,count:v.count}])));}
         setLoading(false);
       });
     return () => { active = false; };
@@ -89,7 +92,7 @@ function SearchResults() {
                           <small>{product.category}</small>
                           <h2>{product.title}</h2>
                           <p>{product.shops?.name || "Island Express seller"} · {product.shops?.island || "Seychelles"}</p>
-                          <strong>SCR {Number(product.price_scr).toLocaleString()}</strong>
+                          <strong>SCR {Number(product.price_scr).toLocaleString()}</strong><div className="product-card-rating"><span className="rating-stars"><Star size={14} fill={ratings[product.id]?"currentColor":"none"}/></span>{ratings[product.id]?<><b>{ratings[product.id].average.toFixed(1)}</b><span>({ratings[product.id].count} {ratings[product.id].count===1?"review":"reviews"})</span></>:<span>No reviews yet</span>}</div>
                         </div>
                       </Link>
                     ))}
