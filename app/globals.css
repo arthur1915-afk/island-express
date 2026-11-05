@@ -292,3 +292,17 @@
 .product-image-link{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden}
 .product-image-link .market-product-image{width:100%;height:100%;object-fit:cover}
 .product-image-link .product-photo-count{z-index:1}
+
+.forgot-password-link {
+  display: block;
+  margin: 12px 0 0 auto;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: #e87524;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.forgot-password-link:disabled { opacity: 0.6; cursor: wait; }
