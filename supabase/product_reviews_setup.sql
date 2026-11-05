@@ -78,23 +78,21 @@ with check (
 );
 
 drop policy if exists "AAL2 admins can moderate product reviews" on public.product_reviews;
-create policy "AAL2 admins can moderate product reviews"
+drop policy if exists "AAL2 admins can view product reviews" on public.product_reviews;
+drop policy if exists "Admins can moderate product reviews" on public.product_reviews;
+create policy "Admins can moderate product reviews"
 on public.product_reviews for update to authenticated
 using (
   exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin = true)
-  and (auth.jwt()->>'aal') = 'aal2'
 )
 with check (
   exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin = true)
-  and (auth.jwt()->>'aal') = 'aal2'
 );
 
-drop policy if exists "AAL2 admins can view product reviews" on public.product_reviews;
-create policy "AAL2 admins can view product reviews"
+create policy "Admins can view product reviews"
 on public.product_reviews for select to authenticated
 using (
   exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin = true)
-  and (auth.jwt()->>'aal') = 'aal2'
 );
 
 grant select, insert, update on public.product_reviews to authenticated;
