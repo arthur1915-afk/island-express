@@ -10,7 +10,7 @@ type ProductReview = { id:string; rating:number; title:string|null; body:string;
 type ProductDetails = {
   id: string; title: string; description: string | null; category: string;
   price_scr: number; stock_quantity: number; image_urls: string[]; shipping_days_min: number | null; shipping_days_max: number | null;
-  shops: { name: string; island: string | null; description: string | null; logo_url: string | null } | null;
+  shops: { id: string; name: string; island: string | null; description: string | null; logo_url: string | null } | null;
 };
 
 export default function ProductDetailsPage() {
@@ -28,7 +28,7 @@ export default function ProductDetailsPage() {
     let active = true;
     async function load() {
       const { data,error } = await supabase.from("products")
-        .select("id,title,description,category,price_scr,stock_quantity,image_urls,shipping_days_min,shipping_days_max,shops(name,island,description,logo_url)")
+        .select("id,title,description,category,price_scr,stock_quantity,image_urls,shipping_days_min,shipping_days_max,shops(id,name,island,description,logo_url)")
         .eq("id",productId).eq("status","approved").single();
       if (!active) return;
       if (error || !data) setError("This product could not be found or is no longer available.");
@@ -82,7 +82,7 @@ export default function ProductDetailsPage() {
         </section>
       </div>
       <section className="product-reviews-section" id="reviews"><div className="product-reviews-heading"><div><h2>Customer reviews</h2><p>{ratingSummary.count?`${ratingSummary.count} verified-buyer ${ratingSummary.count===1?"review":"reviews"}`:"Be the first to review this product after your purchase."}</p></div>{ratingSummary.count>0&&<strong><Star size={17} fill="currentColor"/>{ratingSummary.average.toFixed(1)} / 5</strong>}</div>{reviews.length===0?<div className="product-reviews-empty">No approved reviews yet.</div>:<div className="product-reviews-list">{reviews.map(review=><article className="product-review" key={review.id}><div className="product-review-top"><div className="review-stars">{Array.from({length:5},(_,i)=><Star key={i} size={15} fill={i<review.rating?"currentColor":"none"}/>)}</div><small>{new Date(review.created_at).toLocaleDateString()}</small></div>{review.title&&<h3>{review.title}</h3>}<p>{review.body}</p><span>Verified buyer</span></article>)}</div>}</section>
-      <section className="product-shop-card"><div className="product-shop-avatar">{product.shops?.logo_url?<img src={product.shops.logo_url} alt=""/>:<Store size={25}/>}</div><div className="product-shop-copy"><small>Sold by</small><h2>{product.shops?.name||"Island Express seller"}</h2><p><MapPin size={14}/>{product.shops?.island||"Seychelles"}</p>{product.shops?.description&&<span>{product.shops.description}</span>}</div></section>
+      <Link href={product.shops?.id ? "/shop/"+product.shops.id : "#"} className="product-shop-card product-shop-card-link" aria-label={"View "+(product.shops?.name||"seller")+" shop"}><div className="product-shop-avatar">{product.shops?.logo_url?<img src={product.shops.logo_url} alt=""/>:<Store size={25}/>}</div><div className="product-shop-copy"><small>Sold by</small><h2>{product.shops?.name||"Island Express seller"}</h2><p><MapPin size={14}/>{product.shops?.island||"Seychelles"}</p>{product.shops?.description&&<span>{product.shops.description}</span>}<strong className="product-shop-visit">Visit shop <span>→</span></strong></div></Link>
     </div>
     {notice&&<div className="toast">{notice}</div>}
   </main>;
