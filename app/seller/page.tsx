@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { ArrowLeft, ImagePlus, Package, Store, ShoppingBag, BarChart3 } from "lucide-react";
+import { ArrowLeft, ImagePlus, Package, Store, ShoppingBag, BarChart3, Ticket } from "lucide-react";
 
 type Shop = { id: string; name: string; island: string | null; holiday_mode: boolean; description: string | null; banner_url: string | null };
 type Product = { id: string; title: string; price_scr: number; stock_quantity: number; status: string; created_at: string; image_urls: string[]; is_archived?: boolean };
@@ -286,7 +286,7 @@ export default function SellerDashboard() {
   return <main className="seller-dashboard">
     <header className="seller-dash-header"><Link href="/account" className="account-back"><ArrowLeft size={16}/> My account</Link><Link href="/" className="account-brand">island<span>express</span></Link></header>
     <div className="seller-dash-wrap">
-      <div className="seller-dash-title"><div><div className="eyebrow">SELLER CENTRE</div><h1>{shop?.name || "Your shop"}</h1><p><Store size={15}/> {shop?.island || "Seychelles"} · Manage your listings</p></div><div className="seller-title-actions"><Link href="/seller/analytics" className="seller-orders-link"><BarChart3 size={16}/> Analytics</Link><Link href="/seller/orders" className="seller-orders-link"><ShoppingBag size={16}/> Customer orders</Link><div className="seller-count"><Package size={19}/><b>{products.length}</b><span>Products</span></div></div></div>
+      <div className="seller-dash-title"><div><div className="eyebrow">SELLER CENTRE</div><h1>{shop?.name || "Your shop"}</h1><p><Store size={15}/> {shop?.island || "Seychelles"} · Manage your listings</p></div><div className="seller-title-actions"><Link href="/seller/analytics" className="seller-orders-link"><BarChart3 size={16}/> Analytics</Link><Link href="/seller/vouchers" className="seller-orders-link"><Ticket size={16}/> Vouchers</Link><Link href="/seller/orders" className="seller-orders-link"><ShoppingBag size={16}/> Customer orders</Link><div className="seller-count"><Package size={19}/><b>{products.length}</b><span>Products</span></div></div></div>
       
       <section className="seller-balance-panel">
         <div className="seller-balance-heading"><div><div className="eyebrow">SELLER WALLET</div><h2>Your balance</h2><p>Card-payment earnings released after customers confirm delivery.</p></div><span className="seller-wallet-icon">SCR</span></div>
