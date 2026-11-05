@@ -53,7 +53,8 @@ export async function POST(request: Request) {
       client_reference_id: order.id,
       metadata: { order_id: order.id, customer_id: user.id },
       success_url: origin + "/checkout/success?session_id={CHECKOUT_SESSION_ID}",
-      cancel_url: origin + "/orders?payment=cancelled",\n      expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
+      cancel_url: origin + "/orders?payment=cancelled",
+      expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
     });
     await db.from("orders").update({ total_scr: total / 100, subtotal_scr: total / 100, payment_method: "stripe", payment_status: "unpaid", status: "pending", stripe_session_id: session.id }).eq("id", order.id).eq("customer_id", user.id).eq("status", "pending");
     return NextResponse.json({ url: session.url });
