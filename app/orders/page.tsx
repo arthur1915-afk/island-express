@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Package, RefreshCw, ShoppingBag, Star } from "lucide-react";
+import { ArrowLeft, Package, RefreshCw, ShoppingBag, Star, CreditCard, XCircle } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 
 type OrderItem = {
@@ -42,7 +42,7 @@ export default function CustomerOrdersPage() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewTitle, setReviewTitle] = useState("");
   const [reviewBody, setReviewBody] = useState("");
-  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewBusy, setReviewBusy] = useState(false);\n  const [actionOrder, setActionOrder] = useState<string | null>(null);
 
   async function loadOrders() {
     setLoading(true);
@@ -61,6 +61,47 @@ export default function CustomerOrdersPage() {
     const { data: reviews } = await supabase.from("product_reviews").select("product_id").eq("customer_id", user.id);
     setReviewed((reviews ?? []).map((r: { product_id: string }) => r.product_id));
     setLoading(false);
+  }
+
+  async function payAgain(orderId: string) {
+    setActionOrder(orderId); setMessage("");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Please sign in again.");
+      const response = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token },
+        body: JSON.stringify({ orderId }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.url) throw new Error(result.error || "Could not restart payment.");
+      window.location.href = result.url;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not restart payment.");
+      setActionOrder(null);
+    }
+  }
+
+  async function cancelUnpaidOrder(orderId: string) {
+    if (!window.confirm("Cancel this unpaid order? You will not be charged.")) return;
+    setActionOrder(orderId); setMessage("");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Please sign in again.");
+      const response = await fetch("/api/orders/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token },
+        body: JSON.stringify({ orderId }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not cancel this order.");
+      await loadOrders();
+      setMessage("Your unpaid order has been cancelled.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not cancel this order.");
+    } finally {
+      setActionOrder(null);
+    }
   }
 
   useEffect(() => { loadOrders(); }, []);
@@ -133,8 +174,14 @@ export default function CustomerOrdersPage() {
             </div>}
             <div className="seller-order-customer">
               <h3>Payment</h3>
-              <b>{label(order.payment_status || "unpaid")}</b>
+              <b>{order.status === "pending" && order.payment_status !== "paid" ? "Awaiting payment" : label(order.payment_status || "unpaid")}</b>
               <span>Paid by {order.payment_method === "stripe" ? "card" : label(order.payment_method)}</span>
+              {order.status === "pending" && order.payment_status !== "paid" && <div className="unpaid-order-actions">
+                <p>Your payment was not completed. You can try again or cancel this order.</p>
+                <button className="primary" disabled={actionOrder === order.id} onClick={() => payAgain(order.id)}><CreditCard size={15}/>{actionOrder === order.id ? "Please wait…" : "Pay again"}</button>
+                <button className="unpaid-cancel-button" disabled={actionOrder === order.id} onClick={() => cancelUnpaidOrder(order.id)}><XCircle size={15}/>Cancel order</button>
+              </div>}
+              {order.status === "cancelled" && <span>This order was cancelled and cannot be paid.</span>}
             </div>
           </article>
         ))}</div>
