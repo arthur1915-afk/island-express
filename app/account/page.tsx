@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
-import { ArrowLeft, Store, UserRound, LogOut, ShoppingBag, Heart, Headset, Camera, MapPin, Pencil, Check, X } from "lucide-react";
+import { ArrowLeft, Store, UserRound, LogOut, ShoppingBag, Heart, Headset, Camera, MapPin, Pencil, Check, X, Bell } from "lucide-react";
 
 type Profile = { id: string; full_name: string | null; role: "customer" | "seller" | "admin"; phone?: string | null; avatar_url?: string | null; bio?: string | null; island?: string | null; is_admin?: boolean };
 type Shop = { id: string; name: string; slug: string; island: string | null; logo_url?: string | null };
@@ -225,6 +225,7 @@ export default function AccountPage() {
         <div className="profile-activity-heading">ACCOUNT ACTIVITY</div>
         <div className="profile-activity-grid">
           <Link href="/orders"><ShoppingBag/><b>My Orders</b><small>Purchases and delivery updates</small></Link>
+          <Link href="/notifications"><Bell/><b>Notifications</b><small>Order confirmations and seller updates</small></Link>
           <Link href="/wishlist"><Heart/><b>My Favourites</b><small>Your saved products</small></Link>
           <Link href="/support"><Headset/><b>Customer Care</b><small>Get help from our support team</small></Link>
         </div>
