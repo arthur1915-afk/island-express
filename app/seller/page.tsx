@@ -8,7 +8,9 @@ import { ArrowLeft, ImagePlus, Package, Store, ShoppingBag, BarChart3 } from "lu
 
 type Shop = { id: string; name: string; island: string | null };
 type Product = { id: string; title: string; price_scr: number; stock_quantity: number; status: string; created_at: string; image_urls: string[]; is_archived?: boolean };
-type Earning = { id: string; amount_scr: number; status: "available" | "withdrawal_pending" | "paid" | "reversed"; order_id: string; released_at: string };\ntype Withdrawal = { id:string; amount_scr:number; status:string };\ntype Allocation = { amount_scr:number; request_id:string };
+type Earning = { id: string; amount_scr: number; status: "available" | "withdrawal_pending" | "paid" | "reversed"; order_id: string; released_at: string };
+type Withdrawal = { id:string; amount_scr:number; status:string };
+type Allocation = { amount_scr:number; request_id:string };
 
 const categories = ["Electronics","Fashion","Home & Living","Beauty","Sports","Automotive","Food & Groceries","Other"];
 
@@ -16,7 +18,9 @@ export default function SellerDashboard() {
   const router = useRouter();
   const [shop,setShop] = useState<Shop|null>(null);
   const [products,setProducts] = useState<Product[]>([]);
-  const [earnings,setEarnings] = useState<Earning[]>([]);\n  const [withdrawals,setWithdrawals] = useState<Withdrawal[]>([]);\n  const [allocations,setAllocations] = useState<Allocation[]>([]);
+  const [earnings,setEarnings] = useState<Earning[]>([]);
+  const [withdrawals,setWithdrawals] = useState<Withdrawal[]>([]);
+  const [allocations,setAllocations] = useState<Allocation[]>([]);
   const [withdrawalBusy,setWithdrawalBusy] = useState(false);
   const [openWithdrawal,setOpenWithdrawal] = useState(false);
   const [loading,setLoading] = useState(true);
@@ -27,7 +31,7 @@ export default function SellerDashboard() {
   const [category,setCategory] = useState(categories[0]);
   const [price,setPrice] = useState("");
   const [stock,setStock] = useState("1");
-  const [image,setImage] = useState<File|null>(null);
+  const [images,setImages] = useState<File[]>([]);
 
   async function refresh() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -39,7 +43,13 @@ export default function SellerDashboard() {
     setShop(shops[0] as Shop);
     const { data: earningRows, error: earningsError } = await supabase.from("seller_earnings").select("id,amount_scr,status,order_id,released_at").eq("seller_id",user.id).order("released_at",{ascending:false});
     if (earningsError) setMessage("Balance could not be loaded: " + earningsError.message);
-    setEarnings((earningRows ?? []) as Earning[]);\n    const { data: withdrawalRows } = await supabase.from("seller_withdrawal_requests").select("id,amount_scr,status").eq("seller_id",user.id);\n    setWithdrawals((withdrawalRows ?? []) as Withdrawal[]);\n    const requestIds = (withdrawalRows ?? []).map((w:any)=>w.id);\n    if (requestIds.length) {\n      const { data: allocationRows } = await supabase.from("seller_withdrawal_allocations").select("amount_scr,request_id").in("request_id",requestIds);\n      setAllocations((allocationRows ?? []) as Allocation[]);\n    } else setAllocations([]);
+    setEarnings((earningRows ?? []) as Earning[]);
+    const { data: withdrawalRows } = await supabase.from("seller_withdrawal_requests").select("id,amount_scr,status").eq("seller_id",user.id);
+    setWithdrawals((withdrawalRows ?? []) as Withdrawal[]);
+    const requestIds = (withdrawalRows ?? []).map((w:any)=>w.id);
+    if (requestIds.length) {\n      const { data: allocationRows } = await supabase.from("seller_withdrawal_allocations").select("amount_scr,request_id").in("request_id",requestIds);
+      setAllocations((allocationRows ?? []) as Allocation[]);
+    } else setAllocations([]);
     const { data: rows, error: productsError } = await supabase.from("products").select("id,title,price_scr,stock_quantity,status,created_at,image_urls,is_archived").eq("shop_id",shops[0].id).order("created_at",{ascending:false});
     if (productsError) setMessage(productsError.message);
     setProducts((rows ?? []) as Product[]);
@@ -49,7 +59,9 @@ export default function SellerDashboard() {
   useEffect(()=>{ refresh(); },[]);
 
   async function requestWithdrawal() {
-    const grossAvailable = earnings.filter(e=>e.status==="available").reduce((s,e)=>s+Number(e.amount_scr),0);\n    const reserved = allocations.reduce((s,a)=>s+Number(a.amount_scr),0);\n    const available = Math.max(0,grossAvailable-reserved);
+    const grossAvailable = earnings.filter(e=>e.status==="available").reduce((s,e)=>s+Number(e.amount_scr),0);
+    const reserved = allocations.reduce((s,a)=>s+Number(a.amount_scr),0);
+    const available = Math.max(0,grossAvailable-reserved);
     if (available <= 0) { setMessage("There is no available balance to withdraw."); return; }
     const raw = window.prompt("How much would you like to withdraw?\nAvailable balance: SCR " + available.toFixed(2), available.toFixed(2));
     if (raw === null) return;
@@ -91,21 +103,32 @@ export default function SellerDashboard() {
     }
     setBusy(true); setMessage("");
     try {
-      let imageUrls: string[] = [];
-      if (image) {
-        const extension = image.name.split(".").pop()?.toLowerCase() || "jpg";
-        const path = shop.id + "/" + crypto.randomUUID() + "." + extension;
-        const { error: uploadError } = await supabase.storage.from("product-images").upload(path,image,{contentType:image.type,upsert:false});
-        if (uploadError) throw uploadError;
-        const { data } = supabase.storage.from("product-images").getPublicUrl(path);
-        imageUrls = [data.publicUrl];
+      const imageUrls: string[] = [];
+      const uploadedPaths: string[] = [];
+      try {
+        for (const image of images) {
+          const extension = image.name.split(".").pop()?.toLowerCase() || "jpg";
+          const path = shop.id + "/" + crypto.randomUUID() + "." + extension;
+          const { error: uploadError } = await supabase.storage.from("product-images").upload(path,image,{
+            contentType:image.type,
+            cacheControl:"3600",
+            upsert:false
+          });
+          if (uploadError) throw new Error("Image upload failed (" + image.name + "): " + uploadError.message + ". Check that the product-images storage setup has been run in Supabase.");
+          uploadedPaths.push(path);
+          const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+          imageUrls.push(data.publicUrl);
+        }
+      } catch (uploadError) {
+        if (uploadedPaths.length) await supabase.storage.from("product-images").remove(uploadedPaths);
+        throw uploadError;
       }
       const { error } = await supabase.from("products").insert({
         shop_id:shop.id,title:title.trim(),description:description.trim(),category,
         price_scr:parsedPrice,stock_quantity:parsedStock,image_urls:imageUrls
       });
       if (error) throw error;
-      setTitle("");setDescription("");setPrice("");setStock("1");setImage(null);
+      setTitle("");setDescription("");setPrice("");setStock("1");setImages([]);
       setMessage("Product submitted! It is pending review and will not appear publicly until approved.");
       await refresh();
     } catch (error) {
@@ -136,7 +159,17 @@ export default function SellerDashboard() {
             <label>Description<textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Describe the product, condition and details"/></label>
             <label>Category<select value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></label>
             <div className="seller-form-row"><label>Price (SCR)<input required type="number" min="0" step="0.01" value={price} onChange={e=>setPrice(e.target.value)} placeholder="0.00"/></label><label>Stock quantity<input required type="number" min="0" step="1" value={stock} onChange={e=>setStock(e.target.value)}/></label></div>
-            <label className="upload-label"><ImagePlus size={18}/> Product image (JPG, PNG or WebP, max 5 MB)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setImage(e.target.files?.[0] ?? null)}/>{image&&<small>{image.name}</small>}</label>
+            <label className="upload-label"><ImagePlus size={18}/> Product images (select multiple; JPG, PNG or WebP, max 5 MB each)
+              <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>{
+                const selected = Array.from(e.target.files ?? []);
+                const invalid = selected.find(file=>!["image/jpeg","image/png","image/webp"].includes(file.type) || file.size > 5*1024*1024);
+                if (invalid) { setMessage(invalid.size > 5*1024*1024 ? invalid.name + " is larger than 5 MB." : invalid.name + " is not a supported image type."); e.target.value=""; return; }
+                setImages(current=>[...current,...selected].filter((file,index,all)=>all.findIndex(other=>other.name===file.name && other.size===file.size && other.lastModified===file.lastModified)===index));
+                e.target.value="";
+              }}/>
+              <small>{images.length ? images.length + " image(s) selected" : "You can select more than one image."}</small>
+              {images.length>0 && <div className="seller-selected-images">{images.map((file,index)=><div className="seller-selected-image" key={file.name+file.lastModified+index}><span>{file.name}</span><button type="button" onClick={()=>setImages(current=>current.filter((_,i)=>i!==index))} aria-label={"Remove "+file.name}>Remove</button></div>)}</div>}
+            </label>
             <button className="primary account-submit" disabled={busy}>{busy ? "Submitting…" : "Submit for review"}</button>
           </form>
           {message&&<div className="account-message" role="status">{message}</div>}
