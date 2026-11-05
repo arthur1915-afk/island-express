@@ -24,8 +24,8 @@ export async function POST(request: Request) {
     if (typeof orderId !== "string") return NextResponse.json({ error: "Invalid order reference." }, { status: 400 });
 
     const db = createClient(supabaseUrl, serviceKey);
-    const { data: order, error: orderError } = await db.from("orders").select("id,customer_id,email,total_scr,payment_status").eq("id", orderId).eq("customer_id", user.id).single();
-    if (orderError || !order || order.payment_status === "paid") return NextResponse.json({ error: "Order not found or already paid." }, { status: 400 });
+    const { data: order, error: orderError } = await db.from("orders").select("id,customer_id,email,total_scr,payment_status,status,stripe_session_id").eq("id", orderId).eq("customer_id", user.id).single();
+    if (orderError || !order || order.payment_status === "paid" || order.status !== "pending") return NextResponse.json({ error: "This order cannot be paid. It may already be paid or cancelled." }, { status: 400 });
 
     const { data: rows, error: rowsError } = await db.from("order_items").select("product_id,quantity,product_title").eq("order_id", orderId);
     if (rowsError || !rows?.length) return NextResponse.json({ error: "This order has no items." }, { status: 400 });
@@ -53,9 +53,9 @@ export async function POST(request: Request) {
       client_reference_id: order.id,
       metadata: { order_id: order.id, customer_id: user.id },
       success_url: origin + "/checkout/success?session_id={CHECKOUT_SESSION_ID}",
-      cancel_url: origin + "/checkout?cancelled=1",
+      cancel_url: origin + "/orders?payment=cancelled",\n      expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
     });
-    await db.from("orders").update({ total_scr: total / 100, subtotal_scr: total / 100, payment_method: "stripe", stripe_session_id: session.id }).eq("id", order.id);
+    await db.from("orders").update({ total_scr: total / 100, subtotal_scr: total / 100, payment_method: "stripe", payment_status: "unpaid", status: "pending", stripe_session_id: session.id }).eq("id", order.id).eq("customer_id", user.id).eq("status", "pending");
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("Stripe checkout error:", error);
