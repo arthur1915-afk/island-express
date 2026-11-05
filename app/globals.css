@@ -306,3 +306,8 @@
   cursor: pointer;
 }
 .forgot-password-link:disabled { opacity: 0.6; cursor: wait; }
+
+/* Working category links in the main navigation */
+.navinner button{padding:8px 0;white-space:nowrap;transition:color .15s ease}
+.navinner button:hover,.navinner button.nav-category-active{color:var(--orange);font-weight:800}
+@media(max-width:600px){.navinner{gap:20px}.navinner button,.navinner button:nth-of-type(n+4){display:inline-flex;align-items:center;flex:none}.navinner{scrollbar-width:none}.navinner::-webkit-scrollbar{display:none}}
