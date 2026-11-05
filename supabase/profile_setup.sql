@@ -22,3 +22,13 @@ drop policy if exists "Public can view profile images" on storage.objects;
 create policy "Public can view profile images"
 on storage.objects for select
 using (bucket_id='profile-images');
+
+-- Allow each signed-in user to update only their own profile row.
+drop policy if exists "Users can update own profile" on public.profiles;
+create policy "Users can update own profile"
+on public.profiles for update to authenticated
+using (auth.uid() = id)
+with check (auth.uid() = id);
+
+grant select on public.profiles to authenticated;
+grant update (full_name, phone, avatar_url, bio, island) on public.profiles to authenticated;
