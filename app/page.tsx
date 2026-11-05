@@ -28,6 +28,7 @@ export default function Home() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [campaignIndex, setCampaignIndex] = useState(0);
   const [campaignPaused, setCampaignPaused] = useState(false);
+  const [campaignProductIndex, setCampaignProductIndex] = useState(0);
   useEffect(() => {
     try { setCart(JSON.parse(localStorage.getItem("island-express-cart") || "[]")); } catch { setCart([]); }
   }, []);
@@ -96,6 +97,12 @@ export default function Home() {
     return () => { active = false; };
   }, []);
   useEffect(() => {
+    if (products.length < 2) return;
+    const timer = window.setInterval(() => setCampaignProductIndex(index => (index + 1) % products.length), 3200);
+    return () => window.clearInterval(timer);
+  }, [products.length]);
+  const campaignBubbleProducts = products.length ? [0, 1, 2].map(offset => products[(campaignProductIndex + offset) % products.length]) : [];
+  useEffect(() => {
     if (campaigns.length < 2 || campaignPaused) return;
     const timer = window.setInterval(() => setCampaignIndex(index => (index + 1) % campaigns.length), 6000);
     return () => window.clearInterval(timer);
@@ -119,7 +126,7 @@ export default function Home() {
       {campaigns.map((campaign,index)=><div key={campaign.id} className={"campaign-slide campaign-style-"+campaign.background_style+(index===campaignIndex?" is-active":"")} aria-hidden={index!==campaignIndex}>
         {campaign.image_url&&<img className="campaign-background-image" src={campaign.image_url} alt=""/>}
         <div className="campaign-slide-copy"><span className="campaign-eyebrow">{campaign.eyebrow}</span><h2>{campaign.title}</h2>{campaign.subtitle&&<h3>{campaign.subtitle}</h3>}{campaign.description&&<p>{campaign.description}</p>}<a href={campaign.cta_url} tabIndex={index===campaignIndex?0:-1} className="campaign-cta">{campaign.cta_label}<ChevronRight size={16}/></a></div>
-        <div className="campaign-slide-art" aria-hidden="true"><span>{campaign.background_style==="ocean"?"🌊":campaign.background_style==="sunset"?"🌅":campaign.background_style==="market"?"🛍️":"🌴"}</span></div>
+        <div className="campaign-slide-art" aria-label="Featured products">{campaignBubbleProducts.length > 0 ? campaignBubbleProducts.map((product, bubbleIndex) => <Link key={product.id} href={"/product/"+product.id} tabIndex={index===campaignIndex?0:-1} className={"campaign-product-bubble bubble-"+bubbleIndex} aria-label={"View "+product.title}><span className="campaign-product-bubble-image">{product.image_urls?.[0] ? <img src={product.image_urls[0]} alt=""/> : "📦"}</span><span className="campaign-product-bubble-info"><b>{product.title}</b><small>SCR {Number(product.price_scr).toLocaleString()}</small></span></Link>) : <span className="campaign-fallback-art">{campaign.background_style==="ocean"?"🌊":campaign.background_style==="sunset"?"🌅":campaign.background_style==="market"?"🛍️":"🌴"}</span>}</div>
       </div>)}
       {campaigns.length>1&&<><button className="campaign-arrow campaign-prev" aria-label="Previous promotion" onClick={()=>setCampaignIndex(i=>(i-1+campaigns.length)%campaigns.length)}><ChevronLeft size={18}/></button><button className="campaign-arrow campaign-next" aria-label="Next promotion" onClick={()=>setCampaignIndex(i=>(i+1)%campaigns.length)}><ChevronRightIcon size={18}/></button><div className="campaign-dots">{campaigns.map((campaign,index)=><button key={campaign.id} aria-label={"Show promotion "+(index+1)} aria-current={index===campaignIndex} className={index===campaignIndex?"active":""} onClick={()=>setCampaignIndex(index)}/>)}</div><span className="campaign-counter">{String(campaignIndex+1).padStart(2,"0")} / {String(campaigns.length).padStart(2,"0")}</span></>}
     </section>}
