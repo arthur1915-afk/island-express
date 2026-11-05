@@ -45,6 +45,8 @@ export default function SellerDashboard() {
   const [category,setCategory] = useState(categories[0]);
   const [price,setPrice] = useState("");
   const [stock,setStock] = useState("1");
+  const [shippingMin,setShippingMin] = useState("2");
+  const [shippingMax,setShippingMax] = useState("5");
   const [images,setImages] = useState<File[]>([]);
 
   const [editingProduct,setEditingProduct] = useState<Product|null>(null);
@@ -53,6 +55,8 @@ export default function SellerDashboard() {
   const [editCategory,setEditCategory] = useState(categories[0]);
   const [editPrice,setEditPrice] = useState("");
   const [editStock,setEditStock] = useState("1");
+  const [editShippingMin,setEditShippingMin] = useState("");
+  const [editShippingMax,setEditShippingMax] = useState("");
   const [keptImageUrls,setKeptImageUrls] = useState<string[]>([]);
   const [editImages,setEditImages] = useState<File[]>([]);
 
@@ -75,7 +79,7 @@ export default function SellerDashboard() {
       const { data: allocationRows } = await supabase.from("seller_withdrawal_allocations").select("amount_scr,request_id").in("request_id",requestIds);
       setAllocations((allocationRows ?? []) as Allocation[]);
     } else setAllocations([]);
-    const { data: rows, error: productsError } = await supabase.from("products").select("id,title,description,category,price_scr,stock_quantity,status,created_at,image_urls,is_archived").eq("shop_id",shops[0].id).order("created_at",{ascending:false});
+    const { data: rows, error: productsError } = await supabase.from("products").select("id,title,description,category,price_scr,stock_quantity,shipping_days_min,shipping_days_max,status,created_at,image_urls,is_archived").eq("shop_id",shops[0].id).order("created_at",{ascending:false});
     if (productsError) setMessage(productsError.message);
     setProducts((rows ?? []) as Product[]);
     setLoading(false);
@@ -127,6 +131,9 @@ export default function SellerDashboard() {
     setEditCategory((product as Product & {category?:string}).category ?? categories[0]);
     setEditPrice(String(product.price_scr));
     setEditStock(String(product.stock_quantity));
+    const shippingProduct=product as Product & {shipping_days_min:number|null;shipping_days_max:number|null};
+    setEditShippingMin(shippingProduct.shipping_days_min==null?"":String(shippingProduct.shipping_days_min));
+    setEditShippingMax(shippingProduct.shipping_days_max==null?"":String(shippingProduct.shipping_days_max));
     setKeptImageUrls([...(product.image_urls ?? [])]);
     setEditImages([]);
     setMessage("");
@@ -144,9 +151,11 @@ export default function SellerDashboard() {
     event.preventDefault();
     if (!shop || !editingProduct) return;
     const parsedPrice=Number(editPrice), parsedStock=Number(editStock);
+    const minDays=editShippingMin.trim()?Number(editShippingMin):null, maxDays=editShippingMax.trim()?Number(editShippingMax):null;
     if (!Number.isFinite(parsedPrice) || parsedPrice<0 || !Number.isInteger(parsedStock) || parsedStock<0) {
       setMessage("Enter a valid price and whole-number stock quantity."); return;
     }
+    if ((minDays===null)!==(maxDays===null) || (minDays!==null && (!Number.isInteger(minDays)||!Number.isInteger(maxDays)||minDays<1||maxDays<minDays||maxDays>90))) { setMessage("Enter both shipping estimates in days (1–90), with the maximum equal to or greater than the minimum."); return; }
     setBusy(true); setMessage("");
     const uploadedPaths:string[]=[];
     try {
@@ -163,7 +172,7 @@ export default function SellerDashboard() {
       }
       const {error:updateError}=await supabase.from("products").update({
         title:editTitle.trim(),description:editDescription.trim(),category:editCategory,
-        price_scr:parsedPrice,stock_quantity:parsedStock,image_urls:nextImageUrls,status:"pending_review"
+        price_scr:parsedPrice,stock_quantity:parsedStock,shipping_days_min:minDays,shipping_days_max:maxDays,image_urls:nextImageUrls,status:"pending_review"
       }).eq("id",editingProduct.id).eq("shop_id",shop.id);
       if (updateError) throw updateError;
       const removedPaths=(editingProduct.image_urls ?? [])
@@ -187,9 +196,11 @@ export default function SellerDashboard() {
     event.preventDefault();
     if (!shop) return;
     const parsedPrice = Number(price), parsedStock = Number(stock);
+    const minDays=shippingMin.trim()?Number(shippingMin):null, maxDays=shippingMax.trim()?Number(shippingMax):null;
     if (!Number.isFinite(parsedPrice) || parsedPrice < 0 || !Number.isInteger(parsedStock) || parsedStock < 0) {
       setMessage("Enter a valid price and whole-number stock quantity."); return;
     }
+    if ((minDays===null)!==(maxDays===null) || (minDays!==null && (!Number.isInteger(minDays)||!Number.isInteger(maxDays)||minDays<1||maxDays<minDays||maxDays>90))) { setMessage("Enter both shipping estimates in days (1–90), with the maximum equal to or greater than the minimum."); return; }
     setBusy(true); setMessage("");
     try {
       const imageUrls: string[] = [];
@@ -214,10 +225,10 @@ export default function SellerDashboard() {
       }
       const { error } = await supabase.from("products").insert({
         shop_id:shop.id,title:title.trim(),description:description.trim(),category,
-        price_scr:parsedPrice,stock_quantity:parsedStock,image_urls:imageUrls
+        price_scr:parsedPrice,stock_quantity:parsedStock,shipping_days_min:minDays,shipping_days_max:maxDays,image_urls:imageUrls
       });
       if (error) throw error;
-      setTitle("");setDescription("");setPrice("");setStock("1");setImages([]);
+      setTitle("");setDescription("");setPrice("");setStock("1");setShippingMin("2");setShippingMax("5");setImages([]);
       setMessage("Product submitted! It is pending review and will not appear publicly until approved.");
       await refresh();
     } catch (error) {
@@ -259,6 +270,7 @@ export default function SellerDashboard() {
             <label>Description<textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Describe the product, condition and details"/></label>
             <label>Category<select value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></label>
             <div className="seller-form-row"><label>Price (SCR)<input required type="number" min="0" step="0.01" value={price} onChange={e=>setPrice(e.target.value)} placeholder="0.00"/></label><label>Stock quantity<input required type="number" min="0" step="1" value={stock} onChange={e=>setStock(e.target.value)}/></label></div>
+            <div className="seller-shipping-estimate"><b>Estimated shipping time</b><small>Set how many days delivery usually takes. Leave both blank if you need to confirm it after an order.</small><div className="seller-form-row"><label>Minimum days<input type="number" min="1" max="90" value={shippingMin} onChange={e=>setShippingMin(e.target.value)} placeholder="e.g. 2"/></label><label>Maximum days<input type="number" min="1" max="90" value={shippingMax} onChange={e=>setShippingMax(e.target.value)} placeholder="e.g. 5"/></label></div></div>
             <button className="primary account-submit" disabled={busy}>{busy ? "Submitting…" : "Submit for review"}</button>
           </form>
           {message&&<div className="account-message" role="status">{message}</div>}
@@ -271,6 +283,7 @@ export default function SellerDashboard() {
             <label>Description<textarea value={editDescription} onChange={e=>setEditDescription(e.target.value)}/></label>
             <label>Category<select value={editCategory} onChange={e=>setEditCategory(e.target.value)}>{categories.map(item=><option key={item}>{item}</option>)}</select></label>
             <div className="seller-form-row"><label>Price (SCR)<input required type="number" min="0" step="0.01" value={editPrice} onChange={e=>setEditPrice(e.target.value)}/></label><label>Stock quantity<input required type="number" min="0" step="1" value={editStock} onChange={e=>setEditStock(e.target.value)}/></label></div>
+            <div className="seller-shipping-estimate"><b>Estimated shipping time</b><small>Set a delivery range in days (1–90), or leave both blank to confirm later.</small><div className="seller-form-row"><label>Minimum days<input type="number" min="1" max="90" value={editShippingMin} onChange={e=>setEditShippingMin(e.target.value)} placeholder="e.g. 2"/></label><label>Maximum days<input type="number" min="1" max="90" value={editShippingMax} onChange={e=>setEditShippingMax(e.target.value)} placeholder="e.g. 5"/></label></div></div>
             <div className="seller-edit-images"><b>Current pictures</b>
               {keptImageUrls.length===0?<small>No pictures currently attached.</small>:<div className="seller-edit-image-grid">{keptImageUrls.map((url,index)=><div className="seller-edit-image" key={url}><img src={url} alt={"Product image "+(index+1)}/><button type="button" onClick={()=>setKeptImageUrls(current=>current.filter(item=>item!==url))}>Remove</button></div>)}</div>}
             </div>
