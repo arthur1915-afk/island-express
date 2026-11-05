@@ -7,7 +7,7 @@ import { supabase } from "../../../lib/supabase";
 import { ArrowLeft, Package, RefreshCw, ShoppingBag } from "lucide-react";
 
 type OrderItem = { id: string; product_title: string; unit_price_scr: number; quantity: number; shop_name: string | null };
-type Fulfilment = { id: string; shop_id: string; status: string; tracking_number: string | null; courier: string | null; estimated_delivery: string | null; shipping_note: string | null; updated_at: string };
+type Fulfilment = { id: string; shop_id: string; status: string; tracking_number: string | null; courier: string | null; estimated_delivery: string | null; shipping_note: string | null; seller_note: string | null; updated_at: string };
 type Order = {
   id: string; customer_name: string; phone: string; email: string | null; island: string;
   delivery_address: string; delivery_notes: string | null; subtotal_scr: number;
@@ -33,7 +33,7 @@ export default function SellerOrdersPage() {
     const currentShopId = shops?.[0]?.id ?? "";
     setShopId(currentShopId);
     const { data, error } = await supabase.from("orders")
-      .select("id,customer_name,phone,email,island,delivery_address,delivery_notes,subtotal_scr,delivery_fee_scr,total_scr,payment_method,status,created_at,order_items(id,product_title,unit_price_scr,quantity,shop_name),seller_order_fulfillments(id,shop_id,status,tracking_number,courier,estimated_delivery,shipping_note,updated_at)")
+      .select("id,customer_name,phone,email,island,delivery_address,delivery_notes,subtotal_scr,delivery_fee_scr,total_scr,payment_method,status,created_at,order_items(id,product_title,unit_price_scr,quantity,shop_name),seller_order_fulfillments(id,shop_id,status,tracking_number,courier,estimated_delivery,shipping_note,seller_note,updated_at)")
       .order("created_at", { ascending: false });
     if (error) setMessage(error.message);
     setOrders((data ?? []) as unknown as Order[]);
@@ -68,7 +68,17 @@ export default function SellerOrdersPage() {
   }
 
   async function fulfil(orderId: string, status: string) {
-    if (status === "cancellation_requested" && !window.confirm("Request cancellation? Admin review will be required.")) return;
+    let cancellationReason: string | null = null;
+    if (status === "cancellation_requested") {
+      cancellationReason = window.prompt("Please explain why you need to cancel this order. This reason will be shared with the customer and admin:");
+      if (cancellationReason === null) return;
+      cancellationReason = cancellationReason.trim();
+      if (cancellationReason.length < 10) {
+        setMessage("Please provide a cancellation reason of at least 10 characters.");
+        return;
+      }
+      if (!window.confirm("Submit this cancellation request with your reason? Admin review will be required.")) return;
+    }
     let tracking: string | null = null;
     let courier: string | null = null;
     if (status === "shipped") {
@@ -78,7 +88,7 @@ export default function SellerOrdersPage() {
     }
     setActionBusy(orderId); setMessage("");
     const { error } = await supabase.rpc("seller_set_fulfilment", {
-      target_order_id: orderId, next_status: status, tracking, courier_name: courier, note: null
+      target_order_id: orderId, next_status: status, tracking, courier_name: courier, note: cancellationReason
     });
     if (error) setMessage(error.message);
     else setMessage(status === "cancellation_requested" ? "Cancellation request sent to admin." : "Order marked as shipped.");
@@ -127,7 +137,7 @@ export default function SellerOrdersPage() {
               {(!fulfilment || sellerStatus === "processing") && <button disabled={actionBusy===order.id} onClick={()=>fulfil(order.id,"shipped")}>Mark as shipped</button>}
               {(!fulfilment || sellerStatus === "new" || sellerStatus === "processing") && <button className="seller-cancel-action" disabled={actionBusy===order.id} onClick={()=>fulfil(order.id,"cancellation_requested")}>Request cancellation</button>}
               {sellerStatus === "shipped" && <button disabled={actionBusy===order.id} onClick={()=>markDelivered(order.id)}>Mark as delivered</button>}{sellerStatus === "delivered" && <span className="seller-order-payment">Awaiting customer confirmation — funds not yet released</span>}{sellerStatus === "completed" && <span className="seller-order-payment">Customer confirmed receipt</span>}
-              {sellerStatus === "cancellation_requested" && <span className="seller-order-payment">Cancellation awaiting admin review</span>}
+              {sellerStatus === "cancellation_requested" && <div className="seller-order-payment"><b>Cancellation awaiting admin review</b>{fulfilment?.seller_note && <span>Reason submitted: {fulfilment.seller_note}</span>}</div>}
             </div>
           </article>;
         })}</div>}
