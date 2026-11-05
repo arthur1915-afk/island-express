@@ -27,6 +27,7 @@ export default function AccountPage() {
   const [bioDraft, setBioDraft] = useState("");
   const [islandDraft, setIslandDraft] = useState("Mahé");
   const [accountEmail, setAccountEmail] = useState("");
+  const [resetSending, setResetSending] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function loadAccount(id: string) {
@@ -69,6 +70,22 @@ export default function AccountPage() {
       }
     } catch (error) { setMessage(error instanceof Error ? error.message : "Something went wrong. Please try again."); }
     finally { setBusy(false); }
+  }
+
+  async function sendPasswordReset() {
+    const address = email.trim();
+    if (!address) {
+      setMessage("Enter your account email address first.");
+      return;
+    }
+    setResetSending(true);
+    setMessage("");
+    const { error } = await supabase.auth.resetPasswordForEmail(address, {
+      redirectTo: window.location.origin + "/account/reset-password",
+    });
+    if (error) setMessage(error.message);
+    else setMessage("If an account exists for that email, a password reset link has been sent. Please check your inbox and spam folder.");
+    setResetSending(false);
   }
 
   async function saveProfile() {
@@ -151,6 +168,7 @@ export default function AccountPage() {
           <label>Password<input type="password" required minLength={6} value={password} onChange={e=>setPassword(e.target.value)} placeholder="At least 6 characters"/></label>
           <button className="primary account-submit" disabled={busy}>{busy ? "Please wait…" : mode === "signup" ? "Create account" : "Log in"}</button>
         </form>
+        {mode === "login" && <button type="button" className="forgot-password-link" onClick={sendPasswordReset} disabled={resetSending}>{resetSending ? "Sending reset link…" : "Forgot password?"}</button>}
       </> : <>
         <div className="profile-page-heading"><div><div className="eyebrow">MY ISLAND EXPRESS</div><h1>My profile</h1><p>Manage your personal information and account activity.</p></div><span className="account-role">{profile?.role || "customer"}</span></div>
         <div className="profile-hero">
