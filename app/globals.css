@@ -427,7 +427,18 @@
 .campaign-slide-copy h3{font:700 17px Manrope;color:#ffe0b5;margin:0 0 7px}
 .campaign-slide-copy p{max-width:500px;color:#ffffffd9;font-size:12px;line-height:1.7;margin:7px 0 14px}
 .campaign-cta{height:37px;display:inline-flex;align-items:center;gap:9px;padding:0 14px;border-radius:7px;background:#fff;color:#244638;font-size:11px;font-weight:800}
-.campaign-slide-art{position:absolute;right:11%;top:50%;transform:translateY(-50%);font-size:100px;opacity:.24;filter:drop-shadow(0 10px 15px #0002);pointer-events:none}
+.campaign-slide-art{position:absolute;right:6%;top:50%;transform:translateY(-50%);width:min(43%,440px);height:190px;pointer-events:none}
+.campaign-fallback-art{position:absolute;right:12%;top:50%;transform:translateY(-50%);font-size:100px;opacity:.24;filter:drop-shadow(0 10px 15px #0002)}
+.campaign-product-bubble{position:absolute;display:flex;align-items:center;gap:8px;max-width:190px;padding:7px 10px 7px 7px;border:1px solid #ffffff80;border-radius:999px;background:#ffffffed;color:#253b31;box-shadow:0 12px 30px #102b2538;pointer-events:auto;text-decoration:none;backdrop-filter:blur(8px);animation:campaignBubbleFloat 4s ease-in-out infinite}
+.campaign-product-bubble.bubble-0{right:13%;top:12%;z-index:2}
+.campaign-product-bubble.bubble-1{right:0;top:42%;z-index:3;animation-delay:-1.3s}
+.campaign-product-bubble.bubble-2{right:19%;bottom:2%;z-index:1;animation-delay:-2.4s}
+.campaign-product-bubble-image{width:54px;height:54px;flex:0 0 54px;border-radius:50%;overflow:hidden;background:#edf2ed;display:grid;place-items:center;font-size:22px}
+.campaign-product-bubble-image img{width:100%;height:100%;object-fit:cover}
+.campaign-product-bubble-info{display:grid;gap:3px;min-width:0}
+.campaign-product-bubble-info b{font-size:10px;line-height:1.25;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.campaign-product-bubble-info small{font-size:9px;font-weight:800;color:#e36e39}
+@keyframes campaignBubbleFloat{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-8px) rotate(2deg)}}
 .campaign-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:34px;height:34px;border:1px solid #ffffff55;border-radius:50%;background:#ffffff20;color:#fff;display:grid;place-items:center;backdrop-filter:blur(6px)}
 .campaign-prev{left:14px}.campaign-next{right:14px}
 .campaign-dots{position:absolute;z-index:3;bottom:15px;left:50%;transform:translateX(-50%);display:flex;gap:6px}
