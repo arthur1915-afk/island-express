@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { ArrowLeft, ImagePlus, Package, Store, ShoppingBag, BarChart3 } from "lucide-react";
 
-type Shop = { id: string; name: string; island: string | null };
+type Shop = { id: string; name: string; island: string | null; holiday_mode: boolean };
 type Product = { id: string; title: string; price_scr: number; stock_quantity: number; status: string; created_at: string; image_urls: string[]; is_archived?: boolean };
 type Earning = { id: string; amount_scr: number; status: "available" | "withdrawal_pending" | "paid" | "reversed"; order_id: string; released_at: string };
 type Withdrawal = { id:string; amount_scr:number; status:string };
@@ -66,7 +66,7 @@ export default function SellerDashboard() {
     if (!user) { router.replace("/account"); return; }
     const { data: profile } = await supabase.from("profiles").select("role").eq("id",user.id).single();
     if (profile?.role !== "seller") { router.replace("/account"); return; }
-    const { data: shops, error } = await supabase.from("shops").select("id,name,island").eq("owner_id",user.id).limit(1);
+    const { data: shops, error } = await supabase.from("shops").select("id,name,island,holiday_mode").eq("owner_id",user.id).limit(1);
     if (error || !shops?.length) { setMessage("We couldn't find your shop. Please create it from your account page."); setLoading(false); return; }
     setShop(shops[0] as Shop);
     const { data: earningRows, error: earningsError } = await supabase.from("seller_earnings").select("id,amount_scr,status,order_id,released_at").eq("seller_id",user.id).order("released_at",{ascending:false});
@@ -86,6 +86,30 @@ export default function SellerDashboard() {
   }
 
   useEffect(()=>{ refresh(); },[]);
+
+  async function toggleHolidayMode() {
+    if (!shop) return;
+    const nextMode = !shop.holiday_mode;
+    const confirmed = window.confirm(nextMode
+      ? "Turn on Holiday Mode? Your approved products will be hidden from shoppers until you turn it off."
+      : "Turn off Holiday Mode? Your approved products will become visible to shoppers again.");
+    if (!confirmed) return;
+    setBusy(true);
+    setMessage("");
+    const { data, error } = await supabase.from("shops")
+      .update({ holiday_mode: nextMode })
+      .eq("id", shop.id)
+      .select("id,name,island,holiday_mode")
+      .single();
+    if (error) setMessage("Could not update Holiday Mode. Please run the seller holiday mode SQL in Supabase. " + error.message);
+    else {
+      setShop(data as Shop);
+      setMessage(nextMode
+        ? "Holiday Mode is on. Your approved products are now hidden from shoppers."
+        : "Holiday Mode is off. Your approved products are visible again.");
+    }
+    setBusy(false);
+  }
 
   async function requestWithdrawal() {
     const grossAvailable = earnings.filter(e=>e.status==="available").reduce((s,e)=>s+Number(e.amount_scr),0);
@@ -251,6 +275,16 @@ export default function SellerDashboard() {
           <div><small>Total paid out</small><strong>SCR {(earnings.filter(e=>e.status==="paid").reduce((s,e)=>s+Number(e.amount_scr),0)+withdrawals.filter(w=>w.status==="paid").reduce((s,w)=>s+Number(w.amount_scr),0)).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong><span>Marked as paid by admin</span></div>
         </div>
         <div className="seller-balance-footer"><div className="seller-balance-note">All orders are paid in the app. Earnings become available after the customer confirms receipt. A withdrawal request reserves your full available balance until the admin processes it.</div><button type="button" className="seller-withdraw-button" onClick={requestWithdrawal} disabled={withdrawalBusy || earnings.every(e=>e.status!=="available") || Math.max(0,earnings.filter(e=>e.status==="available").reduce((s,e)=>s+Number(e.amount_scr),0)-allocations.reduce((s,a)=>s+Number(a.amount_scr),0))<=0}>{withdrawalBusy ? "Submitting request…" : "Request withdrawal"}</button></div>
+      </section>
+      <section className={"seller-holiday-panel " + (shop?.holiday_mode ? "is-on" : "")}>
+        <div className="seller-holiday-copy">
+          <span className="seller-holiday-icon">🌴</span>
+          <div><h2>Holiday Mode</h2><p>{shop?.holiday_mode ? "Your shop is taking a break. Approved products are hidden from the marketplace and cannot be added to new carts." : "Taking a break? Hide all your approved products from shoppers until you are ready to sell again."}</p></div>
+        </div>
+        <button type="button" className="seller-holiday-toggle" onClick={toggleHolidayMode} disabled={busy}>
+          {busy ? "Updating…" : shop?.holiday_mode ? "Turn off Holiday Mode" : "Turn on Holiday Mode"}
+        </button>
+        <span className={"seller-holiday-status " + (shop?.holiday_mode ? "active" : "")}>{shop?.holiday_mode ? "HOLIDAY MODE ON" : "SHOP ACTIVE"}</span>
       </section>
       <div className="seller-dash-grid">
         <section className="seller-dash-panel"><h2>Add a product</h2><p>New listings are checked before they become visible to shoppers.</p>
