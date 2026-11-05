@@ -317,66 +317,13 @@ export default function SellerDashboard() {
         </button>
         <span className={"seller-holiday-status " + (shop?.holiday_mode ? "active" : "")}>{shop?.holiday_mode ? "HOLIDAY MODE ON" : "SHOP ACTIVE"}</span>
       </section>
-      <div className="seller-dash-grid">
-        <section className="seller-dash-panel"><h2>Add a product</h2><p>New listings are checked before they become visible to shoppers.</p>
-          <form className="account-form" onSubmit={addProduct}>
-            <label className="upload-label seller-upload-first"><ImagePlus size={18}/> Product images (JPG, PNG or WebP, max 5 MB each)
-              <input className="seller-upload-input" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>{
-                const selected = Array.from(e.target.files ?? []);
-                const invalid = selected.find(file=>!["image/jpeg","image/png","image/webp"].includes(file.type) || file.size > 5*1024*1024);
-                if (invalid) { setMessage(invalid.size > 5*1024*1024 ? invalid.name + " is larger than 5 MB." : invalid.name + " is not a supported image type."); e.target.value=""; return; }
-                setImages(current=>[...current,...selected].filter((file,index,all)=>all.findIndex(other=>other.name===file.name && other.size===file.size && other.lastModified===file.lastModified)===index));
-                e.target.value="";
-              }}/>
-              <small>{images.length ? images.length + " image(s) selected" : "Select multiple images. Previews will appear here."}</small>
-              {images.length>0 && <div className="seller-edit-image-grid seller-upload-preview-grid">{images.map((file,index)=><LocalImagePreview key={file.name+file.lastModified+index} file={file} onRemove={()=>setImages(current=>current.filter((_,i)=>i!==index))}/>)}</div>}
-            </label>
-            <label>Product name<input required maxLength={120} value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Mountain bike"/></label>
-            <label>Description<textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Describe the product, condition and details"/></label>
-            <label>Category<select value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></label>
-            <div className="seller-form-row"><label>Price (SCR)<input required type="number" min="0" step="0.01" value={price} onChange={e=>setPrice(e.target.value)} placeholder="0.00"/></label><label>Stock quantity<input required type="number" min="0" step="1" value={stock} onChange={e=>setStock(e.target.value)}/></label></div>
-            <div className="seller-shipping-estimate"><b>Estimated shipping time</b><small>Set how many days delivery usually takes. Leave both blank if you need to confirm it after an order.</small><div className="seller-form-row"><label>Minimum days<input type="number" min="1" max="90" value={shippingMin} onChange={e=>setShippingMin(e.target.value)} placeholder="e.g. 2"/></label><label>Maximum days<input type="number" min="1" max="90" value={shippingMax} onChange={e=>setShippingMax(e.target.value)} placeholder="e.g. 5"/></label></div></div>
-            <button className="primary account-submit" disabled={busy}>{busy ? "Submitting…" : "Submit for review"}</button>
-          </form>
-          {message&&<div className="account-message" role="status">{message}</div>}
-        </section>
-
-        {editingProduct && <section className="seller-dash-panel seller-edit-panel">
-          <div className="seller-edit-heading"><div><h2>Edit product</h2><p>Changes to a live listing go back to admin review.</p></div><button type="button" onClick={()=>setEditingProduct(null)}>Cancel</button></div>
-          <form className="account-form" onSubmit={saveProductEdits}>
-            <label>Product name<input required maxLength={120} value={editTitle} onChange={e=>setEditTitle(e.target.value)}/></label>
-            <label>Description<textarea value={editDescription} onChange={e=>setEditDescription(e.target.value)}/></label>
-            <label>Category<select value={editCategory} onChange={e=>setEditCategory(e.target.value)}>{categories.map(item=><option key={item}>{item}</option>)}</select></label>
-            <div className="seller-form-row"><label>Price (SCR)<input required type="number" min="0" step="0.01" value={editPrice} onChange={e=>setEditPrice(e.target.value)}/></label><label>Stock quantity<input required type="number" min="0" step="1" value={editStock} onChange={e=>setEditStock(e.target.value)}/></label></div>
-            <div className="seller-shipping-estimate"><b>Estimated shipping time</b><small>Set a delivery range in days (1–90), or leave both blank to confirm later.</small><div className="seller-form-row"><label>Minimum days<input type="number" min="1" max="90" value={editShippingMin} onChange={e=>setEditShippingMin(e.target.value)} placeholder="e.g. 2"/></label><label>Maximum days<input type="number" min="1" max="90" value={editShippingMax} onChange={e=>setEditShippingMax(e.target.value)} placeholder="e.g. 5"/></label></div></div>
-            <div className="seller-edit-images"><b>Current pictures</b>
-              {keptImageUrls.length===0?<small>No pictures currently attached.</small>:<div className="seller-edit-image-grid">{keptImageUrls.map((url,index)=><div className="seller-edit-image" key={url}><img src={url} alt={"Product image "+(index+1)}/><button type="button" onClick={()=>setKeptImageUrls(current=>current.filter(item=>item!==url))}>Remove</button></div>)}</div>}
-            </div>
-            <label className="upload-label"><span className="seller-upload-title"><ImagePlus size={18}/> Add more pictures</span><small>JPG, PNG or WebP, max 5 MB each.</small>
-              <input className="seller-upload-input" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>{
-                const selected=Array.from(e.target.files ?? []);
-                const invalid=selected.find(file=>!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>5*1024*1024);
-                if(invalid){setMessage(invalid.size>5*1024*1024?invalid.name+" is larger than 5 MB.":invalid.name+" is not a supported image type.");e.target.value="";return;}
-                setEditImages(current=>[...current,...selected].filter((file,index,all)=>all.findIndex(other=>other.name===file.name&&other.size===file.size&&other.lastModified===file.lastModified)===index));
-                e.target.value="";
-              }}/>
-              <small>{editImages.length?editImages.length+" new picture(s) selected":"Choose one or more new pictures."}</small>
-              {editImages.length>0 && <div className="seller-edit-image-grid seller-upload-preview-grid">{editImages.map((file,index)=><LocalImagePreview key={file.name+file.lastModified+index} file={file} onRemove={()=>setEditImages(current=>current.filter((_,i)=>i!==index))}/>)}</div>}
-            </label>
-            <button className="primary account-submit" disabled={busy}>{busy?"Saving changes…":"Save product changes"}</button>
-          </form>
-        </section>}
-
-      <section className="seller-dash-panel seller-inventory-panel">
-        <div className="seller-section-heading"><div><h2>Inventory alerts</h2><p>Keep an eye on products that may need restocking.</p></div><span className="seller-alert-count">{products.filter(p=>!p.is_archived && p.status==="approved" && p.stock_quantity<=3).length} low stock</span></div>
-        {products.filter(p=>!p.is_archived && p.status==="approved" && p.stock_quantity<=3).length===0
-          ? <div className="seller-inventory-clear">✓ All approved products have more than 3 units in stock.</div>
-          : <div className="seller-inventory-list">{products.filter(p=>!p.is_archived && p.status==="approved" && p.stock_quantity<=3).map(product=><div className="seller-inventory-row" key={product.id}><div><b>{product.title}</b><small>{product.stock_quantity===0?"Out of stock":"Only "+product.stock_quantity+" left"}</small></div><button type="button" disabled={busy} onClick={()=>adjustStock(product,1)}>Add stock</button></div>)}</div>}
-        <small className="seller-inventory-hint">The low-stock alert threshold is 3 units. Out-of-stock listings remain visible with their availability status.</small>
+      <section className="seller-dash-panel seller-tools-overview">
+        <div className="seller-section-heading"><div><h2>Manage your catalogue</h2><p>Add new listings or manage the products already in your shop.</p></div></div>
+        <div className="seller-tools-grid">
+          <Link href="/seller/add-product" className="seller-tool-card"><span><ImagePlus size={23}/></span><div><b>Add a product</b><small>Create a new listing with photos, price, stock and delivery estimates.</small></div><strong>Open <span>→</span></strong></Link>
+          <Link href="/seller/products" className="seller-tool-card"><span><Package size={23}/></span><div><b>Your products</b><small>View listings, check approval status, update stock and edit products.</small></div><strong>{products.length} listings <span>→</span></strong></Link>
+        </div>
       </section>
-        <section className="seller-dash-panel"><h2>Your products</h2><p>Track the review status of your listings.</p>
-          {products.length===0?<div className="seller-empty"><Package size={32}/><b>No products yet</b><span>Your submitted products will appear here.</span></div>:<div className="seller-products">{products.map(p=><article className="seller-product-row" key={p.id}><div className="seller-product-thumb">{p.image_urls?.[0]?<img src={p.image_urls[0]} alt=""/>:<Package size={22}/>}</div><div className="seller-product-detail"><b>{p.title}</b><span>SCR {Number(p.price_scr).toLocaleString()} · Stock {p.stock_quantity}</span><small className={"status-"+p.status}>{p.is_archived ? "archived" : p.status.replace("_"," ")}</small><div className="seller-product-controls">{!p.is_archived && <><button type="button" disabled={busy} onClick={()=>startEditing(p)}>Edit product</button><button type="button" disabled={busy} onClick={()=>adjustStock(p,1)}>+ Add stock</button><button type="button" disabled={busy} onClick={()=>adjustStock(p,-1)}>− Remove stock</button><button type="button" className="seller-archive-button" disabled={busy} onClick={()=>archiveProduct(p)}>Delete listing</button></>}</div></div></article>)}</div>}
-        </section>
       </div>
     </div>
   </main>;
