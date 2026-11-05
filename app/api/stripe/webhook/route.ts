@@ -30,12 +30,12 @@ export async function POST(request: Request) {
         payment_status: "paid",
         stripe_payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
         status: "confirmed"
-      }).eq("id", session.metadata.order_id).eq("stripe_session_id", session.id);
+      }).eq("id", session.metadata.order_id).eq("stripe_session_id", session.id).eq("status", "pending").eq("payment_status", "unpaid");
     }
   } else if (event.type === "checkout.session.expired") {
     const session = event.data.object as Stripe.Checkout.Session;
     if (session.metadata?.order_id) {
-      await db.from("orders").update({ payment_status: "failed" }).eq("id", session.metadata.order_id).eq("stripe_session_id", session.id).neq("payment_status", "paid");
+      await db.from("orders").update({ payment_status: "failed" }).eq("id", session.metadata.order_id).eq("stripe_session_id", session.id).eq("status", "pending").neq("payment_status", "paid");
     }
   }
   return NextResponse.json({ received: true });
