@@ -204,3 +204,20 @@
 .seller-withdraw-button{flex:none;border:0;border-radius:8px;background:var(--orange);color:#fff;padding:12px 17px;font-size:11px;font-weight:800;box-shadow:0 6px 16px #f26a3528}
 .seller-withdraw-button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
 @media(max-width:650px){.seller-balance-footer{align-items:stretch;flex-direction:column}.seller-withdraw-button{width:100%;min-height:42px}}
+
+/* Seller product image picker */
+.seller-upload-first{display:grid;gap:10px;cursor:pointer}
+.seller-upload-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:#34443a}
+.seller-upload-input{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;overflow:hidden!important;pointer-events:none!important}
+.seller-upload-preview-grid{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-top:4px}
+.seller-upload-preview-wrap{position:relative;width:88px;height:88px;flex:none}
+.seller-upload-thumb{position:relative;width:88px;height:88px;overflow:hidden;border:1px solid #e1e6e2;border-radius:11px;background:#f4f6f4}
+.seller-upload-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.seller-upload-thumb button{position:absolute;top:5px;right:5px;width:22px;height:22px;border:0;border-radius:50%;background:#202820d9;color:#fff;font-size:17px;line-height:20px;padding:0;display:grid;place-items:center}
+.seller-main-image-tag{position:absolute;left:0;right:0;bottom:0;padding:4px 3px;background:#17251dcc;color:#fff;text-align:center;font-size:9px;font-weight:700}
+.seller-upload-add-tile{width:88px;height:88px;flex:none;border:1.5px dashed #cbd6ce;border-radius:11px;background:#fff;color:#7d8c82;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.seller-upload-add-tile small{font-size:10px;color:#7d8c82}
+.seller-edit-image-grid{display:flex;flex-wrap:wrap;gap:10px}
+.seller-edit-image{position:relative;width:88px;height:88px;border-radius:10px;overflow:hidden;border:1px solid #e1e6e2}
+.seller-edit-image img{width:100%;height:100%;object-fit:cover}
+.seller-edit-image button{position:absolute;right:4px;top:4px;border:0;border-radius:20px;background:#202820d9;color:#fff;padding:3px 7px;font-size:9px}
