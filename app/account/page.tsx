@@ -75,9 +75,20 @@ export default function AccountPage() {
     if (!userId) return;
     setBusy(true); setMessage("");
     const updates = { full_name: nameDraft.trim(), phone: phoneDraft.trim() || null, bio: bioDraft.trim() || null, island: islandDraft };
-    const { error } = await supabase.from("profiles").update(updates).eq("id", userId);
+    const { data, error } = await supabase.from("profiles").update(updates).eq("id", userId)
+      .select("id,full_name,role,phone,avatar_url,bio,island,is_admin").maybeSingle();
     if (error) setMessage(error.message);
-    else { setProfile(p => p ? { ...p, ...updates } : p); setEditProfile(false); setMessage("Your profile has been updated."); }
+    else if (!data) setMessage("Your profile was not saved. Please run the profile permissions SQL in Supabase, then try again.");
+    else {
+      const saved = data as Profile;
+      setProfile(saved);
+      setNameDraft(saved.full_name || "");
+      setPhoneDraft(saved.phone || "");
+      setBioDraft(saved.bio || "");
+      setIslandDraft(saved.island || "Mahé");
+      setEditProfile(false);
+      setMessage("Your profile has been saved.");
+    }
     setBusy(false);
   }
 
