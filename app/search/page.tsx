@@ -42,7 +42,7 @@ function SearchResults() {
       .eq("status", "approved")
       .or(`title.ilike.%${pattern}%,description.ilike.%${pattern}%`)
       .order("created_at", { ascending: false })
-      .then(({ data, error: searchError }) => {
+      .then(async ({ data, error: searchError }) => {
         if (!active) return;
         if (searchError) setError("We couldn't load search results. Please try again.");
         setProducts((data ?? []) as unknown as Product[]);
