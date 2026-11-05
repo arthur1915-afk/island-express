@@ -57,7 +57,8 @@ export default function SellerDashboard() {
     const { data: withdrawalRows } = await supabase.from("seller_withdrawal_requests").select("id,amount_scr,status").eq("seller_id",user.id);
     setWithdrawals((withdrawalRows ?? []) as Withdrawal[]);
     const requestIds = (withdrawalRows ?? []).map((w:any)=>w.id);
-    if (requestIds.length) {\n      const { data: allocationRows } = await supabase.from("seller_withdrawal_allocations").select("amount_scr,request_id").in("request_id",requestIds);
+    if (requestIds.length) {
+      const { data: allocationRows } = await supabase.from("seller_withdrawal_allocations").select("amount_scr,request_id").in("request_id",requestIds);
       setAllocations((allocationRows ?? []) as Allocation[]);
     } else setAllocations([]);
     const { data: rows, error: productsError } = await supabase.from("products").select("id,title,description,category,price_scr,stock_quantity,status,created_at,image_urls,is_archived").eq("shop_id",shops[0].id).order("created_at",{ascending:false});
