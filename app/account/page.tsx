@@ -6,7 +6,7 @@ import { supabase } from "../../lib/supabase";
 import { ArrowLeft, Store, UserRound, LogOut, ShoppingBag, Heart, Headset, Camera, MapPin, Pencil, Check, X } from "lucide-react";
 
 type Profile = { id: string; full_name: string | null; role: "customer" | "seller" | "admin"; phone?: string | null; avatar_url?: string | null; bio?: string | null; island?: string | null; is_admin?: boolean };
-type Shop = { id: string; name: string; slug: string; island: string | null };
+type Shop = { id: string; name: string; slug: string; island: string | null; logo_url?: string | null };
 
 export default function AccountPage() {
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -29,6 +29,7 @@ export default function AccountPage() {
   const [accountEmail, setAccountEmail] = useState("");
   const [resetSending, setResetSending] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const shopLogoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -45,7 +46,7 @@ export default function AccountPage() {
     const p = data as Profile;
     setProfile(p); setNameDraft(p.full_name || ""); setPhoneDraft(p.phone || "");
     setBioDraft(p.bio || ""); setIslandDraft(p.island || "Mahé");
-    const { data: shops } = await supabase.from("shops").select("id,name,slug,island").eq("owner_id", id).limit(1);
+    const { data: shops } = await supabase.from("shops").select("id,name,slug,island,logo_url").eq("owner_id", id).limit(1);
     setShop((shops?.[0] as Shop) ?? null);
   }
 
@@ -148,6 +149,23 @@ export default function AccountPage() {
     setBusy(false);
   }
 
+  async function uploadShopLogo(file?: File) {
+    if (!file || !userId || !shop) return;
+    if (!["image/jpeg","image/png","image/webp"].includes(file.type)) { setMessage("Please choose a JPG, PNG or WebP shop logo."); return; }
+    if (file.size > 5 * 1024 * 1024) { setMessage("Your shop logo must be 5 MB or smaller."); return; }
+    setBusy(true); setMessage("");
+    const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+    const path = userId + "/shop-logo." + ext;
+    const { error: uploadError } = await supabase.storage.from("profile-images").upload(path, file, { upsert: true, contentType: file.type });
+    if (uploadError) { setMessage("Could not upload shop logo: " + uploadError.message); setBusy(false); return; }
+    const { data } = supabase.storage.from("profile-images").getPublicUrl(path);
+    const logoUrl = data.publicUrl + "?v=" + Date.now();
+    const { data: saved, error } = await supabase.from("shops").update({ logo_url: logoUrl }).eq("id", shop.id).eq("owner_id", userId).select("id,name,slug,island,logo_url").single();
+    if (error) setMessage("Logo uploaded but could not be saved to your shop: " + error.message);
+    else { setShop(saved as Shop); setMessage("Shop profile picture updated."); }
+    setBusy(false);
+  }
+
   async function becomeSeller() {
     setBusy(true); setMessage("");
     const { error } = await supabase.rpc("become_seller");
@@ -212,7 +230,7 @@ export default function AccountPage() {
         </div>
         {profile?.role === "customer" && <div className="account-feature-card"><div className="account-feature-icon"><Store size={22}/></div><div><h2>Start selling on Island Express</h2><p>Open your own shop and reach customers across Seychelles. Product listings are reviewed before they go live.</p></div><button className="primary account-submit" disabled={busy} onClick={becomeSeller}>{busy ? "Please wait…" : "Become a seller"}</button></div>}
         {profile?.role === "seller" && !shop && <form onSubmit={createShop} className="account-form shop-form account-shop-form"><h2>Create your shop</h2><label>Shop name<input required value={shopName} onChange={e=>setShopName(e.target.value)} placeholder="e.g. Island Finds"/></label><label>About your shop<textarea value={shopDescription} onChange={e=>setShopDescription(e.target.value)} placeholder="Tell customers what you sell"/></label><label>Island<select value={shopIsland} onChange={e=>setShopIsland(e.target.value)}><option>Mahé</option><option>Praslin</option><option>La Digue</option><option>Other</option></select></label><button className="primary account-submit" disabled={busy}>{busy ? "Creating shop…" : "Create my shop"}</button></form>}
-        {shop && <div className="account-shop-card"><div className="account-shop-card-top"><span className="account-shop-icon"><Store size={22}/></span><span className="account-shop-status">SHOP ACTIVE</span></div><h2>{shop.name}</h2><p>Your shop is set up on {shop.island || "Seychelles"}.</p><small>island-express-one.vercel.app/shops/{shop.slug}</small><Link className="primary account-shop-button" href="/seller">Open seller dashboard</Link></div>}
+        {shop && <div className="account-shop-card"><div className="account-shop-card-top"><span className="account-shop-icon"><Store size={22}/></span><span className="account-shop-status">SHOP ACTIVE</span></div><div className="account-shop-logo-editor">{shop.logo_url ? <img src={shop.logo_url} alt={shop.name+" logo"}/> : <span className="account-shop-logo-placeholder"><Store size={27}/></span>}<div><b>Shop profile picture</b><small>Upload your shop logo or business photo (JPG, PNG or WebP, max 5 MB).</small><button type="button" className="profile-edit-button" onClick={()=>shopLogoRef.current?.click()} disabled={busy}>{busy ? "Uploading…" : shop.logo_url ? "Change shop picture" : "Upload shop picture"}</button><input ref={shopLogoRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={e=>{uploadShopLogo(e.target.files?.[0]);e.currentTarget.value="";}}/></div></div><h2>{shop.name}</h2><p>Your shop is set up on {shop.island || "Seychelles"}.</p><small>island-express-one.vercel.app/shop/{shop.id}</small><Link className="primary account-shop-button" href="/seller">Open seller dashboard</Link></div>}
         <div className="account-footer-actions"><button className="logout-button" onClick={signOut}><LogOut size={16}/> Sign out</button></div>
       </>}
       {message && <div className="account-message" role="status">{message}</div>}
