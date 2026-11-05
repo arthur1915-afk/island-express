@@ -394,3 +394,12 @@
 .account-shop-logo-editor small{font-size:10px;line-height:1.5;color:#849087}
 .account-shop-logo-editor .profile-edit-button{min-height:31px;padding:0 10px;font-size:10px}
 @media(max-width:520px){.account-shop-logo-editor{align-items:flex-start}.account-shop-logo-editor>img,.account-shop-logo-placeholder{width:60px;height:60px}}
+
+
+/* Customer actions for unpaid checkout orders */
+.unpaid-order-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:12px}
+.unpaid-order-actions p{flex-basis:100%;margin:0 0 3px;color:#78857d;font-size:11px;line-height:1.55}
+.unpaid-order-actions .primary{height:37px;border:0;padding:0 13px;font-size:11px}
+.unpaid-order-actions button:disabled{opacity:.55;cursor:wait}
+.unpaid-cancel-button{height:37px;display:inline-flex;align-items:center;gap:6px;padding:0 12px;border:1px solid #f0d8d3;border-radius:8px;background:#fff8f6;color:#a84d40;font-size:11px;font-weight:800}
+@media(max-width:520px){.unpaid-order-actions{align-items:stretch}.unpaid-order-actions .primary,.unpaid-cancel-button{justify-content:center;flex:1}}
