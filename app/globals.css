@@ -339,3 +339,15 @@
 @media(max-width:600px){.search-page-header{height:60px;padding:0 15px}.search-results-wrap{margin:20px auto;padding:0 13px}.search-results-form{height:46px;margin-bottom:25px}.search-results-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.search-result-image{height:135px}.search-result-info{padding:10px}.search-results-heading h1{font-size:23px}}
 
 .checkout-auth-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:20px 0}.checkout-auth-actions .primary,.checkout-auth-actions .secondary{min-width:170px;text-align:center;justify-content:center;padding:13px 20px;border-radius:10px;text-decoration:none;font-weight:700}.checkout-auth-actions .secondary{border:1px solid #d8dedb;color:#24352e;background:#fff}
+
+.seller-holiday-panel{position:relative;display:flex;align-items:center;justify-content:space-between;gap:22px;margin:22px 0;padding:22px 24px;background:#fff;border:1px solid #e5e9e6;border-radius:16px;box-shadow:0 5px 20px rgba(20,45,30,.04)}
+.seller-holiday-panel.is-on{background:#fffaf0;border-color:#f0d9a8}
+.seller-holiday-copy{display:flex;align-items:center;gap:15px;min-width:0}
+.seller-holiday-icon{display:grid;place-items:center;flex:0 0 48px;width:48px;height:48px;border-radius:14px;background:#f1f6ee;font-size:24px}
+.seller-holiday-copy h2{margin:0 0 5px;font-size:18px}
+.seller-holiday-copy p{margin:0;color:#68736c;font-size:13px;line-height:1.55;max-width:590px}
+.seller-holiday-toggle{border:0;border-radius:10px;padding:12px 17px;background:#183f2d;color:white;font-weight:700;white-space:nowrap;cursor:pointer}
+.seller-holiday-toggle:disabled{opacity:.6;cursor:wait}
+.seller-holiday-status{position:absolute;right:24px;top:-10px;padding:4px 8px;border-radius:20px;background:#edf4ef;color:#315c40;font-size:10px;font-weight:800;letter-spacing:.05em}
+.seller-holiday-status.active{background:#ffedc9;color:#865a0c}
+@media(max-width:650px){.seller-holiday-panel{align-items:stretch;flex-direction:column;padding:20px 16px}.seller-holiday-toggle{width:100%}.seller-holiday-status{right:14px}}
