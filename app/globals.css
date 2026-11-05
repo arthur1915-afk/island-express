@@ -385,3 +385,12 @@
 .shop-page-message h1{color:#26372e;font:800 22px Manrope}
 .shop-page-message a{color:#df6738;font-weight:700}
 @media(max-width:650px){.shop-page-header{height:60px;padding:0 13px}.shop-page-wrap{padding:0 13px;margin:17px auto}.shop-profile-banner{align-items:flex-start;padding:17px;gap:13px}.shop-profile-logo{width:62px;height:62px}.shop-profile-banner h1{font-size:20px}.shop-products-heading h2{font-size:17px}.shop-product-image{height:140px}.product-shop-visit{margin-left:0}}
+
+
+.account-shop-logo-editor{display:flex;align-items:center;gap:14px;margin:16px 0;padding:13px;background:#f7faf7;border:1px solid #e8eee9;border-radius:11px}
+.account-shop-logo-editor>img,.account-shop-logo-placeholder{width:72px;height:72px;flex:none;border-radius:12px;object-fit:cover;background:#eaf3ec;color:#548062;display:grid;place-items:center}
+.account-shop-logo-editor>div{display:grid;justify-items:start;gap:6px;min-width:0}
+.account-shop-logo-editor b{font-size:12px;color:#34443a}
+.account-shop-logo-editor small{font-size:10px;line-height:1.5;color:#849087}
+.account-shop-logo-editor .profile-edit-button{min-height:31px;padding:0 10px;font-size:10px}
+@media(max-width:520px){.account-shop-logo-editor{align-items:flex-start}.account-shop-logo-editor>img,.account-shop-logo-placeholder{width:60px;height:60px}}
