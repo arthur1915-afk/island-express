@@ -14,14 +14,25 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [accountRole, setAccountRole] = useState<"customer" | "seller" | "admin">("customer");
 
   async function loadNotifications() {
     setLoading(true); setMessage("");
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.replace("/account?mode=login"); return; }
+    const { data: profile } = await supabase.from("profiles").select("role,is_admin").eq("id", user.id).maybeSingle();
+    setAccountRole(profile?.is_admin ? "admin" : profile?.role === "seller" ? "seller" : "customer");
     const { data, error } = await supabase.from("notifications").select("id,order_id,notification_type,title,message,read_at,created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(100);
     if (error) setMessage(error.message);
-    setItems((data ?? []) as Notification[]);
+    const rows = (data ?? []) as Notification[];
+    const unreadIds = rows.filter(item => !item.read_at).map(item => item.id);
+    if (unreadIds.length) {
+      const now = new Date().toISOString();
+      const { error: readError } = await supabase.from("notifications").update({ read_at: now }).in("id", unreadIds).eq("user_id", user.id);
+      if (readError) setMessage(readError.message);
+      else rows.forEach(item => { if (!item.read_at) item.read_at = now; });
+    }
+    setItems(rows);
     setLoading(false);
   }
 
@@ -50,7 +61,7 @@ export default function NotificationsPage() {
     <header className="cart-page-header"><Link href="/" className="account-brand">island<span>express</span></Link><span>YOUR ACCOUNT</span></header>
     <div className="cart-page-wrap">
       <Link href="/account" className="cart-back"><ArrowLeft size={16}/> My account</Link>
-      <div className="seller-orders-heading"><div><div className="eyebrow">CUSTOMER CENTRE</div><h1>Notifications</h1><p>Order confirmations, delivery updates and seller cancellation notices.</p></div><button className="admin-refresh" onClick={loadNotifications} disabled={loading}><RefreshCw size={15}/> Refresh</button></div>
+      <div className="seller-orders-heading"><div><div className="eyebrow">{accountRole === "seller" ? "SELLER CENTRE" : accountRole === "admin" ? "ADMIN CENTRE" : "CUSTOMER CENTRE"}</div><h1>Notifications</h1><p>Your personal account updates, order activity and marketplace notices.</p></div><button className="admin-refresh" onClick={loadNotifications} disabled={loading}><RefreshCw size={15}/> Refresh</button></div>
       {message && <div className="account-message">{message}</div>}
       <div className="notifications-actions"><span>{unread} unread</span><button onClick={markAllRead} disabled={busy || unread === 0}><CheckCheck size={14}/> Mark all as read</button></div>
       {loading ? <div className="seller-order-empty">Loading notifications…</div> : items.length === 0 ? <div className="notifications-empty"><Bell size={32}/><b>You’re all caught up</b><p>Updates about your orders will appear here.</p></div> : <div className="notifications-list">{items.map(item => <div className={"notification-card" + (!item.read_at ? " unread" : "")} key={item.id}>
