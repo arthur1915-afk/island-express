@@ -1,3 +1,24 @@
+-- Ensure notification storage exists even if the optional notifications migration has not yet been run.
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  order_id uuid references public.orders(id) on delete cascade,
+  notification_type text not null,
+  title text not null,
+  message text not null,
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists notifications_user_created_idx on public.notifications(user_id, created_at desc);
+alter table public.notifications enable row level security;
+drop policy if exists "Users can view own notifications" on public.notifications;
+create policy "Users can view own notifications" on public.notifications for select to authenticated using (auth.uid()=user_id);
+drop policy if exists "Users can mark own notifications read" on public.notifications;
+create policy "Users can mark own notifications read" on public.notifications for update to authenticated using (auth.uid()=user_id) with check (auth.uid()=user_id);
+revoke insert,delete on public.notifications from anon,authenticated;
+grant select on public.notifications to authenticated;
+grant update(read_at) on public.notifications to authenticated;
+
 -- Admin approval workflow for seller-requested order cancellations.
 -- Run this migration in Supabase SQL Editor after deploying the application.
 
