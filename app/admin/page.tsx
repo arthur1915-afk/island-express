@@ -128,7 +128,8 @@ export default function AdminPage() {
           </article>)}</div>}
       </section>
 
-      <section className="admin-account-manager">\n        <div className="admin-account-manager-heading"><div><div className="eyebrow">ACCESS CONTROL</div><h2><Users size={18}/> Administrator accounts</h2><p>Invite a new administrator by email. They will receive a secure link to create their password.</p></div><span>{admins.length} admin{admins.length===1?"":"s"}</span></div>
+      <section className="admin-account-manager">
+        <div className="admin-account-manager-heading"><div><div className="eyebrow">ACCESS CONTROL</div><h2><Users size={18}/> Administrator accounts</h2><p>Invite a new administrator by email. They will receive a secure link to create their password.</p></div><span>{admins.length} admin{admins.length===1?"":"s"}</span></div>
         <form className="admin-add-account-form" onSubmit={e=>{e.preventDefault();if(adminEmail.trim())inviteAdmin(adminEmail.trim());}}>
           <input type="email" required placeholder="Enter email address" value={adminEmail} onChange={e=>setAdminEmail(e.target.value)}/>
           <button type="submit" disabled={adminBusy}><UserPlus size={15}/>{adminBusy?"Sending…":"Invite administrator"}</button>
