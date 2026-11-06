@@ -24,6 +24,7 @@ export default function Home() {
   const [notice, setNotice] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [favourites, setFavourites] = useState<string[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [campaignIndex, setCampaignIndex] = useState(0);
@@ -39,7 +40,9 @@ export default function Home() {
       if (!active) return;
       const id = data.user?.id ?? null;
       setUserId(id);
-      if (!id) { setFavourites([]); setUnreadNotifications(0); return; }
+      if (!id) { setFavourites([]); setUnreadNotifications(0); setIsAdmin(false); return; }
+      const { data: profile } = await supabase.from("profiles").select("is_admin").eq("id", id).maybeSingle();
+      if (active) setIsAdmin(Boolean(profile?.is_admin));
       const { count } = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", id).is("read_at", null);
       if (active) setUnreadNotifications(count ?? 0);
       const { data: rows } = await supabase.from("wishlists").select("product_id").eq("user_id", id);
@@ -48,7 +51,9 @@ export default function Home() {
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const id = session?.user?.id ?? null;
       setUserId(id);
-      if (!id) { setFavourites([]); setUnreadNotifications(0); return; }
+      if (!id) { setFavourites([]); setUnreadNotifications(0); setIsAdmin(false); return; }
+      const { data: profile } = await supabase.from("profiles").select("is_admin").eq("id", id).maybeSingle();
+      setIsAdmin(Boolean(profile?.is_admin));
       const { count } = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", id).is("read_at", null);
       setUnreadNotifications(count ?? 0);
       const { data: rows } = await supabase.from("wishlists").select("product_id").eq("user_id", id);
@@ -134,7 +139,7 @@ export default function Home() {
     <section className="benefits wrap"><div><span className="benefit-icon">🏝️</span><span><b>Local marketplace</b><small>Discover Seychelles sellers</small></span></div><div><span className="benefit-icon">🛡️</span><span><b>Product checks</b><small>Listings reviewed for safety</small></span></div><div><span className="benefit-icon">💬</span><span><b>Direct with sellers</b><small>Connect with local shops</small></span></div><div><span className="benefit-icon">💰</span><span><b>Prices in SCR</b><small>Shop in local currency</small></span></div></section>
     <section className="section wrap" id="products"><div className="section-head"><div><div className="eyebrow">FIND YOUR NEXT FAVOURITE</div><h2>Explore products</h2><p>Great finds from shops around Seychelles.</p></div><a href="#products" onClick={()=>setCategory("All")}>View all <ChevronRight size={16}/></a></div><div className="chips">{categories.map(c=><button key={c} className={category===c?"active":""} onClick={()=>setCategory(c)}>{c}</button>)}</div><div className="market-filters"><label>Island<select value={island} onChange={e=>setIsland(e.target.value)}><option>All islands</option><option>Mahé</option><option>Praslin</option><option>La Digue</option></select></label><label>Sort by<select value={sort} onChange={e=>setSort(e.target.value)}><option value="newest">Newest first</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="name">Product name</option></select></label><span>{filtered.length} product{filtered.length===1?"":"s"} found</span></div><div className="product-grid">{filtered.map(p=><article className="product" key={p.id}><div className="product-image"><Link href={"/product/"+p.id} className="product-image-link" aria-label={"View "+p.title}>{p.image_urls?.[0]?<img className="market-product-image" src={p.image_urls[0]} alt={p.title}/>:<span className="product-emoji">📦</span>}{(p.image_urls?.length??0)>1&&<span className="product-photo-count">{p.image_urls.length} photos</span>}</Link><button className={"heart " + (favourites.includes(p.id) ? "is-favourite" : "")} aria-label={favourites.includes(p.id) ? "Remove from favourites" : "Add to favourites"} aria-pressed={favourites.includes(p.id)} onClick={()=>toggleFavourite(p.id)}><Heart size={17} fill={favourites.includes(p.id) ? "currentColor" : "none"}/></button></div><div className="product-info"><small>{p.category}</small><Link href={"/product/"+p.id} className="product-title-link"><h3>{p.title}</h3></Link><div className="seller">{p.shops?.name ?? "Island Express seller"} · {p.shops?.island ?? "Seychelles"}</div><div className="price">SCR {Number(p.price_scr).toLocaleString()}</div><Link href={"/product/"+p.id+"#reviews"} className="product-card-rating"><span className="rating-stars"><Star size={14} fill={ratings[p.id]?"currentColor":"none"}/></span>{ratings[p.id]?<><b>{ratings[p.id].average.toFixed(1)}</b><span>({ratings[p.id].count} {ratings[p.id].count===1?"review":"reviews"})</span></>:<span>No reviews yet</span>}</Link><button className="add" onClick={()=>addToCart(p.id)}><Plus size={15}/> Add to cart</button></div></article>)}</div>{productsLoading?<div className="empty">Loading approved products…</div>:filtered.length===0&&<div className="empty">{query||category!=="All"?"No matching products found. Try another search or category.":"No approved products yet. Check back soon for new listings from Seychelles sellers."}</div>}</section>
     <section className="seller-cta wrap" id="sell"><div><div className="eyebrow">YOUR SHOP. YOUR BUSINESS.</div><h2>Have something to sell?</h2><p>Open your own Island Express shop and reach customers across Seychelles. Seller registration is open to everyone.</p><a className="primary" href="/account">Become a seller <ChevronRight size={17}/></a></div><div className="seller-illustration">🏪<span>✨</span></div></section>
-    <footer><div className="wrap footer-inner"><a className="brand footer-brand" href="#"><span className="brandmark"><ShoppingBag size={21}/></span><span>island<span className="brand-orange">express</span><small>SHOP LOCAL. DISCOVER MORE.</small></span></a><span>Made for Seychelles <b>♥</b></span><span>© {new Date().getFullYear()} Island Express</span><Link href="/admin/login" className="footer-admin-link">Admin</Link></div></footer>
+    <footer><div className="wrap footer-inner"><a className="brand footer-brand" href="#"><span className="brandmark"><ShoppingBag size={21}/></span><span>island<span className="brand-orange">express</span><small>SHOP LOCAL. DISCOVER MORE.</small></span></a><span>Made for Seychelles <b>♥</b></span><span>© {new Date().getFullYear()} Island Express</span><Link href="/admin/login" className="footer-admin-link">Admin{isAdmin && unreadNotifications > 0 && <span className="admin-notification-dot" aria-label="Unread admin notifications"/>}</Link></div></footer>
     {notice&&<div className="toast">{notice}</div>}<div className="prototype-note">EARLY MARKETPLACE PREVIEW · Product listings are reviewed before publication · Checkout setup in progress</div>
   </main>;
 }
