@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { ArrowLeft, ShieldCheck, Check, X, Ban, RefreshCw, Package, Headset, Star, Wallet, UserPlus, Megaphone, UserMinus, Users } from "lucide-react";
 
-type AdminAccount = { user_id: string; email: string };
+type AdminAccount = { user_id: string; email: string };\ntype CancellationRequest = { request_id: string; order_id: string; shop_id: string; seller_id: string; status: string; seller_note: string | null; requested_at: string; shop_name: string; customer_name: string; customer_id: string; total_scr: number };
 type Listing = {
   id: string; title: string; description: string | null; category: string;
   price_scr: number; stock_quantity: number; image_urls: string[]; created_at: string;
@@ -22,7 +22,7 @@ export default function AdminPage() {
   const [authorized,setAuthorized] = useState(false);
   const [admins,setAdmins] = useState<AdminAccount[]>([]);
   const [adminEmail,setAdminEmail] = useState("");
-  const [adminBusy,setAdminBusy] = useState(false);
+  const [adminBusy,setAdminBusy] = useState(false);\n  const [cancellationRequests,setCancellationRequests] = useState<CancellationRequest[]>([]);
 
   async function load() {
     setLoading(true);
@@ -43,6 +43,21 @@ export default function AdminPage() {
   }
 
   useEffect(()=>{load();},[]);
+
+  async function decideCancellation(request:CancellationRequest,decision:"approved"|"rejected") {
+    const note = window.prompt(decision==="approved" ? "Optional note for the seller and customer:" : "Please explain why this cancellation request is being rejected:");
+    if(note===null)return;
+    if(decision==="rejected" && note.trim().length<5){setMessage("Please provide a short reason when rejecting a cancellation.");return;}
+    if(!window.confirm(decision==="approved" ? "Approve this cancellation? The seller's part of the order will be cancelled." : "Reject this cancellation? The seller's order will return to active processing."))return;
+    setBusyId(request.request_id);setMessage("");
+    const {error}=await supabase.rpc("admin_decide_cancellation",{
+      target_order_id:request.order_id,target_shop_id:request.shop_id,decision,admin_note:note.trim()||null
+    });
+    if(error)setMessage(error.message);
+    else setMessage(decision==="approved" ? "Cancellation approved. Seller and customer have been notified." : "Cancellation rejected. Seller and customer have been notified.");
+    setBusyId("");
+    await load();
+  }
 
   async function inviteAdmin(email:string) {
     setAdminBusy(true);setMessage("");
@@ -91,6 +106,23 @@ export default function AdminPage() {
       <div className="admin-heading"><div><div className="eyebrow">ISLAND EXPRESS · ADMINISTRATION</div><h1>Product moderation</h1><p>Review listings before they become visible to shoppers.</p></div><div className="admin-heading-actions"><Link className="admin-refresh" href="/admin/campaigns"><Megaphone size={15}/> Promotional Campaigns</Link><Link className="admin-refresh" href="/admin/support"><Headset size={15}/> Customer Care Inbox</Link><Link className="admin-refresh" href="/admin/reviews"><Star size={15}/> Product Reviews</Link><Link className="admin-refresh" href="/admin/withdrawals"><Wallet size={15}/> Seller Withdrawals</Link><button className="admin-refresh" onClick={load}><RefreshCw size={15}/> Refresh</button></div></div>
       <div className="admin-stats"><ShieldCheck size={20}/><b>{items.length}</b><span>Listings awaiting review</span></div>
       <section className="admin-account-manager">
+        <div className="admin-account-manager-heading"><div><div className="eyebrow">ORDER MANAGEMENT</div><h2>Seller cancellation requests</h2><p>Review seller requests before an order is cancelled. Approval or rejection is sent to the seller and customer.</p></div><span>{cancellationRequests.length} awaiting review</span></div>
+        {cancellationRequests.length===0 ? <div className="admin-empty"><Package size={28}/><b>No cancellation requests</b><span>New seller requests will appear here.</span></div> :
+          <div className="admin-list">{cancellationRequests.map(request=><article className="admin-item" key={request.request_id}>
+            <div className="admin-info">
+              <div className="admin-item-meta">ORDER {request.order_id.slice(0,8).toUpperCase()} · {request.shop_name}</div>
+              <h2>Cancellation requested</h2>
+              <p><b>Seller's reason:</b> {request.seller_note||"No reason supplied."}</p>
+              <p><b>Customer:</b> {request.customer_name} · <b>Order total:</b> SCR {Number(request.total_scr).toLocaleString()}</p>
+              <small>Requested {new Date(request.requested_at).toLocaleString()}</small>
+            </div>
+            <div className="admin-actions">
+              <button disabled={busyId===request.request_id} className="approve" onClick={()=>decideCancellation(request,"approved")}><Check size={15}/> Approve cancellation</button>
+              <button disabled={busyId===request.request_id} className="reject" onClick={()=>decideCancellation(request,"rejected")}><X size={15}/> Reject request</button>
+            </div>
+          </article>)}</div>}
+      </section>
+
         <div className="admin-account-manager-heading"><div><div className="eyebrow">ACCESS CONTROL</div><h2><Users size={18}/> Administrator accounts</h2><p>Invite a new administrator by email. They will receive a secure link to create their password.</p></div><span>{admins.length} admin{admins.length===1?"":"s"}</span></div>
         <form className="admin-add-account-form" onSubmit={e=>{e.preventDefault();if(adminEmail.trim())inviteAdmin(adminEmail.trim());}}>
           <input type="email" required placeholder="Enter email address" value={adminEmail} onChange={e=>setAdminEmail(e.target.value)}/>
