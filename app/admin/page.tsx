@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { ArrowLeft, ShieldCheck, Check, X, Ban, RefreshCw, Package, Headset, Star, Wallet, UserPlus, Megaphone, UserMinus, Users } from "lucide-react";
 
-type AdminAccount = { user_id: string; email: string };\ntype CancellationRequest = { request_id: string; order_id: string; shop_id: string; seller_id: string; status: string; seller_note: string | null; requested_at: string; shop_name: string; customer_name: string; customer_id: string; total_scr: number };
+type AdminAccount = { user_id: string; email: string };
+type CancellationRequest = { request_id: string; order_id: string; shop_id: string; seller_id: string; status: string; seller_note: string | null; requested_at: string; shop_name: string; customer_name: string; customer_id: string; total_scr: number };
 type Listing = {
   id: string; title: string; description: string | null; category: string;
   price_scr: number; stock_quantity: number; image_urls: string[]; created_at: string;
@@ -22,7 +23,8 @@ export default function AdminPage() {
   const [authorized,setAuthorized] = useState(false);
   const [admins,setAdmins] = useState<AdminAccount[]>([]);
   const [adminEmail,setAdminEmail] = useState("");
-  const [adminBusy,setAdminBusy] = useState(false);\n  const [cancellationRequests,setCancellationRequests] = useState<CancellationRequest[]>([]);
+  const [adminBusy,setAdminBusy] = useState(false);
+  const [cancellationRequests,setCancellationRequests] = useState<CancellationRequest[]>([]);
 
   async function load() {
     setLoading(true);
@@ -39,6 +41,9 @@ export default function AdminPage() {
       .eq("status","pending_review").order("created_at",{ascending:true});
     if(error)setMessage(error.message);
     setItems((data??[]) as unknown as Listing[]);
+    const {data:cancellationData,error:cancellationError}=await supabase.rpc("admin_list_cancellation_requests");
+    if(cancellationError)setMessage("Cancellation requests could not be loaded: "+cancellationError.message);
+    setCancellationRequests((cancellationData??[]) as CancellationRequest[]);
     setLoading(false);
   }
 
