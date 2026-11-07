@@ -24,3 +24,32 @@ create policy "Sellers can manage variants for own editable products" on public.
  with check(exists(select 1 from public.products p join public.shops s on s.id=p.shop_id where p.id=product_id and s.owner_id=auth.uid() and p.status in ('pending_review','rejected')));
 alter table public.order_items add column if not exists variant_id uuid references public.product_variants(id) on delete set null;
 alter table public.order_items add column if not exists variant_label text;
+
+-- Atomically decrement stock once a Stripe payment is confirmed.
+create or replace function public.complete_paid_order_inventory(p_order_id uuid,p_stripe_session_id text,p_payment_intent text default null)
+returns boolean language plpgsql security definer set search_path=public as $$
+declare
+ o public.orders%rowtype;
+ item record;
+ affected integer;
+begin
+ select * into o from public.orders where id=p_order_id for update;
+ if not found then return false; end if;
+ if o.payment_status='paid' then return true; end if;
+ if o.status<>'pending' or o.stripe_session_id is distinct from p_stripe_session_id then return false; end if;
+ for item in select product_id,variant_id,quantity from public.order_items where order_id=p_order_id loop
+   if item.variant_id is not null then
+     update public.product_variants set stock_quantity=stock_quantity-item.quantity,updated_at=now()
+       where id=item.variant_id and product_id=item.product_id and is_active=true and stock_quantity>=item.quantity;
+   else
+     update public.products set stock_quantity=stock_quantity-item.quantity,updated_at=now()
+       where id=item.product_id and stock_quantity>=item.quantity;
+   end if;
+   get diagnostics affected=row_count;
+   if affected<>1 then raise exception 'Insufficient stock for order %',p_order_id; end if;
+ end loop;
+ update public.orders set payment_status='paid',stripe_payment_intent_id=p_payment_intent,status='confirmed' where id=p_order_id;
+ return true;
+end; $$;
+revoke all on function public.complete_paid_order_inventory(uuid,text,text) from public,anon,authenticated;
+grant execute on function public.complete_paid_order_inventory(uuid,text,text) to service_role;
