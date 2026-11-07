@@ -26,11 +26,15 @@ export async function POST(request: Request) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     if (session.payment_status === "paid" && session.metadata?.order_id) {
-      await db.from("orders").update({
-        payment_status: "paid",
-        stripe_payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
-        status: "confirmed"
-      }).eq("id", session.metadata.order_id).eq("stripe_session_id", session.id).eq("status", "pending").eq("payment_status", "unpaid");
+      const { error: inventoryError } = await db.rpc("complete_paid_order_inventory", {
+        p_order_id: session.metadata.order_id,
+        p_stripe_session_id: session.id,
+        p_payment_intent: typeof session.payment_intent === "string" ? session.payment_intent : null
+      });
+      if (inventoryError) {
+        console.error("Paid order inventory update failed:", inventoryError);
+        return NextResponse.json({ error: "Order inventory could not be confirmed; Stripe will retry this webhook." }, { status: 500 });
+      }
     }
   } else if (event.type === "checkout.session.expired") {
     const session = event.data.object as Stripe.Checkout.Session;
