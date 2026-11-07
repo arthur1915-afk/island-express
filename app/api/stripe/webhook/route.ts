@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   } else if (event.type === "checkout.session.expired") {
     const session = event.data.object as Stripe.Checkout.Session;
     if (session.metadata?.order_id) {
-      await db.from("orders").update({ payment_status: "failed" }).eq("id", session.metadata.order_id).eq("stripe_session_id", session.id).eq("status", "pending").neq("payment_status", "paid");
+      const { data: expiredOrder } = await db.from("orders").select("id,voucher_id").eq("id", session.metadata.order_id).eq("stripe_session_id", session.id).eq("status", "pending").neq("payment_status", "paid").maybeSingle();\n      await db.from("orders").update({ payment_status: "failed" }).eq("id", session.metadata.order_id).eq("stripe_session_id", session.id).eq("status", "pending").neq("payment_status", "paid");\n      if (expiredOrder?.voucher_id) await db.rpc("release_order_voucher", { p_order_id: expiredOrder.id });
     }
   }
   return NextResponse.json({ received: true });
