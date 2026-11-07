@@ -152,14 +152,14 @@ export async function POST(request: Request) {
       shares.sort((a, b) => b.fraction - a.fraction);
       for (let i = 0; i < remainingDiscount; i++) shares[i % shares.length].item.discountCents++;
 
-      const { error: saveVoucherError } = await db.from("orders").update({
+      const { error: saveVoucherError } = await (db as any).from("orders").update({
         voucher_id: voucher.id,
         voucher_code: voucher.code,
         discount_scr: voucherDiscountCents / 100,
       }).eq("id", order.id).eq("customer_id", user.id).eq("status", "pending");
 
       if (saveVoucherError) {
-        await db.from("shop_vouchers").update({ redemption_count: Math.max(0, Number(reserved.redemption_count) - 1) }).eq("id", candidate.id);
+        await (db as any).from("shop_vouchers").update({ redemption_count: Math.max(0, Number(reserved.redemption_count) - 1) }).eq("id", candidate.id);
         return NextResponse.json({ error: "Could not save the voucher to your order. Please try again." }, { status: 500 });
       }
       reservedOrderId = order.id;
@@ -211,7 +211,7 @@ export async function POST(request: Request) {
       throw stripeError;
     }
 
-    const { error: updateError } = await db.from("orders").update({
+    const { error: updateError } = await (db as any).from("orders").update({
       total_scr: totalCents / 100,
       subtotal_scr: subtotalCents / 100,
       discount_scr: voucherDiscountCents / 100,
