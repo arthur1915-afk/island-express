@@ -601,3 +601,8 @@
 .checkout-grid .cart-summary>.checkout-voucher .checkout-voucher-row{display:flex;flex-direction:row;align-items:stretch;justify-content:stretch;gap:8px;width:100%}
 .checkout-grid .cart-summary>.checkout-voucher .checkout-voucher-row input{display:block;min-width:0;flex:1;width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #d0d5dd;border-radius:8px;background:#fff}
 .checkout-grid .cart-summary>.checkout-voucher .checkout-voucher-row button{display:inline-flex;flex:none;white-space:nowrap;align-items:center;justify-content:center;padding:0 16px}
+
+
+.checkout-voucher-heading{display:block;font:800 15px Manrope;color:#26343c}
+.checkout-grid .cart-summary>.checkout-voucher>label{font-size:12px;font-weight:700;color:#53616a}
+.checkout-voucher-success{padding:10px 12px;border-radius:8px;background:#ecfdf3;border:1px solid #abefc6;color:#067647;font-size:12px;font-weight:700;line-height:1.5}
