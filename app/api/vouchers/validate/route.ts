@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     const supabaseUrl=process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
     const anonKey=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-    const token=request.headers.get("authorization")?.replace(/^Bearer\\s+/i,"");
+        const token=request.headers.get("authorization")?.replace(/^Bearer\s+/i,"");
     if(!supabaseUrl||!serviceKey||!anonKey||!token) return NextResponse.json({error:"Please sign in again."},{status:401});
     const auth=createClient(supabaseUrl,anonKey);
     const {data:{user},error:authError}=await auth.auth.getUser(token);
