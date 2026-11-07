@@ -48,10 +48,19 @@ export async function POST(request: Request) {
     if (rowsError || !rows?.length) return NextResponse.json({ error: "This order has no items." }, { status: 400 });
 
     const productIds = rows.map((row) => row.product_id).filter(Boolean);
-    const { data: products, error: productsError } = await db.from("products")
+    const { data: productsData, error: productsError } = await db.from("products")
       .select("id,title,price_scr,status,shop_id").in("id", productIds);
+    // The Supabase client is not generated with the database schema types in this project.
+    // Cast the selected rows explicitly so TypeScript can type the product fields.
+    const products = (productsData ?? []) as Array<{
+      id: string;
+      title: string;
+      price_scr: number | string;
+      status: string;
+      shop_id: string;
+    }>;
 
-    if (productsError || !products || products.length !== new Set(productIds).size || products.some((p) => p.status !== "approved")) {
+    if (productsError || !products.length || products.length !== new Set(productIds).size || products.some((p) => p.status !== "approved")) {
       return NextResponse.json({ error: "One or more products are no longer available. Please contact the seller." }, { status: 400 });
     }
 
