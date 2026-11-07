@@ -1,40 +1,19 @@
 "use client";
-
-import { useEffect, useMemo, useState } from "react";
+import {useEffect,useMemo,useState} from "react";
 import Link from "next/link";
-import { ArrowLeft, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
-import { supabase } from "../../lib/supabase";
-
-type Product = { id: string; title: string; price_scr: number; image_urls: string[]; shops: { name: string } | null };
-
-export default function CartPage() {
-  const [ids, setIds] = useState<string[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    try { setIds(JSON.parse(localStorage.getItem("island-express-cart") || "[]")); } catch { setIds([]); }
-  }, []);
-  useEffect(() => {
-    localStorage.setItem("island-express-cart", JSON.stringify(ids));
-    const unique = [...new Set(ids)];
-    if (!unique.length) { setProducts([]); setLoading(false); return; }
-    supabase.from("products").select("id,title,price_scr,image_urls,shops(name)").in("id", unique).eq("status","approved")
-      .then(({data}) => { setProducts((data ?? []) as unknown as Product[]); setLoading(false); });
-  }, [ids]);
-  const quantities = useMemo(() => ids.reduce<Record<string,number>>((a,id) => { a[id]=(a[id]||0)+1; return a; },{}),[ids]);
-  const total = products.reduce((sum,p)=>sum+(Number(p.price_scr)||0)*(quantities[p.id]||0),0);
-  function change(id:string,delta:number) {
-    setIds(old => delta > 0 ? [...old,id] : old.filter((x,i)=>x!==id || old.indexOf(id)!==i));
-  }
-  function remove(id:string) { setIds(old=>old.filter(x=>x!==id)); }
-  return <main className="cart-page">
-    <header className="cart-page-header"><Link href="/" className="account-brand">island<span>express</span></Link><span>YOUR SHOPPING CART</span></header>
-    <div className="cart-page-wrap">
-      <Link href="/" className="cart-back"><ArrowLeft size={16}/> Continue shopping</Link>
-      <h1>Your cart</h1><p className="cart-intro">Review your items before proceeding to checkout.</p>
-      {loading ? <div className="cart-empty">Loading your cart…</div> : products.length === 0 ? <div className="cart-empty"><ShoppingBag size={38}/><h2>Your cart is empty</h2><p>Find something you love from local Seychelles sellers.</p><Link className="primary" href="/">Explore products</Link></div> :
-      <div className="cart-layout"><section className="cart-items">{products.map(p=><article className="cart-item" key={p.id}><div className="cart-thumb">{p.image_urls?.[0]?<img src={p.image_urls[0]} alt={p.title}/>:<span>📦</span>}</div><div className="cart-item-info"><h3>{p.title}</h3><small>{p.shops?.name ?? "Island Express seller"}</small><b>SCR {Number(p.price_scr).toLocaleString()}</b><div className="cart-quantity"><button onClick={()=>change(p.id,-1)} aria-label="Decrease quantity"><Minus size={14}/></button><span>{quantities[p.id]}</span><button onClick={()=>change(p.id,1)} aria-label="Increase quantity"><Plus size={14}/></button><button className="cart-remove" onClick={()=>remove(p.id)}><Trash2 size={14}/> Remove</button></div></div><strong>SCR {(Number(p.price_scr)*quantities[p.id]).toLocaleString()}</strong></article>)}</section>
-      <aside className="cart-summary"><h2>Order summary</h2><div><span>Subtotal</span><b>SCR {total.toLocaleString()}</b></div><div><span>Delivery</span><span>Calculated by seller</span></div><hr/><div className="cart-total"><span>Total</span><b>SCR {total.toLocaleString()}</b></div><Link className="primary cart-checkout" href="/checkout">Proceed to checkout</Link><small>Payment and delivery arrangements will be confirmed during checkout.</small></aside></div>}
-    </div>
-  </main>;
+import {ArrowLeft,Minus,Plus,ShoppingBag,Trash2} from "lucide-react";
+import {supabase} from "../../lib/supabase";
+type Line={productId:string;variantId:string|null;variantLabel:string|null};
+type Product={id:string;title:string;price_scr:number;image_urls:string[];shops:{name:string}|null};
+type Variant={id:string;label:string;price_scr:number;stock_quantity:number};
+export default function CartPage(){
+ const [lines,setLines]=useState<Line[]>([]);const [products,setProducts]=useState<Product[]>([]);const [variants,setVariants]=useState<Variant[]>([]);const [loading,setLoading]=useState(true);
+ useEffect(()=>{try{const raw=JSON.parse(localStorage.getItem("island-express-cart")||"[]");setLines((Array.isArray(raw)?raw:[]).map((x:any)=>typeof x==="string"?{productId:x,variantId:null,variantLabel:null}:x).filter((x:any)=>x?.productId));}catch{setLines([]);}},[]);
+ useEffect(()=>{localStorage.setItem("island-express-cart",JSON.stringify(lines));const ids=[...new Set(lines.map(x=>x.productId))];if(!ids.length){setProducts([]);setVariants([]);setLoading(false);return;}Promise.all([supabase.from("products").select("id,title,price_scr,image_urls,shops(name)").in("id",ids).eq("status","approved"),supabase.from("product_variants").select("id,label,price_scr,stock_quantity").in("product_id",ids).eq("is_active",true)]).then(([p,v])=>{setProducts((p.data??[]) as unknown as Product[]);setVariants((v.data??[]) as Variant[]);setLoading(false);});},[lines]);
+ const grouped=useMemo(()=>{const map=new Map<string,{line:Line;qty:number}>();for(const line of lines){const key=line.productId+":"+(line.variantId||"");const old=map.get(key);if(old)old.qty++;else map.set(key,{line,qty:1});}return [...map.values()];},[lines]);
+ const rows=grouped.map(g=>{const p=products.find(x=>x.id===g.line.productId);const v=variants.find(x=>x.id===g.line.variantId);return {...g,p,v,price:Number(v?.price_scr??p?.price_scr??0)};}).filter(x=>x.p);
+ const total=rows.reduce((s,x)=>s+x.price*x.qty,0);
+ function change(line:Line,delta:number){const key=(x:Line)=>x.productId+":"+(x.variantId||"");setLines(old=>{const same=old.filter(x=>key(x)===key(line));if(delta>0)return [...old,line];let removed=false;return old.filter(x=>{if(!removed&&key(x)===key(line)){removed=true;return false;}return true;});});}
+ function remove(line:Line){const key=line.productId+":"+(line.variantId||"");setLines(old=>old.filter(x=>x.productId+":"+(x.variantId||"")!==key));}
+ return <main className="cart-page"><header className="cart-page-header"><Link href="/" className="account-brand">island<span>express</span></Link><span>YOUR SHOPPING CART</span></header><div className="cart-page-wrap"><Link href="/" className="cart-back"><ArrowLeft size={16}/> Continue shopping</Link><h1>Your cart</h1><p className="cart-intro">Review your items before proceeding to checkout.</p>{loading?<div className="cart-empty">Loading your cart…</div>:!rows.length?<div className="cart-empty"><ShoppingBag size={38}/><h2>Your cart is empty</h2><p>Find something you love from local Seychelles sellers.</p><Link className="primary" href="/">Explore products</Link></div>:<div className="cart-layout"><section className="cart-items">{rows.map(x=><article className="cart-item" key={x.line.productId+":"+(x.line.variantId||"")}><div className="cart-thumb">{x.p!.image_urls?.[0]?<img src={x.p!.image_urls[0]} alt={x.p!.title}/>:<span>📦</span>}</div><div className="cart-item-info"><h3>{x.p!.title}</h3>{x.line.variantLabel&&<small>Option: {x.line.variantLabel}</small>}<small>{x.p!.shops?.name??"Island Express seller"}</small><b>SCR {x.price.toFixed(2)}</b><div className="cart-quantity"><button onClick={()=>change(x.line,-1)} aria-label="Decrease quantity"><Minus size={14}/></button><span>{x.qty}</span><button onClick={()=>change(x.line,1)} aria-label="Increase quantity"><Plus size={14}/></button><button className="cart-remove" onClick={()=>remove(x.line)}><Trash2 size={14}/> Remove</button></div></div><strong>SCR {(x.price*x.qty).toFixed(2)}</strong></article>)}</section><aside className="cart-summary"><h2>Order summary</h2><div><span>Subtotal</span><b>SCR {total.toFixed(2)}</b></div><div><span>Delivery</span><span>Calculated by seller</span></div><hr/><div className="cart-total"><span>Total</span><b>SCR {total.toFixed(2)}</b></div><Link className="primary cart-checkout" href="/checkout">Proceed to checkout</Link><small>Payment and delivery arrangements will be confirmed during checkout.</small></aside></div>}</div></main>;
 }
