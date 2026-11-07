@@ -60,7 +60,7 @@ export default function NotificationsPage() {
   return <main className="cart-page">
     <header className="cart-page-header"><Link href="/" className="account-brand">island<span>express</span></Link><span>YOUR ACCOUNT</span></header>
     <div className="cart-page-wrap">
-      <Link href="/account" className="cart-back"><ArrowLeft size={16}/> My account</Link>
+      <button type="button" onClick={() => router.back()} className="cart-back"><ArrowLeft size={16}/> Back</button>
       <div className="seller-orders-heading"><div><div className="eyebrow">{accountRole === "seller" ? "SELLER CENTRE" : accountRole === "admin" ? "ADMIN CENTRE" : "CUSTOMER CENTRE"}</div><h1>Notifications</h1><p>Your personal account updates, order activity and marketplace notices.</p></div><button className="admin-refresh" onClick={loadNotifications} disabled={loading}><RefreshCw size={15}/> Refresh</button></div>
       {message && <div className="account-message">{message}</div>}
       <div className="notifications-actions"><span>{unread} unread</span><button onClick={markAllRead} disabled={busy || unread === 0}><CheckCheck size={14}/> Mark all as read</button></div>
