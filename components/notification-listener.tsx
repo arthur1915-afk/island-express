@@ -24,8 +24,6 @@ export default function NotificationListener() {
     let hideTimer: ReturnType<typeof setTimeout> | undefined;
 
     async function connect(userId: string) {
-      const destination = profile?.is_admin ? "/admin" : profile?.role === "seller" ? "/seller/orders" : "/orders";
-      const destinationLabel = profile?.is_admin ? "Open Admin Centre" : profile?.role === "seller" ? "View customer orders" : "View My Orders";
       if (channel) await supabase.removeChannel(channel);
       channel = supabase
         .channel("live-notifications-" + userId)
@@ -37,8 +35,10 @@ export default function NotificationListener() {
         }, payload => {
           const row = payload.new as ToastNotification;
           if (!active) return;
-          const isSellerOrder = row.notification_type?.startsWith("new_order:");
-          const isAdminAlert = row.notification_type?.startsWith("admin_") || row.notification_type?.includes("cancellation_request");
+          const type = (row.notification_type || "").toLowerCase();
+          const title = (row.title || "").toLowerCase();
+          const isSellerOrder = type.startsWith("new_order") || title.includes("new order received");
+          const isAdminAlert = !isSellerOrder && (type.startsWith("admin_") || type.includes("cancellation_request"));
           const destination = isSellerOrder ? "/seller/orders" : isAdminAlert ? "/admin" : "/orders";
           const destinationLabel = isSellerOrder ? "View customer orders" : isAdminAlert ? "Open Admin Centre" : "View My Orders";
           setNotice({ id: row.id, title: row.title, message: row.message, order_id: row.order_id, notification_type: row.notification_type, href: destination, linkLabel: destinationLabel });
