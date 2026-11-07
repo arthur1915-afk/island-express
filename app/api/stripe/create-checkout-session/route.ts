@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     }
 
     const { data: rowsData, error: rowsError } = await db.from("order_items")
-      .select("product_id,quantity,product_title").eq("order_id", orderId);
+      .select("product_id,variant_id,variant_label,quantity,product_title").eq("order_id", orderId);
     const rows = (rowsData || []) as any[];
     if (rowsError || !rows?.length) return NextResponse.json({ error: "This order has no items." }, { status: 400 });
 
@@ -56,17 +56,18 @@ export async function POST(request: Request) {
     }
 
     const productMap = new Map(products.map((p) => [p.id, p]));
+    const variantIds = rows.map((row) => row.variant_id).filter(Boolean);
+    const { data: variantRows, error: variantError } = variantIds.length ? await db.from("product_variants").select("id,product_id,label,price_scr,stock_quantity,is_active").in("id", variantIds) : { data: [], error: null };
+    if (variantError) return NextResponse.json({ error: "Could not verify product options. Please try again." }, { status: 500 });
+    const variantMap = new Map((variantRows || []).map((v: any) => [v.id, v]));
     const itemRows = rows.map((row) => {
       const product = productMap.get(row.product_id);
       if (!product || !Number.isInteger(row.quantity) || row.quantity < 1) throw new Error("Invalid order item.");
-      const unitCents = Math.round(Number(product.price_scr) * 100);
+      const variant = row.variant_id ? variantMap.get(row.variant_id) : null;
+      if (row.variant_id && (!variant || variant.product_id !== product.id || !variant.is_active || variant.stock_quantity < row.quantity)) throw new Error("The selected option is unavailable or has insufficient stock. Please return to your cart.");
+      const unitCents = Math.round(Number(variant?.price_scr ?? product.price_scr) * 100);
       if (!Number.isSafeInteger(unitCents) || unitCents < 1) throw new Error("A product has an invalid price.");
-      return {
-        product,
-        quantity: row.quantity,
-        originalCents: unitCents * row.quantity,
-        discountCents: 0,
-      };
+      return { product, variant, quantity: row.quantity, originalCents: unitCents * row.quantity, discountCents: 0 };
     });
 
     const subtotalCents = itemRows.reduce((sum, item) => sum + item.originalCents, 0);
@@ -141,7 +142,7 @@ export async function POST(request: Request) {
         return {
           price_data: {
             currency: "scr",
-            product_data: { name: item.quantity > 1 ? `${item.product.title} × ${item.quantity}` : item.product.title },
+            product_data: { name: [item.product.title,item.variant?.label].filter(Boolean).join(" — ") + (item.quantity > 1 ? ` × ${item.quantity}` : "") },
             unit_amount: amount,
           },
           quantity: 1,
