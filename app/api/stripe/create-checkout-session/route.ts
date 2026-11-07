@@ -33,9 +33,10 @@ export async function POST(request: Request) {
     if (typeof orderId !== "string") return NextResponse.json({ error: "Invalid order reference." }, { status: 400 });
 
     db = createClient(dbConfig.url, dbConfig.service);
-    const { data: order, error: orderError } = await db.from("orders")
+    const { data: orderData, error: orderError } = await db.from("orders")
       .select("id,customer_id,email,total_scr,payment_status,status,stripe_session_id")
       .eq("id", orderId).eq("customer_id", user.id).single();
+    const order = orderData as any;
 
     if (orderError || !order || order.payment_status === "paid" || order.status !== "pending") {
       return NextResponse.json({ error: "This order cannot be paid. It may already be paid or cancelled." }, { status: 400 });
