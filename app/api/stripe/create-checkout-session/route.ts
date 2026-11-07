@@ -42,8 +42,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "This order cannot be paid. It may already be paid or cancelled." }, { status: 400 });
     }
 
-    const { data: rows, error: rowsError } = await db.from("order_items")
+    const { data: rowsData, error: rowsError } = await db.from("order_items")
       .select("product_id,quantity,product_title").eq("order_id", orderId);
+    const rows = (rowsData || []) as any[];
     if (rowsError || !rows?.length) return NextResponse.json({ error: "This order has no items." }, { status: 400 });
 
     const productIds = rows.map((row) => row.product_id).filter(Boolean);
