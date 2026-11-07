@@ -61,6 +61,19 @@ export default function Home() {
     });
     return () => { active = false; listener.subscription.unsubscribe(); };
   }, []);
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase.channel("home-notification-count-" + userId)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: "user_id=eq." + userId }, () => {
+        setUnreadNotifications(count => count + 1);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: "user_id=eq." + userId }, async () => {
+        const { count } = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", userId).is("read_at", null);
+        setUnreadNotifications(count ?? 0);
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [userId]);
   async function toggleFavourite(id: string) {
     if (!userId) { window.location.href = "/account"; return; }
     const saved = favourites.includes(id);
