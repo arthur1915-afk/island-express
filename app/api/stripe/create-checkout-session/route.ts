@@ -81,14 +81,22 @@ export async function POST(request: Request) {
       }
 
       const { data: vouchers, error: voucherError } = await db.from("shop_vouchers")
-        .select("id,shop_id,code,discount_type,discount_value")
+        .select("id,shop_id,code,discount_type,discount_value,minimum_spend_scr,starts_at,ends_at,max_redemptions,redemption_count")
         .ilike("code", voucherCode).eq("is_active", true);
 
       if (voucherError || !vouchers?.length) {
         return NextResponse.json({ error: "That voucher code was not found or is inactive." }, { status: 400 });
       }
 
-      const candidate = vouchers.find((v) => shopTotals.has(v.shop_id));
+      const now = Date.now();
+      const candidate = vouchers.find((v) => {
+        const shopSubtotal = shopTotals.get(v.shop_id) || 0;
+        return shopTotals.has(v.shop_id) &&
+          (!v.starts_at || now >= new Date(v.starts_at).getTime()) &&
+          (!v.ends_at || now <= new Date(v.ends_at).getTime()) &&
+          shopSubtotal >= Number(v.minimum_spend_scr || 0) &&
+          (v.max_redemptions == null || Number(v.redemption_count) < Number(v.max_redemptions));
+      });
       if (!candidate) return NextResponse.json({ error: "This voucher does not apply to products in your cart." }, { status: 400 });
 
       const eligibleSubtotalCents = shopTotals.get(candidate.shop_id) || 0;
