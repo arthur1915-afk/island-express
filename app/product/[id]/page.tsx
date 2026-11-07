@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { ArrowLeft, ShoppingBag, MapPin, Truck, Store, ChevronLeft, ChevronRight, Package, Star } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 
+type Variant = {id:string;label:string;price_scr:number;stock_quantity:number;attributes:Record<string,unknown>};
 type ProductReview = { id:string; rating:number; title:string|null; body:string; created_at:string };
 type ProductDetails = {
   id: string; title: string; description: string | null; category: string;
@@ -17,6 +18,8 @@ export default function ProductDetailsPage() {
   const params = useParams();
   const productId = String(params.id ?? "");
   const [product,setProduct] = useState<ProductDetails|null>(null);
+  const [variants,setVariants] = useState<Variant[]>([]);
+  const [selectedVariant,setSelectedVariant] = useState<Variant|null>(null);
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState("");
   const [activeImage,setActiveImage] = useState(0);
@@ -32,7 +35,7 @@ export default function ProductDetailsPage() {
         .eq("id",productId).eq("status","approved").single();
       if (!active) return;
       if (error || !data) setError("This product could not be found or is no longer available.");
-      else { setProduct(data as unknown as ProductDetails); const {data: reviewRows}=await supabase.from("product_reviews").select("id,rating,title,body,created_at").eq("product_id",productId).eq("status","approved").order("created_at",{ascending:false}); const rows=(reviewRows??[]) as ProductReview[]; setReviews(rows); setRatingSummary({average:rows.length?rows.reduce((sum,r)=>sum+r.rating,0)/rows.length:0,count:rows.length}); }
+      else { setProduct(data as unknown as ProductDetails); const {data: variantRows}=await supabase.from("product_variants").select("id,label,price_scr,stock_quantity,attributes").eq("product_id",productId).eq("is_active",true).order("created_at"); const available=(variantRows??[]) as Variant[];setVariants(available);setSelectedVariant(available.find(v=>v.stock_quantity>0)??available[0]??null); const {data: reviewRows}=await supabase.from("product_reviews").select("id,rating,title,body,created_at").eq("product_id",productId).eq("status","approved").order("created_at",{ascending:false}); const rows=(reviewRows??[]) as ProductReview[]; setReviews(rows); setRatingSummary({average:rows.length?rows.reduce((sum,r)=>sum+r.rating,0)/rows.length:0,count:rows.length}); }
       setLoading(false);
     }
     if (productId) load();
@@ -41,12 +44,16 @@ export default function ProductDetailsPage() {
 
   function addToCart() {
     if (!product) return;
+    const available=variants.length?selectedVariant?.stock_quantity:product.stock_quantity;
+    if (!available || (variants.length&&!selectedVariant)) { setNotice("Please select an available variation."); return; }
     try {
-      const saved = JSON.parse(localStorage.getItem("island-express-cart") || "[]");
-      localStorage.setItem("island-express-cart",JSON.stringify([...saved,product.id]));
+      const saved=JSON.parse(localStorage.getItem("island-express-cart")||"[]");
+      const cart=Array.isArray(saved)?saved:[];
+      const line={productId:product.id,variantId:selectedVariant?.id??null,variantLabel:selectedVariant?.label??null};
+      localStorage.setItem("island-express-cart",JSON.stringify([...cart,line]));
       setNotice("Added to your cart");
     } catch {
-      localStorage.setItem("island-express-cart",JSON.stringify([product.id]));
+      localStorage.setItem("island-express-cart",JSON.stringify([{productId:product.id,variantId:selectedVariant?.id??null,variantLabel:selectedVariant?.label??null}]));
       setNotice("Added to your cart");
     }
   }
@@ -73,9 +80,10 @@ export default function ProductDetailsPage() {
           <div className="eyebrow">{product.category}</div>
           <h1>{product.title}</h1>
           <div className="product-detail-rating"><span className="rating-stars"><Star size={17} fill={ratingSummary.count?"currentColor":"none"}/></span>{ratingSummary.count?<><b>{ratingSummary.average.toFixed(1)} / 5</b><a href="#reviews">{ratingSummary.count} customer {ratingSummary.count===1?"review":"reviews"}</a></>:<span>No reviews yet</span>}</div>
-          <div className="product-detail-price">SCR {Number(product.price_scr).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-          <div className="product-detail-stock">{product.stock_quantity>0?product.stock_quantity+" available":"Currently out of stock"}</div>
-          <button className="primary product-detail-add" type="button" onClick={addToCart} disabled={product.stock_quantity<=0}><ShoppingBag size={17}/> Add to cart</button>
+          {variants.length>0&&<div className="product-variation-picker"><h2>Choose an option</h2><div className="seller-form-row">{variants.map(v=><button type="button" key={v.id} className={selectedVariant?.id===v.id?"primary":"secondary"} disabled={v.stock_quantity<=0} onClick={()=>setSelectedVariant(v)}>{v.label}</button>)}</div></div>}
+          <div className="product-detail-price">SCR {Number(selectedVariant?.price_scr??product.price_scr).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+          <div className="product-detail-stock">{(variants.length?selectedVariant?.stock_quantity??0:product.stock_quantity)>0?(variants.length?selectedVariant?.stock_quantity:product.stock_quantity)+" available":"Currently out of stock"}</div>
+          <button className="primary product-detail-add" type="button" onClick={addToCart} disabled={variants.length?(!selectedVariant||selectedVariant.stock_quantity<=0):product.stock_quantity<=0}><ShoppingBag size={17}/> Add to cart</button>
           {notice&&<div className="product-detail-notice" role="status">{notice}</div>}
           <div className="product-detail-section"><h2>Product details</h2><p>{product.description?.trim()||"The seller has not added a product description yet."}</p><div className="product-detail-meta"><span>Category</span><b>{product.category}</b></div><div className="product-detail-meta"><span>Availability</span><b>{product.stock_quantity>0?"In stock":"Out of stock"}</b></div></div>
           <div className="product-shipping-card"><div className="product-shipping-icon"><Truck size={20}/></div><div><b>Estimated shipping time</b><strong className="product-shipping-range">{product.shipping_days_min != null && product.shipping_days_max != null ? (product.shipping_days_min === product.shipping_days_max ? product.shipping_days_min + " days" : product.shipping_days_min + "–" + product.shipping_days_max + " days") : "To be confirmed"}</strong><p>{product.shipping_days_min != null && product.shipping_days_max != null ? "Seller's estimated delivery time after dispatch. Actual timing may vary by destination island and delivery address." : "The seller will confirm the estimated delivery time after your order, based on your island and delivery address."}</p><small>Delivery estimate provided by the seller.</small></div></div>
