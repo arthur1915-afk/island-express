@@ -51,7 +51,7 @@ export default function SellerVouchersPage() {
     const end=draft.ends_at?new Date(draft.ends_at).toISOString():null;
     if (end && new Date(end)<=new Date(start)) { setMessage("The end date must be after the start date."); return; }
     setBusy(true); setMessage("");
-    const payload={shop_id:shopId,code:draft.code.trim().toUpperCase().replace(/\\s+/g,""),title:draft.title.trim(),discount_type:draft.discount_type,discount_value:value,minimum_spend_scr:minimum,starts_at:start,ends_at:end,max_redemptions:cap};
+    const payload={shop_id:shopId,code:draft.code.trim().toUpperCase().replace(/\s+/g,""),title:draft.title.trim(),discount_type:draft.discount_type,discount_value:value,minimum_spend_scr:minimum,starts_at:start,ends_at:end,max_redemptions:cap};
     const result=editing?await supabase.from("shop_vouchers").update(payload).eq("id",editing).eq("shop_id",shopId):await supabase.from("shop_vouchers").insert(payload);
     if (result.error) setMessage(result.error.message);
     else { setMessage(editing?"Voucher updated.":"Voucher created."); reset(); await load(); }
@@ -80,7 +80,7 @@ export default function SellerVouchersPage() {
         <h2>{editing?"Edit voucher":"Create a voucher"}</h2>
         <p>Set a percentage or fixed SCR discount, minimum spend and optional validity or redemption limits.</p>
         <form className="account-form" onSubmit={save}>
-          <div className="seller-form-row"><label>Voucher code<input required maxLength={24} value={draft.code} onChange={e=>setDraft({...draft,code:e.target.value.toUpperCase().replace(/\\s/g,"")})} placeholder="e.g. ISLAND10"/></label><label>Display title<input required maxLength={80} value={draft.title} onChange={e=>setDraft({...draft,title:e.target.value})} placeholder="Weekend special"/></label></div>
+          <div className="seller-form-row"><label>Voucher code<input required maxLength={24} value={draft.code} onChange={e=>setDraft({...draft,code:e.target.value.toUpperCase().replace(/\s/g,"")})} placeholder="e.g. ISLAND10"/></label><label>Display title<input required maxLength={80} value={draft.title} onChange={e=>setDraft({...draft,title:e.target.value})} placeholder="Weekend special"/></label></div>
           <div className="seller-form-row"><label>Discount type<select value={draft.discount_type} onChange={e=>setDraft({...draft,discount_type:e.target.value as "percentage"|"fixed"})}><option value="percentage">Percentage (%)</option><option value="fixed">Fixed amount (SCR)</option></select></label><label>Discount value<input required type="number" min="0.01" step="0.01" max={draft.discount_type==="percentage"?100:undefined} value={draft.discount_value} onChange={e=>setDraft({...draft,discount_value:e.target.value})}/></label></div>
           <div className="seller-form-row"><label>Minimum spend (SCR)<input type="number" min="0" step="0.01" value={draft.minimum_spend_scr} onChange={e=>setDraft({...draft,minimum_spend_scr:e.target.value})}/></label><label>Maximum redemptions (optional)<input type="number" min="1" step="1" value={draft.max_redemptions} onChange={e=>setDraft({...draft,max_redemptions:e.target.value})} placeholder="Unlimited"/></label></div>
           <div className="seller-form-row"><label>Starts at<input type="datetime-local" value={draft.starts_at} onChange={e=>setDraft({...draft,starts_at:e.target.value})}/></label><label>Ends at (optional)<input type="datetime-local" value={draft.ends_at} onChange={e=>setDraft({...draft,ends_at:e.target.value})}/></label></div>
