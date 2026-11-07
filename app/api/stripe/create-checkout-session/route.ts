@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     const { data: rows, error: rowsError } = await db.from("order_items").select("product_id,quantity,product_title").eq("order_id", orderId);
     if (rowsError || !rows?.length) return NextResponse.json({ error: "This order has no items." }, { status: 400 });
     const productIds = rows.map((row) => row.product_id).filter(Boolean);
-    const { data: products, error: productsError } = await db.from("products").select("id,title,price_scr,status").in("id", productIds);
+    const { data: products, error: productsError } = await db.from("products").select("id,title,price_scr,status,shop_id").in("id", productIds);
     if (productsError || !products || products.length !== rows.length || products.some((p) => p.status !== "approved")) {
       return NextResponse.json({ error: "One or more products are no longer available. Please contact the seller." }, { status: 400 });
     }
