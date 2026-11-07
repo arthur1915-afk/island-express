@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     if (authError || !user) return NextResponse.json({ error: "Your session is invalid. Please sign in again." }, { status: 401 });
 
     const body = await request.json();
-    const orderId = body?.orderId;
+    const orderId = body?.orderId;\n    const voucherCode = typeof body?.voucherCode === "string" ? body.voucherCode.trim().toUpperCase() : null;
     if (typeof orderId !== "string") return NextResponse.json({ error: "Invalid order reference." }, { status: 400 });
 
     const db = createClient(supabaseUrl, serviceKey);
@@ -51,12 +51,12 @@ export async function POST(request: Request) {
       line_items: lineItems,
       customer_email: order.email || user.email || undefined,
       client_reference_id: order.id,
-      metadata: { order_id: order.id, customer_id: user.id },
+      metadata: { order_id: order.id, customer_id: user.id, voucher_id: voucher?.id || "", voucher_code: voucher?.code || "" },
       success_url: origin + "/checkout/success?session_id={CHECKOUT_SESSION_ID}",
       cancel_url: origin + "/orders?payment=cancelled",
       expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
     });
-    await db.from("orders").update({ total_scr: total / 100, subtotal_scr: total / 100, payment_method: "stripe", payment_status: "unpaid", status: "pending", stripe_session_id: session.id }).eq("id", order.id).eq("customer_id", user.id).eq("status", "pending");
+    await db.from("orders").update({ total_scr: total / 100, subtotal_scr: Number(order.total_scr), discount_scr: voucherDiscount, voucher_id: voucher?.id || null, voucher_code: voucher?.code || null, payment_method: "stripe", payment_status: "unpaid", status: "pending", stripe_session_id: session.id }).eq("id", order.id).eq("customer_id", user.id).eq("status", "pending");
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("Stripe checkout error:", error);
