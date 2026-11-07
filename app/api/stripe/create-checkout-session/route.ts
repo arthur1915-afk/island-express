@@ -89,11 +89,24 @@ export async function POST(request: Request) {
         shopTotals.set(item.product.shop_id, (shopTotals.get(item.product.shop_id) || 0) + item.originalCents);
       }
 
-      const { data: vouchers, error: voucherError } = await db.from("shop_vouchers")
+      const { data: vouchersData, error: voucherError } = await db.from("shop_vouchers")
         .select("id,shop_id,code,discount_type,discount_value,minimum_spend_scr,starts_at,ends_at,max_redemptions,redemption_count")
         .ilike("code", voucherCode).eq("is_active", true);
+      // Supabase is used without generated Database typings, so define the selected row shape.
+      const vouchers = (vouchersData ?? []) as Array<{
+        id: string;
+        shop_id: string;
+        code: string;
+        discount_type: string;
+        discount_value: number | string;
+        minimum_spend_scr: number | string | null;
+        starts_at: string | null;
+        ends_at: string | null;
+        max_redemptions: number | null;
+        redemption_count: number | null;
+      }>;
 
-      if (voucherError || !vouchers?.length) {
+      if (voucherError || !vouchers.length) {
         return NextResponse.json({ error: "That voucher code was not found or is inactive." }, { status: 400 });
       }
 
