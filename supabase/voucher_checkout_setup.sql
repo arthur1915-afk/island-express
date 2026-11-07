@@ -31,10 +31,9 @@ as $$
 declare v_id uuid; released boolean;
 begin
   -- Clear the order reference first; this makes release idempotent.
-  update public.orders set voucher_id=null, voucher_code=null, discount_scr=0
-  where id=p_order_id and voucher_id is not null
-  returning true, voucher_id into released, v_id;
-  if released and v_id is not null then
+  select voucher_id into v_id from public.orders where id=p_order_id and voucher_id is not null for update;
+  if v_id is not null then
+    update public.orders set voucher_id=null, voucher_code=null, discount_scr=0 where id=p_order_id;
     update public.shop_vouchers set redemption_count=greatest(0,redemption_count-1) where id=v_id;
   end if;
 end;
