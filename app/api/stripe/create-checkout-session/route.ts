@@ -127,7 +127,7 @@ export async function POST(request: Request) {
         : Number(candidate.discount_value) * 100;
       voucherDiscountCents = Math.min(eligibleSubtotalCents, Math.max(0, Math.round(rawDiscount)));
 
-      const { data: reserved, error: reserveError } = await db.rpc("reserve_shop_voucher", {
+      const { data: reserved, error: reserveError } = await (db as any).rpc("reserve_shop_voucher", {
         p_voucher_id: candidate.id,
         p_shop_id: candidate.shop_id,
         p_subtotal: eligibleSubtotalCents / 100,
@@ -182,7 +182,7 @@ export async function POST(request: Request) {
 
     const totalCents = lineItems.reduce((sum, item) => sum + (item.price_data?.unit_amount || 0) * (item.quantity || 1), 0);
     if (totalCents < 100) {
-      if (reservedOrderId) await db.rpc("release_order_voucher", { p_order_id: reservedOrderId });
+      if (reservedOrderId) await (db as any).rpc("release_order_voucher", { p_order_id: reservedOrderId });
       return NextResponse.json({ error: "The discounted order total is below Stripe's minimum charge." }, { status: 400 });
     }
 
@@ -207,7 +207,7 @@ export async function POST(request: Request) {
         expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
       });
     } catch (stripeError) {
-      if (reservedOrderId) await db.rpc("release_order_voucher", { p_order_id: reservedOrderId });
+      if (reservedOrderId) await (db as any).rpc("release_order_voucher", { p_order_id: reservedOrderId });
       throw stripeError;
     }
 
@@ -225,7 +225,7 @@ export async function POST(request: Request) {
 
     if (updateError) {
       await stripe.checkout.sessions.expire(session.id).catch(() => null);
-      if (reservedOrderId) await db.rpc("release_order_voucher", { p_order_id: reservedOrderId });
+      if (reservedOrderId) await (db as any).rpc("release_order_voucher", { p_order_id: reservedOrderId });
       return NextResponse.json({ error: "Could not finalise your order. Please try again." }, { status: 500 });
     }
 
@@ -233,7 +233,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Stripe checkout error:", error);
     if (db && reservedOrderId) {
-      await db.rpc("release_order_voucher", { p_order_id: reservedOrderId }).catch(() => null);
+      await (db as any).rpc("release_order_voucher", { p_order_id: reservedOrderId }).catch(() => null);
     }
     return NextResponse.json({ error: "Unable to start card payment. Please try again." }, { status: 500 });
   }
