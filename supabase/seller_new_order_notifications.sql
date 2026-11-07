@@ -1,58 +1,62 @@
--- Notify each shop owner when a new order item is created for their product.
--- Run this migration once in the Supabase SQL Editor.
-
-create or replace function public.notify_seller_new_order_item()
+-- Notify sellers only after the customer's order is successfully confirmed/paid.
+-- Also enables realtime delivery for in-app notification pop-ups.
+create or replace function public.notify_sellers_when_order_confirmed()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-  seller_user_id uuid;
+  seller_row record;
   order_ref text;
-  customer text;
-  product_shop_name text;
 begin
-  select s.owner_id, upper(left(o.id::text, 8)), o.customer_name, s.name
-    into seller_user_id, order_ref, customer, product_shop_name
-  from public.products p
-  join public.shops s on s.id = p.shop_id
-  join public.orders o on o.id = new.order_id
-  where p.id = new.product_id;
+  if new.status is distinct from old.status and new.status = 'confirmed' then
+    order_ref := upper(left(new.id::text, 8));
 
-  if seller_user_id is null then
-    return new;
+    for seller_row in
+      select s.owner_id, s.id as shop_id, s.name as shop_name,
+             count(oi.id)::integer as item_count
+      from public.order_items oi
+      join public.products p on p.id = oi.product_id
+      join public.shops s on s.id = p.shop_id
+      where oi.order_id = new.id
+      group by s.owner_id, s.id, s.name
+    loop
+      if not exists (
+        select 1 from public.notifications n
+        where n.user_id = seller_row.owner_id
+          and n.order_id = new.id
+          and n.notification_type = 'new_order:' || seller_row.shop_id::text
+      ) then
+        insert into public.notifications(user_id, order_id, notification_type, title, message)
+        values (
+          seller_row.owner_id,
+          new.id,
+          'new_order:' || seller_row.shop_id::text,
+          'New order received',
+          'Order ' || order_ref || ' has been paid and confirmed. ' ||
+          seller_row.item_count::text || ' item(s) from ' || seller_row.shop_name ||
+          ' are ready for you to process.'
+        );
+      end if;
+    end loop;
   end if;
-
-  insert into public.notifications(user_id, order_id, notification_type, title, message)
-  values (
-    seller_user_id,
-    new.order_id,
-    'new_order',
-    'New customer order',
-    'You have a new order ' || coalesce(order_ref, '') ||
-      ' for ' || coalesce(new.product_title, 'your product') ||
-      ' × ' || new.quantity::text ||
-      ' from ' || coalesce(customer, 'a customer') ||
-      ' in ' || coalesce(product_shop_name, 'your shop') || '.'
-  );
-
   return new;
 end;
 $$;
 
+-- Remove the earlier per-line-item trigger so unpaid orders do not alert sellers.
 drop trigger if exists notify_seller_new_order_item on public.order_items;
-create trigger notify_seller_new_order_item
-after insert on public.order_items
-for each row
-execute function public.notify_seller_new_order_item();
+drop trigger if exists notify_sellers_when_order_confirmed on public.orders;
+create trigger notify_sellers_when_order_confirmed
+after update of status on public.orders
+for each row execute function public.notify_sellers_when_order_confirmed();
 
--- Ensure notification inserts can be received through Supabase Realtime.
+-- Realtime is used by the site-wide pop-up listener.
 do $$
 begin
   if not exists (
-    select 1
-    from pg_publication_tables
+    select 1 from pg_publication_tables
     where pubname = 'supabase_realtime'
       and schemaname = 'public'
       and tablename = 'notifications'
