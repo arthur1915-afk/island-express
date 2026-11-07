@@ -20,7 +20,8 @@ export async function POST(request: Request) {
     if (authError || !user) return NextResponse.json({ error: "Your session is invalid. Please sign in again." }, { status: 401 });
 
     const body = await request.json();
-    const orderId = body?.orderId;\n    const voucherCode = typeof body?.voucherCode === "string" ? body.voucherCode.trim().toUpperCase() : null;
+    const orderId = body?.orderId;
+    const voucherCode = typeof body?.voucherCode === "string" ? body.voucherCode.trim().toUpperCase() : null;
     if (typeof orderId !== "string") return NextResponse.json({ error: "Invalid order reference." }, { status: 400 });
 
     const db = createClient(supabaseUrl, serviceKey);
