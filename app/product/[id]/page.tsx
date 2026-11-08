@@ -32,7 +32,7 @@ export default function ProductDetailsPage() {
     async function load() {
       const { data,error } = await supabase.from("products")
         .select("id,title,description,category,price_scr,stock_quantity,image_urls,shipping_days_min,shipping_days_max,shops(id,name,island,description,logo_url)")
-        .eq("id",productId).eq("status","approved").single();
+        .eq("id",productId).eq("status","approved").or("is_archived.is.null,is_archived.eq.false").single();
       if (!active) return;
       if (error || !data) setError("This product could not be found or is no longer available.");
       else { setProduct(data as unknown as ProductDetails); const {data: variantRows}=await supabase.from("product_variants").select("id,label,price_scr,stock_quantity,attributes").eq("product_id",productId).eq("is_active",true).order("created_at"); const available=(variantRows??[]) as Variant[];setVariants(available);setSelectedVariant(available.find(v=>v.stock_quantity>0)??available[0]??null); const {data: reviewRows}=await supabase.from("product_reviews").select("id,rating,title,body,created_at").eq("product_id",productId).eq("status","approved").order("created_at",{ascending:false}); const rows=(reviewRows??[]) as ProductReview[]; setReviews(rows); setRatingSummary({average:rows.length?rows.reduce((sum,r)=>sum+r.rating,0)/rows.length:0,count:rows.length}); }
