@@ -28,6 +28,11 @@ export default function AccountPage() {
   const [islandDraft, setIslandDraft] = useState("Mahé");
   const [accountEmail, setAccountEmail] = useState("");
   const [resetSending, setResetSending] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteDetails, setDeleteDetails] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteSending, setDeleteSending] = useState(false);
+  const [deleteNotice, setDeleteNotice] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const shopLogoRef = useRef<HTMLInputElement>(null);
 
@@ -248,6 +253,47 @@ export default function AccountPage() {
         {profile?.role === "customer" && <div className="account-feature-card"><div className="account-feature-icon"><Store size={22}/></div><div><h2>Start selling on Island Express</h2><p>Open your own shop and reach customers across Seychelles. Product listings are reviewed before they go live.</p></div><button className="primary account-submit" disabled={busy} onClick={becomeSeller}>{busy ? "Please wait…" : "Become a seller"}</button></div>}
         {profile?.role === "seller" && !shop && <form onSubmit={createShop} className="account-form shop-form account-shop-form"><h2>Create your shop</h2><label>Shop name<input required value={shopName} onChange={e=>setShopName(e.target.value)} placeholder="e.g. Island Finds"/></label><label>About your shop<textarea value={shopDescription} onChange={e=>setShopDescription(e.target.value)} placeholder="Tell customers what you sell"/></label><label>Island<select value={shopIsland} onChange={e=>setShopIsland(e.target.value)}><option>Mahé</option><option>Praslin</option><option>La Digue</option><option>Other</option></select></label><button className="primary account-submit" disabled={busy}>{busy ? "Creating shop…" : "Create my shop"}</button></form>}
         {shop && <div className="account-shop-card"><div className="account-shop-card-top"><span className="account-shop-icon"><Store size={22}/></span><span className="account-shop-status">SHOP ACTIVE</span></div><div className="account-shop-logo-editor">{shop.logo_url ? <img src={shop.logo_url} alt={shop.name+" logo"}/> : <span className="account-shop-logo-placeholder"><Store size={27}/></span>}<div><b>Shop profile picture</b><small>Upload your shop logo or business photo (JPG, PNG or WebP, max 5 MB).</small><button type="button" className="profile-edit-button" onClick={()=>shopLogoRef.current?.click()} disabled={busy}>{busy ? "Uploading…" : shop.logo_url ? "Change shop picture" : "Upload shop picture"}</button><input ref={shopLogoRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={e=>{uploadShopLogo(e.target.files?.[0]);e.currentTarget.value="";}}/></div></div><h2>{shop.name}</h2><p>Your shop is set up on {shop.island || "Seychelles"}.</p><small>island-express-one.vercel.app/shop/{shop.id}</small><Link className="primary account-shop-button" href="/seller">Open seller dashboard</Link></div>}
+        <section className="account-delete-section" aria-labelledby="delete-account-title">
+          <h2 id="delete-account-title">Delete account</h2>
+          <p>If you no longer wish to use Island Express, you can request account deletion. We will email a confirmation link before taking action.</p>
+          <button type="button" className="profile-remove-photo" onClick={()=>{setDeleteOpen(v=>!v);setDeleteNotice("");}}>Delete my account</button>
+          {deleteOpen && <div className="account-delete-panel">
+            <p><strong>Please tell us why you are leaving.</strong> Your feedback helps us improve Island Express.</p>
+            <label>Reason for deleting your account
+              <select required value={deleteReason} onChange={e=>setDeleteReason(e.target.value)}>
+                <option value="">Select a reason</option>
+                <option value="I no longer need the service">I no longer need the service</option>
+                <option value="I had a poor experience">I had a poor experience</option>
+                <option value="I am concerned about privacy">I am concerned about privacy</option>
+                <option value="I am having technical problems">I am having technical problems</option>
+                <option value="I am switching to another platform">I am switching to another platform</option>
+                <option value="I created another account">I created another account</option>
+                <option value="Other">Other</option>
+              </select>
+            </label>
+            <label>Additional comments (optional)
+              <textarea maxLength={1000} value={deleteDetails} onChange={e=>setDeleteDetails(e.target.value)} placeholder="Tell us more, if you wish."/>
+            </label>
+            <p className="account-delete-warning">We will send a confirmation link to <strong>{accountEmail}</strong>. Your account will not be deactivated unless you open that email and confirm. The link expires after 30 minutes.</p>
+            <div className="profile-edit-actions">
+              <button type="button" className="profile-cancel" onClick={()=>setDeleteOpen(false)}>Cancel</button>
+              <button type="button" className="profile-remove-photo" disabled={deleteSending||!deleteReason} onClick={async()=>{
+                setDeleteSending(true);setDeleteNotice("");
+                try {
+                  const {data:{session}}=await supabase.auth.getSession();
+                  if(!session?.access_token) throw new Error("Please sign in again.");
+                  const response=await fetch("/api/account/delete-request",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.access_token},body:JSON.stringify({reason:deleteReason,details:deleteDetails})});
+                  const result=await response.json();
+                  if(!response.ok) throw new Error(result.error||"Could not send the confirmation email.");
+                  setDeleteNotice("A confirmation email has been sent to "+accountEmail+". Open the link in that email within 30 minutes to confirm account deletion.");
+                  setDeleteOpen(false);setDeleteReason("");setDeleteDetails("");
+                } catch(error) {setDeleteNotice(error instanceof Error?error.message:"Could not send the confirmation email.");}
+                finally {setDeleteSending(false);}
+              }}>{deleteSending?"Sending email…":"Email me a confirmation link"}</button>
+            </div>
+            {deleteNotice && <p role="status" className="account-message">{deleteNotice}</p>}
+          </div>}
+        </section>
         <div className="account-footer-actions"><span>Island Express · Your account, all in one place</span></div>
           </div>
         </div>
