@@ -18,7 +18,7 @@ function clients() {
 export async function POST(request: Request) {
   try {
     const { auth, admin } = clients();
-    const bearer = request.headers.get("authorization")?.replace(/^Bearer\\s+/i, "");
+    const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
     if (!bearer) return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
     const { data: { user }, error: authError } = await auth.auth.getUser(bearer);
     if (authError || !user?.email) return NextResponse.json({ error: "Your session is invalid. Please sign in again." }, { status: 401 });
