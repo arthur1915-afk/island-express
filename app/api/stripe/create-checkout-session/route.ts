@@ -81,7 +81,8 @@ export async function POST(request: Request) {
 
     const subtotalCents = itemRows.reduce((sum, item) => sum + item.originalCents, 0);
     let voucher: { id: string; code: string } | null = null;
-    let voucherDiscountCents = 0;\n    const taxCents = subtotalCents > 150000 ? Math.round(subtotalCents * 0.16) : 0;
+    let voucherDiscountCents = 0;
+    const taxCents = subtotalCents > 150000 ? Math.round(subtotalCents * 0.16) : 0;
 
     if (voucherCode) {
       const shopTotals = new Map<string, number>();
@@ -180,7 +181,11 @@ export async function POST(request: Request) {
       })
       .filter((item): item is NonNullable<typeof item> => item !== null);
 
-    if (taxCents > 0) {\n      lineItems.push({ price_data: { currency: "scr", product_data: { name: "Tax (16%)" }, unit_amount: taxCents }, quantity: 1 });\n    }\n\n    const totalCents = lineItems.reduce((sum, item) => sum + (item.price_data?.unit_amount || 0) * (item.quantity || 1), 0);
+    if (taxCents > 0) {
+      lineItems.push({ price_data: { currency: "scr", product_data: { name: "Tax (16%)" }, unit_amount: taxCents }, quantity: 1 });
+    }
+
+    const totalCents = lineItems.reduce((sum, item) => sum + (item.price_data?.unit_amount || 0) * (item.quantity || 1), 0);
     if (totalCents < 100) {
       if (reservedOrderId) await (db as any).rpc("release_order_voucher", { p_order_id: reservedOrderId });
       return NextResponse.json({ error: "The discounted order total is below Stripe's minimum charge." }, { status: 400 });
@@ -200,7 +205,8 @@ export async function POST(request: Request) {
           order_id: order.id,
           customer_id: user.id,
           voucher_id: voucher?.id || "",
-          voucher_code: voucher?.code || "",\n          tax_scr: (taxCents / 100).toFixed(2),
+          voucher_code: voucher?.code || "",
+          tax_scr: (taxCents / 100).toFixed(2),
         },
         success_url: origin + "/checkout/success?session_id={CHECKOUT_SESSION_ID}",
         cancel_url: origin + "/orders?payment=cancelled",
@@ -213,6 +219,7 @@ export async function POST(request: Request) {
 
     const { error: updateError } = await (db as any).from("orders").update({
       total_scr: totalCents / 100,
+      tax_scr: taxCents / 100,
       subtotal_scr: subtotalCents / 100,
       discount_scr: voucherDiscountCents / 100,
       voucher_id: voucher?.id || null,
