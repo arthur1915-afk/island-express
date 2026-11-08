@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { ArrowLeft, ShieldCheck, Check, X, Ban, RefreshCw, Package, Headset, Star, Wallet, UserPlus, Megaphone, UserMinus, Users } from "lucide-react";
+import { ArrowLeft, ShieldCheck, Check, X, Ban, RefreshCw, Package, Headset, Star, Wallet, UserPlus, Megaphone, UserMinus, Users, Bell } from "lucide-react";
 
 type AdminAccount = { user_id: string; email: string };
 type CancellationRequest = { request_id: string; order_id: string; shop_id: string; seller_id: string; status: string; seller_note: string | null; requested_at: string; shop_name: string; customer_name: string; customer_id: string; total_scr: number };
@@ -24,7 +24,7 @@ export default function AdminPage() {
   const [admins,setAdmins] = useState<AdminAccount[]>([]);
   const [adminEmail,setAdminEmail] = useState("");
   const [adminBusy,setAdminBusy] = useState(false);
-  const [cancellationRequests,setCancellationRequests] = useState<CancellationRequest[]>([]);
+  const [cancellationRequests,setCancellationRequests] = useState<CancellationRequest[]>([]);\n  const [unreadNotifications,setUnreadNotifications] = useState(0);
 
   async function load() {
     setLoading(true);
@@ -32,7 +32,7 @@ export default function AdminPage() {
     if(!user){router.replace("/admin/login");return;}
     const {data:profile} = await supabase.from("profiles").select("is_admin").eq("id",user.id).single();
     if(!profile?.is_admin){setAuthorized(false);setLoading(false);return;}
-    setAuthorized(true);
+    setAuthorized(true);\n    const {count:unreadCount}=await supabase.from("notifications").select("id",{count:"exact",head:true}).eq("user_id",user.id).is("read_at",null);\n    setUnreadNotifications(unreadCount??0);
     const {data:adminRows,error:adminError}=await supabase.rpc("admin_list_accounts");
     if(adminError)setMessage("Admin accounts could not be loaded: "+adminError.message);
     setAdmins((adminRows??[]) as AdminAccount[]);
@@ -108,7 +108,7 @@ export default function AdminPage() {
   return <main className="admin-page">
     <header className="seller-dash-header"><Link href="/" className="account-back"><ArrowLeft size={16}/> Marketplace</Link><Link href="/" className="account-brand">island<span>express</span></Link></header>
     <div className="admin-wrap">
-      <div className="admin-heading"><div><div className="eyebrow">ISLAND EXPRESS · ADMINISTRATION</div><h1>Product moderation</h1><p>Review listings before they become visible to shoppers.</p></div><div className="admin-heading-actions"><Link className="admin-refresh" href="/admin/campaigns"><Megaphone size={15}/> Promotional Campaigns</Link><Link className="admin-refresh" href="/admin/support"><Headset size={15}/> Customer Care Inbox</Link><Link className="admin-refresh" href="/admin/reviews"><Star size={15}/> Product Reviews</Link><Link className="admin-refresh" href="/admin/withdrawals"><Wallet size={15}/> Seller Withdrawals</Link><button className="admin-refresh" onClick={load}><RefreshCw size={15}/> Refresh</button></div></div>
+      <div className="admin-heading"><div><div className="eyebrow">ISLAND EXPRESS · ADMINISTRATION</div><h1>Product moderation</h1><p>Review listings before they become visible to shoppers.</p></div><div className="admin-heading-actions"><Link className="admin-refresh" href="/notifications"><Bell size={15}/> Notifications{unreadNotifications>0?` (${unreadNotifications})`:""}</Link><Link className="admin-refresh" href="/admin/campaigns"><Megaphone size={15}/> Promotional Campaigns</Link><Link className="admin-refresh" href="/admin/support"><Headset size={15}/> Customer Care Inbox</Link><Link className="admin-refresh" href="/admin/reviews"><Star size={15}/> Product Reviews</Link><Link className="admin-refresh" href="/admin/withdrawals"><Wallet size={15}/> Seller Withdrawals</Link><button className="admin-refresh" onClick={load}><RefreshCw size={15}/> Refresh</button></div></div>
       <div className="admin-stats"><ShieldCheck size={20}/><b>{items.length}</b><span>Listings awaiting review</span></div>
       <section className="admin-account-manager">
         <div className="admin-account-manager-heading"><div><div className="eyebrow">ORDER MANAGEMENT</div><h2>Seller cancellation requests</h2><p>Review seller requests before an order is cancelled. Approval or rejection is sent to the seller and customer.</p></div><span>{cancellationRequests.length} awaiting review</span></div>
