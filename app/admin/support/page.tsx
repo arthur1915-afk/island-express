@@ -42,7 +42,13 @@ export default function AdminSupportPage(){
   if(!user){setNotice("Please sign in again.");setBusy(false);return;}
   const {error}=await supabase.from("support_messages").insert({conversation_id:active,sender_id:user.id,sender_type:"admin",body:draft.trim()});
   if(error)setNotice(error.message);
-  else{setDraft("");await openTicket(active);await load();}
+  else{
+   setDraft("");
+   const {error:statusError}=await supabase.from("support_conversations").update({status:"in_progress",handoff_requested:true,updated_at:new Date().toISOString()}).eq("id",active);
+   if(statusError)setNotice("Reply sent, but conversation status could not be updated: "+statusError.message);
+   else setNotice("Reply sent. Conversation status updated and customer notified.");
+   await openTicket(active);await load();
+  }
   setBusy(false);
  }
  async function setStatus(status:"in_progress"|"resolved"){
