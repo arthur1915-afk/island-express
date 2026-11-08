@@ -10,7 +10,7 @@ type OrderItem = { id: string; product_title: string; unit_price_scr: number; qu
 type Fulfilment = { id: string; shop_id: string; status: string; tracking_number: string | null; courier: string | null; estimated_delivery: string | null; shipping_note: string | null; seller_note: string | null; updated_at: string };
 type Order = {
   id: string; customer_name: string; phone: string; email: string | null; island: string;
-  delivery_address: string; delivery_notes: string | null; subtotal_scr: number;
+  delivery_address: string; delivery_notes: string | null; subtotal_scr: number; tax_scr: number;
   delivery_fee_scr: number; total_scr: number; discount_scr: number; voucher_code: string | null; payment_method: string; status: string;
   created_at: string; order_items: OrderItem[]; seller_order_fulfillments: Fulfilment[];
 };
