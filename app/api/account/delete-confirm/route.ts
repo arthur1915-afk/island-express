@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   if (!url || !anon || !service) return NextResponse.json({ error: "Account deletion is not configured." }, { status: 503 });
 
   try {
-    const bearer = request.headers.get("authorization")?.replace(/^Bearer\\s+/i, "");
+    const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
     if (!bearer) return NextResponse.json({ error: "Please open the confirmation link and sign in again if asked." }, { status: 401 });
     const auth = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } });
     const admin = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
