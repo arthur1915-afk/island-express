@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { ArrowLeft, ShoppingBag, MapPin, Truck, Store, ChevronLeft, ChevronRight, Package, Star } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 
-type Variant = {id:string;label:string;price_scr:number;stock_quantity:number;attributes:Record<string,unknown>};
+type Variant = {id:string;label:string;price_scr:number;stock_quantity:number;attributes:Record<string,string>};
 type ProductReview = { id:string; rating:number; title:string|null; body:string; created_at:string };
 type ProductDetails = {
   id: string; title: string; description: string | null; category: string;
@@ -58,6 +58,13 @@ export default function ProductDetailsPage() {
     }
   }
 
+  const variationKeys = [...new Set(variants.flatMap(v => Object.keys(v.attributes || {})))];
+  function chooseAttribute(key:string,value:string) {
+    const current={...(selectedVariant?.attributes||{}),[key]:value};
+    const match=variants.find(v=>Object.entries(current).every(([k,val])=>v.attributes?.[k]===val));
+    if(match)setSelectedVariant(match);
+    else { const fallback=variants.find(v=>v.attributes?.[key]===value); if(fallback)setSelectedVariant(fallback); }
+  }
   const images = product?.image_urls?.length ? product.image_urls : [];
   const currentImage = images[activeImage];
 
@@ -80,7 +87,7 @@ export default function ProductDetailsPage() {
           <div className="eyebrow">{product.category}</div>
           <h1>{product.title}</h1>
           <div className="product-detail-rating"><span className="rating-stars"><Star size={17} fill={ratingSummary.count?"currentColor":"none"}/></span>{ratingSummary.count?<><b>{ratingSummary.average.toFixed(1)} / 5</b><a href="#reviews">{ratingSummary.count} customer {ratingSummary.count===1?"review":"reviews"}</a></>:<span>No reviews yet</span>}</div>
-          {variants.length>0&&<div className="product-variation-picker"><h2>Choose an option</h2><div className="seller-form-row">{variants.map(v=><button type="button" key={v.id} className={selectedVariant?.id===v.id?"primary":"secondary"} disabled={v.stock_quantity<=0} onClick={()=>setSelectedVariant(v)}>{v.label}</button>)}</div></div>}
+          {variants.length>0&&<div className="product-variation-picker"><h2>Choose your options</h2>{variationKeys.length>0?variationKeys.map(key=><label key={key} className="product-variation-field">{key}<select value={selectedVariant?.attributes?.[key]||""} onChange={e=>chooseAttribute(key,e.target.value)}><option value="" disabled>Select {key.toLowerCase()}</option>{[...new Set(variants.map(v=>v.attributes?.[key]).filter(Boolean))].map(value=><option key={value} value={value}>{value}</option>)}</select></label>):<div className="seller-form-row">{variants.map(v=><button type="button" key={v.id} className={selectedVariant?.id===v.id?"primary":"secondary"} disabled={v.stock_quantity<=0} onClick={()=>setSelectedVariant(v)}>{v.label}</button>)}</div>}<small>{selectedVariant?.stock_quantity>0?selectedVariant.label+" selected":selectedVariant?.label+" is currently unavailable"}</small></div>}
           <div className="product-detail-price">SCR {Number(selectedVariant?.price_scr??product.price_scr).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
           <div className="product-detail-stock">{(variants.length?selectedVariant?.stock_quantity??0:product.stock_quantity)>0?(variants.length?selectedVariant?.stock_quantity:product.stock_quantity)+" available":"Currently out of stock"}</div>
           <button className="primary product-detail-add" type="button" onClick={addToCart} disabled={variants.length?(!selectedVariant||selectedVariant.stock_quantity<=0):product.stock_quantity<=0}><ShoppingBag size={17}/> Add to cart</button>
