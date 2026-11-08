@@ -22,7 +22,7 @@ export default function ShopPage() {
     async function load() {
       const [{data: shopData,error: shopError},{data: productData,error: productError}] = await Promise.all([
         supabase.from("shops").select("id,name,island,description,logo_url,banner_url").eq("id",shopId).eq("is_active",true).single(),
-        supabase.from("products").select("id,title,category,price_scr,image_urls,stock_quantity").eq("shop_id",shopId).eq("status","approved").order("created_at",{ascending:false})
+        supabase.from("products").select("id,title,category,price_scr,image_urls,stock_quantity").eq("shop_id",shopId).eq("status","approved").or("is_archived.is.null,is_archived.eq.false").order("created_at",{ascending:false})
       ]);
       if (!active) return;
       if (shopError || !shopData) setError("This shop could not be found or is currently unavailable.");
