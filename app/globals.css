@@ -621,3 +621,11 @@
 .account-delete-panel .profile-remove-photo,.account-delete-section>.profile-remove-photo{padding:10px 13px;border:1px solid #e5a99b;border-radius:8px;background:#fff;color:#a13e2b;font-size:12px;font-weight:800}
 .account-delete-panel .profile-remove-photo:disabled{opacity:.55;cursor:not-allowed}
 @media(max-width:600px){.account-delete-section{padding:15px}.account-delete-panel .profile-edit-actions>*{flex:1}}
+
+
+/* Homepage product photos: show the complete item instead of cropping it. */
+.product-image{height:210px;min-height:210px;overflow:hidden;}
+.product-image-link{display:flex;width:100%;height:100%;align-items:center;justify-content:center;overflow:hidden;padding:10px;box-sizing:border-box;}
+.market-product-image{display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;object-position:center center;}
+.product-image:has(.market-product-image){overflow:hidden;}
+@media(max-width:600px){.product-image{height:190px;min-height:190px;}}
