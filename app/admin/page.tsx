@@ -24,7 +24,8 @@ export default function AdminPage() {
   const [admins,setAdmins] = useState<AdminAccount[]>([]);
   const [adminEmail,setAdminEmail] = useState("");
   const [adminBusy,setAdminBusy] = useState(false);
-  const [cancellationRequests,setCancellationRequests] = useState<CancellationRequest[]>([]);\n  const [unreadNotifications,setUnreadNotifications] = useState(0);
+  const [cancellationRequests,setCancellationRequests] = useState<CancellationRequest[]>([]);
+  const [unreadNotifications,setUnreadNotifications] = useState(0);
 
   async function load() {
     setLoading(true);
@@ -32,7 +33,9 @@ export default function AdminPage() {
     if(!user){router.replace("/admin/login");return;}
     const {data:profile} = await supabase.from("profiles").select("is_admin").eq("id",user.id).single();
     if(!profile?.is_admin){setAuthorized(false);setLoading(false);return;}
-    setAuthorized(true);\n    const {count:unreadCount}=await supabase.from("notifications").select("id",{count:"exact",head:true}).eq("user_id",user.id).is("read_at",null);\n    setUnreadNotifications(unreadCount??0);
+    setAuthorized(true);
+    const {count:unreadCount}=await supabase.from("notifications").select("id",{count:"exact",head:true}).eq("user_id",user.id).is("read_at",null);
+    setUnreadNotifications(unreadCount??0);
     const {data:adminRows,error:adminError}=await supabase.rpc("admin_list_accounts");
     if(adminError)setMessage("Admin accounts could not be loaded: "+adminError.message);
     setAdmins((adminRows??[]) as AdminAccount[]);
