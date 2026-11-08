@@ -40,6 +40,7 @@ function SearchResults() {
       .from("products")
       .select("id,title,category,price_scr,description,image_urls,shops(name,island)")
       .eq("status", "approved")
+      .or("is_archived.is.null,is_archived.eq.false")
       .or(`title.ilike.%${pattern}%,description.ilike.%${pattern}%`)
       .order("created_at", { ascending: false })
       .then(async ({ data, error: searchError }) => {
