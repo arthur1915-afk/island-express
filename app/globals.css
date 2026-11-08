@@ -640,3 +640,25 @@
 .seller-crop-card label{display:grid;gap:4px;font-size:10px;color:#53645b;font-weight:700}
 .seller-crop-card input[type=range]{width:100%;accent-color:#e96f37}
 .seller-crop-card button{padding:7px 9px;border:1px solid #f0d4cd;border-radius:7px;background:#fff8f6;color:#a84c39;font-size:10px;font-weight:800}
+
+
+/* Homepage variation selection */
+.variation-modal-backdrop{position:fixed;inset:0;z-index:1200;background:rgba(13,28,22,.62);display:grid;place-items:center;padding:18px}
+.variation-modal{position:relative;width:min(100%,460px);max-height:min(90vh,720px);overflow:auto;background:#fff;border-radius:16px;padding:24px;box-shadow:0 24px 80px #0003}
+.variation-modal-close{position:absolute;right:14px;top:10px;width:34px;height:34px;border:0;border-radius:50%;background:#f2f5f2;color:#405047;font-size:25px;line-height:1;cursor:pointer}
+.variation-modal-product{display:flex;align-items:center;gap:14px;padding-right:32px;margin-bottom:22px}
+.variation-modal-product img,.variation-modal-product>span{width:76px;height:76px;flex:none;object-fit:cover;border-radius:10px;background:#f3f5f2;display:grid;place-items:center;font-size:34px}
+.variation-modal-product h2{font:800 17px/1.35 Manrope;margin:0 0 5px;color:#24352b}
+.variation-modal-product p{font-size:12px;line-height:1.5;color:#78857c;margin:0}
+.variation-modal-field{display:grid;gap:7px;margin:13px 0;font-size:12px;font-weight:700;color:#405047}
+.variation-modal-field select{width:100%;height:43px;border:1px solid #dce5dd;border-radius:8px;background:#fff;padding:0 12px;color:#304136;font:inherit}
+.variation-modal-options{display:flex;flex-wrap:wrap;gap:9px;margin:16px 0}
+.variation-modal-options button{border:1px solid #dce5dd;border-radius:8px;background:#fff;padding:10px 13px;color:#405047;font-size:12px;cursor:pointer}
+.variation-modal-options button.selected{border-color:#e96632;background:#fff4ee;color:#d95625;font-weight:800}
+.variation-modal-options button:disabled{opacity:.4;text-decoration:line-through;cursor:not-allowed}
+.variation-modal-selected{display:flex;align-items:center;gap:10px;padding:12px;background:#f5f8f5;border-radius:9px;margin:16px 0;color:#405047;font-size:12px}
+.variation-modal-selected b{margin-left:auto;color:#e96632}
+.variation-modal-selected small{color:#77847a}
+.variation-modal-add{width:100%;justify-content:center;min-height:44px;margin-top:8px;border:0}
+.variation-modal-add:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:520px){.variation-modal{padding:20px;border-radius:13px}.variation-modal-selected{flex-wrap:wrap}.variation-modal-selected b{margin-left:auto}}
