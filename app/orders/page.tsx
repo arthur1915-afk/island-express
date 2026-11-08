@@ -53,7 +53,7 @@ export default function CustomerOrdersPage() {
 
     const { data, error } = await supabase
       .from("orders")
-      .select("id,customer_name,subtotal_scr,delivery_fee_scr,total_scr,payment_method,payment_status,status,created_at,order_items(id,product_id,product_title,unit_price_scr,quantity,shop_name),seller_order_fulfillments(shop_id,status,courier,tracking_number,estimated_delivery,shipping_note,seller_note,updated_at)")
+      .select("id,customer_name,subtotal_scr,tax_scr,delivery_fee_scr,total_scr,payment_method,payment_status,status,created_at,order_items(id,product_id,product_title,unit_price_scr,quantity,shop_name),seller_order_fulfillments(shop_id,status,courier,tracking_number,estimated_delivery,shipping_note,seller_note,updated_at)")
       .eq("customer_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -161,7 +161,7 @@ export default function CustomerOrdersPage() {
                 </div>}
               </div>)}
             </div>
-            <div className="seller-order-total"><span>Order total</span><b>SCR {Number(order.total_scr).toLocaleString()}</b></div>
+            {Number(order.tax_scr||0)>0 && <div className="seller-order-total"><span>Tax (16%)</span><b>SCR {Number(order.tax_scr).toFixed(2)}</b></div>}<div className="seller-order-total"><span>Order total</span><b>SCR {Number(order.total_scr).toLocaleString()}</b></div>
             {(order.seller_order_fulfillments ?? []).length > 0 && <div className="seller-order-customer">
               <h3>Shipping updates</h3>
               {(order.seller_order_fulfillments ?? []).map((shipping, index) => <div key={shipping.shop_id || index} className="customer-shipping-update">
