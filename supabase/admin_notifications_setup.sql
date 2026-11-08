@@ -93,3 +93,29 @@ begin
   end if;
 end;
 $$;
+
+
+-- Notify administrators when a customer places a new order.
+create or replace function public.notify_admin_new_order()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.notifications(user_id, order_id, notification_type, title, message)
+  select p.id, new.id, 'admin_new_order', 'New customer order received',
+    coalesce(new.customer_name, 'A customer') || ' placed order ' ||
+    upper(left(new.id::text, 8)) || ' for SCR ' ||
+    to_char(coalesce(new.total_scr, 0), 'FM999999990.00') || '.'
+  from public.profiles p
+  where p.is_admin = true;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists notify_admin_new_order on public.orders;
+create trigger notify_admin_new_order
+after insert on public.orders
+for each row execute function public.notify_admin_new_order();
