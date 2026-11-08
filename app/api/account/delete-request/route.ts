@@ -29,8 +29,8 @@ export async function POST(request: Request) {
     if (!reason) return NextResponse.json({ error: "Please select a reason for deleting your account." }, { status: 400 });
     if (!user.email_confirmed_at) return NextResponse.json({ error: "Please verify your email address before requesting account deletion." }, { status: 400 });
 
-    const { data: profile, error: profileError } = await admin.from("profiles").select("role").eq("id", user.id).single();
-    if (profileError || !profile || !["customer", "seller"].includes(profile.role)) {
+    const { data: profile, error: profileError } = await admin.from("profiles").select("role,is_admin").eq("id", user.id).single();
+    if (profileError || !profile || profile.is_admin || !["customer", "seller"].includes(profile.role)) {
       return NextResponse.json({ error: "Only buyer and seller accounts can use this option. Contact Customer Care for administrator account requests." }, { status: 403 });
     }
 
