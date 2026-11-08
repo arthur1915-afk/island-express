@@ -606,3 +606,18 @@
 .checkout-voucher-heading{display:block;font:800 15px Manrope;color:#26343c}
 .checkout-grid .cart-summary>.checkout-voucher>label{font-size:12px;font-weight:700;color:#53616a}
 .checkout-voucher-success{padding:10px 12px;border-radius:8px;background:#ecfdf3;border:1px solid #abefc6;color:#067647;font-size:12px;font-weight:700;line-height:1.5}
+
+/* Account deletion request */
+.account-delete-section{margin-top:28px;padding:20px;border:1px solid #f0d8d2;border-radius:13px;background:#fffaf8}
+.account-delete-section h2{margin:0 0 7px;font-size:17px;color:#283a32}
+.account-delete-section>p{margin:0 0 13px;color:#68776f;font-size:12px;line-height:1.6}
+.account-delete-panel{display:grid;gap:13px;margin-top:16px;padding-top:15px;border-top:1px solid #f0d8d2}
+.account-delete-panel>p{margin:0;color:#53645b;font-size:12px;line-height:1.6}
+.account-delete-panel label{display:grid;gap:7px;color:#35473d;font-size:12px;font-weight:700}
+.account-delete-panel select,.account-delete-panel textarea{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #dce4de;border-radius:8px;background:#fff;color:#263a30;font:inherit}
+.account-delete-panel textarea{min-height:90px;resize:vertical}
+.account-delete-warning{padding:11px 12px;border-radius:8px;background:#fff1ed;color:#8d3828!important}
+.account-delete-panel .profile-edit-actions{display:flex;justify-content:flex-end;gap:9px;flex-wrap:wrap}
+.account-delete-panel .profile-remove-photo,.account-delete-section>.profile-remove-photo{padding:10px 13px;border:1px solid #e5a99b;border-radius:8px;background:#fff;color:#a13e2b;font-size:12px;font-weight:800}
+.account-delete-panel .profile-remove-photo:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:600px){.account-delete-section{padding:15px}.account-delete-panel .profile-edit-actions>*{flex:1}}
