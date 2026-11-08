@@ -82,7 +82,7 @@ export async function POST(request: Request) {
     const subtotalCents = itemRows.reduce((sum, item) => sum + item.originalCents, 0);
     let voucher: { id: string; code: string } | null = null;
     let voucherDiscountCents = 0;
-    const taxCents = subtotalCents > 150000 ? Math.round(subtotalCents * 0.16) : 0;
+    const taxCents = subtotalCents >= 300000 ? Math.round(subtotalCents * 0.16) : 0;
 
     if (voucherCode) {
       const shopTotals = new Map<string, number>();
