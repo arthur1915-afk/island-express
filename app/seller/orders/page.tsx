@@ -11,7 +11,7 @@ type Fulfilment = { id: string; shop_id: string; status: string; tracking_number
 type Order = {
   id: string; customer_name: string; phone: string; email: string | null; island: string;
   delivery_address: string; delivery_notes: string | null; subtotal_scr: number;
-  delivery_fee_scr: number; total_scr: number; payment_method: string; status: string;
+  delivery_fee_scr: number; total_scr: number; discount_scr: number; voucher_code: string | null; payment_method: string; status: string;
   created_at: string; order_items: OrderItem[]; seller_order_fulfillments: Fulfilment[];
 };
 
@@ -33,7 +33,7 @@ export default function SellerOrdersPage() {
     const currentShopId = shops?.[0]?.id ?? "";
     setShopId(currentShopId);
     const { data, error } = await supabase.from("orders")
-      .select("id,customer_name,phone,email,island,delivery_address,delivery_notes,subtotal_scr,delivery_fee_scr,total_scr,payment_method,status,created_at,order_items(id,product_title,unit_price_scr,quantity,shop_name),seller_order_fulfillments(id,shop_id,status,tracking_number,courier,estimated_delivery,shipping_note,seller_note,updated_at)")
+      .select("id,customer_name,phone,email,island,delivery_address,delivery_notes,subtotal_scr,delivery_fee_scr,total_scr,discount_scr,voucher_code,payment_method,status,created_at,order_items(id,product_title,unit_price_scr,quantity,shop_name),seller_order_fulfillments(id,shop_id,status,tracking_number,courier,estimated_delivery,shipping_note,seller_note,updated_at)")
       .order("created_at", { ascending: false });
     if (error) setMessage(error.message);
     setOrders((data ?? []) as unknown as Order[]);
@@ -126,7 +126,9 @@ export default function SellerOrdersPage() {
             <div className="seller-order-top"><div><small>ORDER REFERENCE</small><b>{order.id.slice(0, 8).toUpperCase()}</b></div><span className={"seller-order-status status-" + sellerStatus}>{sellerStatus.replaceAll("_", " ")}</span></div>
             <div className="seller-order-date">{new Date(order.created_at).toLocaleString()}</div>
             <div className="seller-order-items">{ownItems.map(item => <div className="seller-order-item" key={item.id}><Package size={17}/><span>{item.product_title} <small>× {item.quantity}</small></span><b>SCR {(Number(item.unit_price_scr) * item.quantity).toLocaleString()}</b></div>)}</div>
-            <div className="seller-order-total"><span>Your items subtotal</span><b>SCR {ownItems.reduce((sum,item)=>sum+Number(item.unit_price_scr)*item.quantity,0).toLocaleString()}</b></div>
+            <div className="seller-order-total"><span>Your items subtotal (before voucher)</span><b>SCR {ownItems.reduce((sum,item)=>sum+Number(item.unit_price_scr)*item.quantity,0).toLocaleString()}</b></div>
+            {Number(order.discount_scr||0)>0 && <div className="seller-order-total"><span>Customer voucher discount{order.voucher_code?" ("+order.voucher_code+")":""}</span><b>− SCR {Number(order.discount_scr).toLocaleString()}</b></div>}
+            <div className="seller-order-total"><span>Customer paid for entire order</span><b>SCR {Number(order.total_scr).toLocaleString()}</b></div>
             <div className="seller-order-customer"><h3>Delivery details</h3><b>{order.customer_name}</b><span>{order.phone}{order.email ? " · " + order.email : ""}</span><span>{order.delivery_address}, {order.island}</span>{order.delivery_notes && <small>Note: {order.delivery_notes}</small>}</div>
             <div className="seller-order-payment">Payment: {order.payment_method === "cash_on_delivery" ? "Cash on delivery / arrange with seller" : order.payment_method}</div>
             {(fulfilment?.tracking_number || fulfilment?.courier) && <div className="seller-order-payment">Shipping: {fulfilment.courier || "Courier not specified"}{fulfilment.tracking_number ? " · Tracking: " + fulfilment.tracking_number : ""}</div>}
