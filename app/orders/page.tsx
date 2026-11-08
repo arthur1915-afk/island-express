@@ -18,6 +18,7 @@ type Order = {
   id: string;
   customer_name: string;
   subtotal_scr: number;
+  tax_scr: number;
   delivery_fee_scr: number;
   total_scr: number;
   payment_method: string;
