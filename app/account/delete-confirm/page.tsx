@@ -18,6 +18,14 @@ export default function ConfirmAccountDeletionPage() {
         setMessage("This confirmation link is missing its security token. Please request a new deletion email from your account settings.");
         return;
       }
+      const code = new URLSearchParams(window.location.search).get("code");
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError) {
+          setMessage("The email confirmation could not be verified. Please request a new deletion link and open it again.");
+          return;
+        }
+      }
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         setMessage("Your email link has been opened, but we could not establish your Island Express session. Please open the link again in the same browser where you use Island Express, or request a new link.");
