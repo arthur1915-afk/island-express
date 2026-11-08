@@ -68,22 +68,17 @@ function swatchColor(value:string){const key=value.trim().toLowerCase();return C
     if(match){setSelectedVariant(match);setActiveImage(0);}
   }
   const productImages = product?.image_urls?.length ? product.image_urls : [];
-  // Use the exact selected combination photo first. If that combination has no
-  // photo, reuse the closest uploaded variation photo (especially the selected colour).
-  const variationPhoto = selectedVariant?.image_url || (() => {
-    if (!selectedVariant) return null;
-    const selectedAttributes = selectedVariant.attributes || {};
-    const colorKey = Object.keys(selectedAttributes).find(key => /colou?r/i.test(key));
-    const photoCandidates = variants.filter(variant => {
-      if (!variant.image_url) return false;
-      const attrs = variant.attributes || {};
-      if (colorKey && attrs[colorKey] !== selectedAttributes[colorKey]) return false;
-      return Object.entries(selectedAttributes).some(([key, value]) => attrs[key] === value);
-    }).sort((a, b) => {
-      const score = (variant: Variant) => Object.entries(selectedAttributes).reduce((total, [key, value]) => total + (variant.attributes?.[key] === value ? 1 : 0), 0);
-      return score(b) - score(a);
-    })[0]?.image_url || null;
-  })();
+  // Product photos follow the selected visual variation (normally colour),
+  // not the size. A colour's photo is shared by all of its sizes.
+  const selectedAttributes = selectedVariant?.attributes || {};
+  const selectedColorKey = Object.keys(selectedAttributes).find(key => /colou?r/i.test(key));
+  const colorPhoto = selectedColorKey
+    ? variants.find(variant =>
+        Boolean(variant.image_url) &&
+        variant.attributes?.[selectedColorKey] === selectedAttributes[selectedColorKey]
+      )?.image_url || null
+    : null;
+  const variationPhoto = colorPhoto || (!selectedColorKey ? selectedVariant?.image_url || null : null);
   const images = variationPhoto
     ? [variationPhoto, ...productImages.filter(url => url !== variationPhoto)]
     : productImages;
