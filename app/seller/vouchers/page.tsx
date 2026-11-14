@@ -6,14 +6,14 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import { ArrowLeft, Ticket, Plus, Trash2, Pause, Play } from "lucide-react";
 
-type Voucher = { id:string; code:string; title:string; discount_type:"percentage"|"fixed"; discount_value:number; minimum_spend_scr:number; starts_at:string; ends_at:string|null; max_redemptions:number|null; redemption_count:number; is_active:boolean };
+type Voucher = { id:string; code:string; title:string; applies_to_all_products:boolean; discount_type:"percentage"|"fixed"; discount_value:number; minimum_spend_scr:number; starts_at:string; ends_at:string|null; max_redemptions:number|null; redemption_count:number; is_active:boolean };
 const blank = { code:"", title:"", discount_type:"percentage" as "percentage"|"fixed", discount_value:"10", minimum_spend_scr:"0", starts_at:"", ends_at:"", max_redemptions:"" };
 
 export default function SellerVouchersPage() {
   const router = useRouter();
   const [shopId,setShopId] = useState("");
   const [shopName,setShopName] = useState("Your shop");
-  const [rows,setRows] = useState<Voucher[]>([]);
+  const [rows,setRows] = useState<Voucher[]>([]);\n  const [products,setProducts] = useState<{id:string;title:string}[]>([]);\n  const [appliesToAll,setAppliesToAll] = useState(true);\n  const [selectedProductIds,setSelectedProductIds] = useState<string[]>([]);
   const [draft,setDraft] = useState(blank);
   const [editing,setEditing] = useState("");
   const [loading,setLoading] = useState(true);
@@ -28,7 +28,7 @@ export default function SellerVouchersPage() {
     if (profile?.role !== "seller") { router.replace("/account"); return; }
     const {data:shops,error:shopError} = await supabase.from("shops").select("id,name").eq("owner_id",user.id).limit(1);
     if (shopError || !shops?.length) { setMessage("Create your shop before managing vouchers."); setLoading(false); return; }
-    setShopId(shops[0].id); setShopName(shops[0].name);
+    setShopId(shops[0].id); setShopName(shops[0].name);\n    const {data:productRows}=await supabase.from("products").select("id,title").eq("shop_id",shops[0].id).eq("status","approved").order("title");\n    setProducts((productRows??[]) as {id:string;title:string}[]);
     const {data,error} = await supabase.from("shop_vouchers").select("*").eq("shop_id",shops[0].id).order("created_at",{ascending:false});
     if (error) setMessage("Could not load vouchers. Run the shop vouchers SQL setup first. " + error.message);
     setRows((data??[]) as Voucher[]);
@@ -38,10 +38,10 @@ export default function SellerVouchersPage() {
 
   function startEdit(v:Voucher) {
     setEditing(v.id);
-    setDraft({code:v.code,title:v.title,discount_type:v.discount_type,discount_value:String(v.discount_value),minimum_spend_scr:String(v.minimum_spend_scr),starts_at:new Date(v.starts_at).toISOString().slice(0,16),ends_at:v.ends_at?new Date(v.ends_at).toISOString().slice(0,16):"",max_redemptions:v.max_redemptions===null?"":String(v.max_redemptions)});
+    setDraft({code:v.code,title:v.title,discount_type:v.discount_type,discount_value:String(v.discount_value),minimum_spend_scr:String(v.minimum_spend_scr),starts_at:new Date(v.starts_at).toISOString().slice(0,16),ends_at:v.ends_at?new Date(v.ends_at).toISOString().slice(0,16):"",max_redemptions:v.max_redemptions===null?"":String(v.max_redemptions)});\n    setAppliesToAll(v.applies_to_all_products!==false);\n    const {data:links}=await supabase.from("shop_voucher_products").select("product_id").eq("voucher_id",v.id);\n    setSelectedProductIds((links??[]).map((row:any)=>row.product_id));
     setMessage("");
   }
-  function reset() { setEditing(""); setDraft(blank); }
+  function reset() { setEditing(""); setDraft(blank); setAppliesToAll(true); setSelectedProductIds([]); }
 
   async function save(e:FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -51,7 +51,7 @@ export default function SellerVouchersPage() {
     const end=draft.ends_at?new Date(draft.ends_at).toISOString():null;
     if (end && new Date(end)<=new Date(start)) { setMessage("The end date must be after the start date."); return; }
     setBusy(true); setMessage("");
-    const payload={shop_id:shopId,code:draft.code.trim().toUpperCase().replace(/\s+/g,""),title:draft.title.trim(),discount_type:draft.discount_type,discount_value:value,minimum_spend_scr:minimum,starts_at:start,ends_at:end,max_redemptions:cap};
+    if (!appliesToAll && selectedProductIds.length===0) { setMessage("Choose at least one product, or select all products."); return; }\n    const payload={shop_id:shopId,applies_to_all_products:appliesToAll,code:draft.code.trim().toUpperCase().replace(/\s+/g,""),title:draft.title.trim(),discount_type:draft.discount_type,discount_value:value,minimum_spend_scr:minimum,starts_at:start,ends_at:end,max_redemptions:cap};
     const result=editing?await supabase.from("shop_vouchers").update(payload).eq("id",editing).eq("shop_id",shopId):await supabase.from("shop_vouchers").insert(payload);
     if (result.error) setMessage(result.error.message);
     else { setMessage(editing?"Voucher updated.":"Voucher created."); reset(); await load(); }
@@ -83,13 +83,13 @@ export default function SellerVouchersPage() {
           <div className="seller-form-row"><label>Voucher code<input required maxLength={24} value={draft.code} onChange={e=>setDraft({...draft,code:e.target.value.toUpperCase().replace(/\s/g,"")})} placeholder="e.g. ISLAND10"/></label><label>Display title<input required maxLength={80} value={draft.title} onChange={e=>setDraft({...draft,title:e.target.value})} placeholder="Weekend special"/></label></div>
           <div className="seller-form-row"><label>Discount type<select value={draft.discount_type} onChange={e=>setDraft({...draft,discount_type:e.target.value as "percentage"|"fixed"})}><option value="percentage">Percentage (%)</option><option value="fixed">Fixed amount (SCR)</option></select></label><label>Discount value<input required type="number" min="0.01" step="0.01" max={draft.discount_type==="percentage"?100:undefined} value={draft.discount_value} onChange={e=>setDraft({...draft,discount_value:e.target.value})}/></label></div>
           <div className="seller-form-row"><label>Minimum spend (SCR)<input type="number" min="0" step="0.01" value={draft.minimum_spend_scr} onChange={e=>setDraft({...draft,minimum_spend_scr:e.target.value})}/></label><label>Maximum redemptions (optional)<input type="number" min="1" step="1" value={draft.max_redemptions} onChange={e=>setDraft({...draft,max_redemptions:e.target.value})} placeholder="Unlimited"/></label></div>
-          <div className="seller-form-row"><label>Starts at<input type="datetime-local" value={draft.starts_at} onChange={e=>setDraft({...draft,starts_at:e.target.value})}/></label><label>Ends at (optional)<input type="datetime-local" value={draft.ends_at} onChange={e=>setDraft({...draft,ends_at:e.target.value})}/></label></div>
+          <div className="seller-form-row"><label>Starts at<input type="datetime-local" value={draft.starts_at} onChange={e=>setDraft({...draft,starts_at:e.target.value})}/></label><label>Ends at (optional)<input type="datetime-local" value={draft.ends_at} onChange={e=>setDraft({...draft,ends_at:e.target.value})}/></label></div>\n          <div className="seller-voucher-targeting"><h3>Which products can use this voucher?</h3><label className="seller-voucher-radio"><input type="radio" name="voucher-scope" checked={appliesToAll} onChange={()=>setAppliesToAll(true)}/> All products in my shop</label><label className="seller-voucher-radio"><input type="radio" name="voucher-scope" checked={!appliesToAll} onChange={()=>setAppliesToAll(false)}/> Only selected products</label>{!appliesToAll&&<div className="seller-voucher-product-list">{products.length?products.map(product=><label key={product.id}><input type="checkbox" checked={selectedProductIds.includes(product.id)} onChange={e=>setSelectedProductIds(current=>e.target.checked?[...current,product.id]:current.filter(id=>id!==product.id))}/>{product.title}</label>):<small>No approved products found in your shop yet.</small>}</div>}</div>
           <div className="seller-shopfront-actions"><button className="primary account-submit" disabled={busy}>{busy?"Saving…":editing?"Save voucher":"Create voucher"}</button>{editing&&<button type="button" className="secondary" onClick={reset}>Cancel</button>}</div>
         </form>
       </section>
       <section className="seller-dash-panel">
         <h2>Your vouchers</h2>
-        {loading?<div className="seller-order-empty">Loading vouchers…</div>:rows.length===0?<div className="seller-empty"><Ticket size={30}/><b>No vouchers yet</b><span>Create a discount code to promote your shop.</span></div>:<div className="seller-voucher-list">{rows.map(v=><article className="seller-voucher-card" key={v.id}><div className="seller-voucher-code"><Ticket size={20}/><b>{v.code}</b><span>{v.title}</span></div><div className="seller-voucher-meta"><strong>{v.discount_type==="percentage"?v.discount_value+"% off":"SCR "+Number(v.discount_value).toFixed(2)+" off"}</strong><small>Minimum spend: SCR {Number(v.minimum_spend_scr).toFixed(2)} · {v.redemption_count}{v.max_redemptions===null?"":"/"+v.max_redemptions} redemptions</small><small>{v.ends_at?"Ends "+new Date(v.ends_at).toLocaleString():"No end date"}</small></div><span className={v.is_active?"seller-voucher-active":"seller-voucher-paused"}>{v.is_active?"Active":"Paused"}</span><div className="seller-voucher-actions"><button disabled={busy} onClick={()=>startEdit(v)}>Edit</button><button disabled={busy} onClick={()=>toggle(v)}>{v.is_active?<Pause size={14}/>:<Play size={14}/>} {v.is_active?"Pause":"Activate"}</button><button disabled={busy} onClick={()=>remove(v)}><Trash2 size={14}/> Delete</button></div></article>)}</div>}
+        {loading?<div className="seller-order-empty">Loading vouchers…</div>:rows.length===0?<div className="seller-empty"><Ticket size={30}/><b>No vouchers yet</b><span>Create a discount code to promote your shop.</span></div>:<div className="seller-voucher-list">{rows.map(v=><article className="seller-voucher-card" key={v.id}><div className="seller-voucher-code"><Ticket size={20}/><b>{v.code}</b><span>{v.title}</span></div><div className="seller-voucher-meta"><strong>{v.discount_type==="percentage"?v.discount_value+"% off":"SCR "+Number(v.discount_value).toFixed(2)+" off"}</strong><small>{v.applies_to_all_products===false?"Selected products only":"All shop products"} · Minimum spend: SCR {Number(v.minimum_spend_scr).toFixed(2)} · {v.redemption_count}{v.max_redemptions===null?"":"/"+v.max_redemptions} redemptions</small><small>{v.ends_at?"Ends "+new Date(v.ends_at).toLocaleString():"No end date"}</small></div><span className={v.is_active?"seller-voucher-active":"seller-voucher-paused"}>{v.is_active?"Active":"Paused"}</span><div className="seller-voucher-actions"><button disabled={busy} onClick={()=>startEdit(v)}>Edit</button><button disabled={busy} onClick={()=>toggle(v)}>{v.is_active?<Pause size={14}/>:<Play size={14}/>} {v.is_active?"Pause":"Activate"}</button><button disabled={busy} onClick={()=>remove(v)}><Trash2 size={14}/> Delete</button></div></article>)}</div>}
       </section>
     </div>
   </main>;
