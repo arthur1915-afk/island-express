@@ -65,7 +65,14 @@ export default function SellerVouchersPage() {
     const result=editing
       ? await supabase.from("shop_vouchers").update(payload).eq("id",editing).eq("shop_id",shopId)
       : await supabase.from("shop_vouchers").insert(payload).select("id").single();
-    if (!result.error && !editing) voucherId=result.data.id;
+    if (!result.error && !editing) {
+      if (!result.data?.id) {
+        setError("Voucher was saved but its ID could not be retrieved. Please refresh and check your vouchers.");
+        setBusy(false);
+        return;
+      }
+      voucherId = result.data.id;
+    }
     if (!result.error) {
       const {error:deleteLinksError}=await supabase.from("shop_voucher_products").delete().eq("voucher_id",voucherId);
       if (deleteLinksError) result.error=deleteLinksError;
