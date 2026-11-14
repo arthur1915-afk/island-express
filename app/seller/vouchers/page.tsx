@@ -52,7 +52,7 @@ export default function SellerVouchersPage() {
     if (end && new Date(end)<=new Date(start)) { setMessage("The end date must be after the start date."); return; }
     setBusy(true); setMessage("");
     if (!appliesToAll && selectedProductIds.length===0) { setMessage("Choose at least one product, or select all products."); return; }\n    const payload={shop_id:shopId,applies_to_all_products:appliesToAll,code:draft.code.trim().toUpperCase().replace(/\s+/g,""),title:draft.title.trim(),discount_type:draft.discount_type,discount_value:value,minimum_spend_scr:minimum,starts_at:start,ends_at:end,max_redemptions:cap};
-    const result=editing?await supabase.from("shop_vouchers").update(payload).eq("id",editing).eq("shop_id",shopId):await supabase.from("shop_vouchers").insert(payload);
+    const result=editing?await supabase.from("shop_vouchers").update(payload).eq("id",editing).eq("shop_id",shopId):await supabase.from("shop_vouchers").insert(payload).select("id").single();
     if (result.error) setMessage(result.error.message);
     else { setMessage(editing?"Voucher updated.":"Voucher created."); reset(); await load(); }
     setBusy(false);
