@@ -16,7 +16,8 @@ type ProductDetails = {
 
 const COLOR_SWATCHES:Record<string,string>={black:"#17191b",white:"#ffffff",grey:"#92979a",gray:"#92979a","light grey":"#c9ced0","light gray":"#c9ced0","dark grey":"#55595c","dark gray":"#55595c",red:"#d94343",pink:"#e879a5",blue:"#3268c8","light blue":"#a9c9e8","navy":"#202f50",green:"#39845c","dark green":"#24533d",yellow:"#e7ca55",orange:"#e88738",purple:"#8057a8",brown:"#795b45",beige:"#d9d1ad",cream:"#eee6cb"};
 function swatchColor(value:string){const key=value.trim().toLowerCase();return COLOR_SWATCHES[key]||({charcoal:"#44484b",maroon:"#762f40",khaki:"#b6a77b",teal:"#3d8e89"} as Record<string,string>)[key]||"#c8ceca";}
-\nexport default function ProductDetailsPage() {
+ 
+export default function ProductDetailsPage() {
   const params = useParams();
   const productId = String(params.id ?? "");
   const [product,setProduct] = useState<ProductDetails|null>(null);
