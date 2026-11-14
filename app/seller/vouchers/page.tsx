@@ -73,16 +73,17 @@ export default function SellerVouchersPage() {
       }
       voucherId = result.data.id;
     }
-    if (!result.error) {
+    let saveError = result.error;
+    if (!saveError) {
       const {error:deleteLinksError}=await supabase.from("shop_voucher_products").delete().eq("voucher_id",voucherId);
-      if (deleteLinksError) result.error=deleteLinksError;
+      if (deleteLinksError) saveError=deleteLinksError;
       else if (!appliesToAll) {
         const links=selectedProductIds.map(product_id=>({voucher_id:voucherId,product_id}));
         const {error:insertLinksError}=await supabase.from("shop_voucher_products").insert(links);
-        if (insertLinksError) result.error=insertLinksError;
+        if (insertLinksError) saveError=insertLinksError;
       }
     }
-    if (result.error) setMessage(result.error.message);
+    if (saveError) setMessage(saveError.message);
     else { setMessage(editing?"Voucher updated.":"Voucher created."); reset(); await load(); }
     setBusy(false);
   }
