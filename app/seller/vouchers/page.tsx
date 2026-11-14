@@ -67,7 +67,7 @@ export default function SellerVouchersPage() {
       : await supabase.from("shop_vouchers").insert(payload).select("id").single();
     if (!result.error && !editing) {
       if (!result.data?.id) {
-        setError("Voucher was saved but its ID could not be retrieved. Please refresh and check your vouchers.");
+        setMessage("Voucher was saved but its ID could not be retrieved. Please refresh and check your vouchers.");
         setBusy(false);
         return;
       }
