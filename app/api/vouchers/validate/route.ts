@@ -63,32 +63,37 @@ export async function POST(request: Request) {
     }
 
     const { data: vouchers, error: voucherError } = await db.from("shop_vouchers")
-      .select("id,shop_id,code,title,discount_type,discount_value,minimum_spend_scr,starts_at,ends_at,max_redemptions,redemption_count,is_active")
+      .select("id,shop_id,code,title,discount_type,discount_value,minimum_spend_scr,starts_at,ends_at,max_redemptions,redemption_count,is_active,applies_to_all_products")
       .ilike("code", code.trim()).eq("is_active", true);
     if (voucherError || !vouchers?.length) {
       return NextResponse.json({ error: "That voucher code was not found or is inactive." }, { status: 400 });
     }
 
+    const {data:targetRows,error:targetError}=await db.from("shop_voucher_products").select("voucher_id,product_id").in("voucher_id",vouchers.map((voucher:any)=>voucher.id));
+    if(targetError) return NextResponse.json({error:"Voucher product rules could not be checked. Please contact the seller."},{status:500});
+    const targeted = new Map<string,Set<string>>();
+    for(const row of targetRows??[]){const set=targeted.get(row.voucher_id)||new Set<string>();set.add(row.product_id);targeted.set(row.voucher_id,set);}
     const now = Date.now();
     const match: any = vouchers.find((voucher: any) => {
-      const shop = shopTotals.get(voucher.shop_id);
-      return shop &&
+      const eligibleLines=cleanItems.filter((item:any)=>productMap.get(item.id)?.shop_id===voucher.shop_id&&(voucher.applies_to_all_products!==false||(targeted.get(voucher.id)?.has(item.id)??false)));
+      const eligibleSubtotal=eligibleLines.reduce((sum:number,item:any)=>{const product:any=productMap.get(item.id);const variant:any=item.variantId?variantMap.get(item.variantId):null;return sum+Number(variant?.price_scr??product.price_scr)*item.quantity;},0);
+      return eligibleSubtotal>0 &&
         (!voucher.starts_at || now >= new Date(voucher.starts_at).getTime()) &&
         (!voucher.ends_at || now <= new Date(voucher.ends_at).getTime()) &&
-        shop.subtotal >= Number(voucher.minimum_spend_scr || 0) &&
+        eligibleSubtotal >= Number(voucher.minimum_spend_scr || 0) &&
         (voucher.max_redemptions == null || Number(voucher.redemption_count) < Number(voucher.max_redemptions));
     });
     if (!match) {
       return NextResponse.json({ error: "This voucher is expired, has reached its limit, does not apply to your cart, or its minimum spend is not met." }, { status: 400 });
     }
 
-    const eligible = shopTotals.get(match.shop_id)!;
-    const discount = Math.min(eligible.subtotal, match.discount_type === "percentage"
-      ? eligible.subtotal * Number(match.discount_value) / 100
+    const eligible = cleanItems.filter((item:any)=>productMap.get(item.id)?.shop_id===match.shop_id&&(match.applies_to_all_products!==false||(targeted.get(match.id)?.has(item.id)??false))).reduce((sum:number,item:any)=>{const product:any=productMap.get(item.id);const variant:any=item.variantId?variantMap.get(item.variantId):null;return sum+Number(variant?.price_scr??product.price_scr)*item.quantity;},0);
+    const discount = Math.min(eligible, match.discount_type === "percentage"
+      ? eligible * Number(match.discount_value) / 100
       : Number(match.discount_value));
     return NextResponse.json({
-      valid: true, code: match.code, title: match.title, shop: eligible.name,
-      discount: Number(discount.toFixed(2)), subtotal: Number(eligible.subtotal.toFixed(2)),
+      valid: true, code: match.code, title: match.title, shop: shopTotals.get(match.shop_id)?.name || "Seller",
+      discount: Number(discount.toFixed(2)), subtotal: Number(eligible.toFixed(2)),
     });
   } catch {
     return NextResponse.json({ error: "Could not validate this voucher." }, { status: 500 });
