@@ -105,16 +105,18 @@ export async function POST(request: Request) {
         ends_at: string | null;
         max_redemptions: number | null;
         redemption_count: number | null;
+        applies_to_all_products?: boolean | null;
       }>;
 
       if (voucherError || !vouchers.length) {
         return NextResponse.json({ error: "That voucher code was not found or is inactive." }, { status: 400 });
       }
 
-      const {data:targetRows,error:targetError}=await db.from("shop_voucher_products").select("voucher_id,product_id").in("voucher_id",vouchers.map(v=>v.id));
+      const {data:targetRowsData,error:targetError}=await db.from("shop_voucher_products").select("voucher_id,product_id").in("voucher_id",vouchers.map(v=>v.id));
       if(targetError) return NextResponse.json({error:"Could not verify voucher product restrictions."},{status:500});
+      const targetRows = (targetRowsData ?? []) as Array<{ voucher_id: string; product_id: string }>;
       const targeted = new Map<string,Set<string>>();
-      for(const row of targetRows??[]){const set=targeted.get(row.voucher_id)||new Set<string>();set.add(row.product_id);targeted.set(row.voucher_id,set);}
+      for(const row of targetRows){const set=targeted.get(row.voucher_id)||new Set<string>();set.add(row.product_id);targeted.set(row.voucher_id,set);}
       const eligibleItemsFor=(voucherId:string,shopId:string,all:boolean)=>itemRows.filter(item=>item.product.shop_id===shopId&&(all||(targeted.get(voucherId)?.has(item.product.id)??false)));
       const now = Date.now();
       const candidate = vouchers.find((v) => {
