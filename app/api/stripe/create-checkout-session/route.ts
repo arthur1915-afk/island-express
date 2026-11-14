@@ -91,7 +91,7 @@ export async function POST(request: Request) {
       }
 
       const { data: vouchersData, error: voucherError } = await db.from("shop_vouchers")
-        .select("id,shop_id,code,discount_type,discount_value,minimum_spend_scr,starts_at,ends_at,max_redemptions,redemption_count")
+        .select("id,shop_id,code,discount_type,discount_value,minimum_spend_scr,starts_at,ends_at,max_redemptions,redemption_count,applies_to_all_products")
         .ilike("code", voucherCode).eq("is_active", true);
       // Supabase is used without generated Database typings, so define the selected row shape.
       const vouchers = (vouchersData ?? []) as Array<{
@@ -111,18 +111,24 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "That voucher code was not found or is inactive." }, { status: 400 });
       }
 
+      const {data:targetRows,error:targetError}=await db.from("shop_voucher_products").select("voucher_id,product_id").in("voucher_id",vouchers.map(v=>v.id));
+      if(targetError) return NextResponse.json({error:"Could not verify voucher product restrictions."},{status:500});
+      const targeted = new Map<string,Set<string>>();
+      for(const row of targetRows??[]){const set=targeted.get(row.voucher_id)||new Set<string>();set.add(row.product_id);targeted.set(row.voucher_id,set);}
+      const eligibleItemsFor=(voucherId:string,shopId:string,all:boolean)=>itemRows.filter(item=>item.product.shop_id===shopId&&(all||(targeted.get(voucherId)?.has(item.product.id)??false)));
       const now = Date.now();
       const candidate = vouchers.find((v) => {
-        const shopSubtotal = shopTotals.get(v.shop_id) || 0;
-        return shopTotals.has(v.shop_id) &&
+        const eligibleSubtotal=eligibleItemsFor(v.id,v.shop_id,v.applies_to_all_products!==false).reduce((sum,item)=>sum+item.originalCents,0);
+        return eligibleSubtotal>0 &&
           (!v.starts_at || now >= new Date(v.starts_at).getTime()) &&
           (!v.ends_at || now <= new Date(v.ends_at).getTime()) &&
-          shopSubtotal >= Number(v.minimum_spend_scr || 0) &&
+          eligibleSubtotal >= Number(v.minimum_spend_scr || 0)*100 &&
           (v.max_redemptions == null || Number(v.redemption_count) < Number(v.max_redemptions));
       });
       if (!candidate) return NextResponse.json({ error: "This voucher does not apply to products in your cart." }, { status: 400 });
 
-      const eligibleSubtotalCents = shopTotals.get(candidate.shop_id) || 0;
+      const eligibleItemsForVoucher=eligibleItemsFor(candidate.id,candidate.shop_id,candidate.applies_to_all_products!==false);
+      const eligibleSubtotalCents = eligibleItemsForVoucher.reduce((sum,item)=>sum+item.originalCents,0);
       const rawDiscount = candidate.discount_type === "percentage"
         ? eligibleSubtotalCents * Number(candidate.discount_value) / 100
         : Number(candidate.discount_value) * 100;
@@ -140,7 +146,7 @@ export async function POST(request: Request) {
 
       voucher = { id: candidate.id, code: candidate.code };
       let remainingDiscount = voucherDiscountCents;
-      const eligibleItems = itemRows.filter((item) => item.product.shop_id === candidate.shop_id);
+      const eligibleItems = eligibleItemsForVoucher;
       const shares = eligibleItems.map((item) => {
         const exact = voucherDiscountCents * item.originalCents / eligibleSubtotalCents;
         const base = Math.floor(exact);
