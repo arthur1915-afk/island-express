@@ -4,7 +4,13 @@ export const runtime = "nodejs";
 const allowed = ["aliexpress.com","shein.com","iherb.com","asos.com","alibaba.com"];
 function platform(host:string){return allowed.find(d=>host===d||host.endsWith("."+d))||null;}
 function meta(html:string,key:string,attr="property"){const escaped=key.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");const a=new RegExp(`<meta[^>]+${attr}=[\"']${escaped}[\"'][^>]+content=[\"']([^\"']*)[\"'][^>]*>`,"i");const b=new RegExp(`<meta[^>]+content=[\"']([^\"']*)[\"'][^>]+${attr}=[\"']${escaped}[\"'][^>]*>`,"i");const m=html.match(a)||html.match(b);return (m?.[1]||"").replace(/&amp;/g,"&").replace(/&quot;/g,'"').trim();}
-function collect(value:any,out:any[]){if(!value||typeof value!=="object")return;if(Array.isArray(value)){value.forEach(v=>collect(v,out));return;}const types=Array.isArray(value["@type"])?value["@type"]:[value["@type"]];if(types.some((t:any)=>String(t).toLowerCase()==="product"))out.push(value);if(value["@graph"])collect(value["@graph"],out);if(value.data)collect(value.data,out);if(value.product)collect(value.product,out);}
+function collect(value:any,out:any[]){if(!value||typeof value!=="object")return;if(Array.isArray(value)){value.forEach(v=>collect(v,out));return;}const types=Array.isArray(value["@type"])?value["@type"]:[value["@type"]];if(types.some((t:any)=>String(t).toLowerCase()==="product"))out.push(value);for(const [k,v] of Object.entries(value)){if(k!=="@type"&&v&&typeof v==="object")collect(v,out);}}
+function imageCandidates(html:string,product:any){const found:string[]=[];const add=(v:any)=>{if(typeof v==="string"){const s=v.replace(/&amp;/g,"&").replace(/\\u0026/gi,"&").replace(/\\\//g,"/").trim();const u=s.startsWith("//")?"https:"+s:s;if(/^https?:\\/\\//i.test(u)&&!/(sprite|logo|icon|avatar|placeholder)/i.test(u))found.push(u);}else if(Array.isArray(v))v.forEach(add);else if(v&&typeof v==="object"){add(v.url);add(v.contentUrl);}};add(product?.image);add(product?.images);
+for(const m of html.matchAll(/<meta\\b[^>]*(?:property|name)=[\"'](?:og:image(?::secure_url)?|twitter:image|twitter:image:src)[\"'][^>]*content=[\"']([^\"']+)[\"'][^>]*>/gi))add(m[1]);
+for(const m of html.matchAll(/<meta\\b[^>]*content=[\"']([^\"']+)[\"'][^>]*(?:property|name)=[\"'](?:og:image(?::secure_url)?|twitter:image|twitter:image:src)[\"'][^>]*>/gi))add(m[1]);
+for(const m of html.matchAll(/<(?:img|source)\\b[^>]*>/gi)){for(const a of m[0].matchAll(/(?:src|data-src|data-original|data-lazy-src|data-zoom-image|srcset)=[\"']([^\"']+)[\"']/gi)){add(a[1].split(",")[0].trim().split(/\\s+/)[0]);}}
+for(const m of html.matchAll(/https?:\\/\\/[^\\s\"'<>\\\\]+?\\.(?:jpg|jpeg|png|webp)(?:\\?[^\\s\"'<>\\\\]*)?/gi))add(m[0]);
+return [...new Set(found)].slice(0,12);}
 export async function POST(request:NextRequest){try{
  const token=(request.headers.get("authorization")||"").replace(/^Bearer\s+/i,"");if(!token)return NextResponse.json({error:"Sign in as an administrator."},{status:401});
  const u=process.env.NEXT_PUBLIC_SUPABASE_URL,a=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,s=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!u||!a||!s)return NextResponse.json({error:"Admin importer is not configured."},{status:500});
@@ -38,9 +44,7 @@ export async function POST(request:NextRequest){try{
  const sourceCurrency=String(offers.priceCurrency||meta(html,"product:price:currency")||meta(html,"og:price:currency")||"").toUpperCase();
  const title=String(p.name||meta(html,"og:title")||meta(html,"twitter:title","name")||((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||"").replace(/&amp;/g,"&").trim());
  const description=String(p.description||meta(html,"og:description")||meta(html,"description","name")||"");
- const iv=p.image||meta(html,"og:image")||meta(html,"twitter:image","name");
- const imageValues=Array.isArray(iv)?iv:[iv];
- const images=imageValues.map((v:any)=>typeof v==="string"?v:(v?.url||v?.contentUrl||"")).filter((v:any)=>typeof v==="string"&&/^https:\/\//i.test(v)).slice(0,8);
+ const images=imageCandidates(html,p);
  const dv=offers.shippingDetails||p.shippingDetails;const sd=Array.isArray(dv)?dv[0]:dv;const dest=Array.isArray(sd?.shippingDestination)?sd.shippingDestination[0]:sd?.shippingDestination;const shipAmount=Number(sd?.shippingRate?.value);const shipCurrency=String(sd?.shippingRate?.currency||sourceCurrency).toUpperCase();const shipping=String(dest?.addressCountry||"").toUpperCase()==="SC"&&Number.isFinite(shipAmount)&&shipCurrency?{amount:shipAmount,currency:shipCurrency}:null;
  let fx:any=null;if(sourceCurrency&&Number.isFinite(sourcePrice)&&sourcePrice>0){const fr=await fetch("https://open.er-api.com/v6/latest/"+encodeURIComponent(sourceCurrency),{signal:AbortSignal.timeout(8000)});if(fr.ok){const fd=await fr.json();const rate=Number(fd?.rates?.SCR);if(fd?.result==="success"&&rate>0)fx={rate,provider:"open.er-api.com",updated:fd.time_last_update_utc};}}
  const rate=fx?.rate||null;const costScr=rate?Math.round(sourcePrice*rate*100)/100:null;
