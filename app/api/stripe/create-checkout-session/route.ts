@@ -79,7 +79,7 @@ export async function POST(request: Request) {
       return { product, variant, quantity: row.quantity, originalCents: unitCents * row.quantity, shippingCents: Math.round(Number(product.shipping_fee_scr||0)*100), discountCents: 0 };
     });
 
-    const subtotalCents = itemRows.reduce((sum, item) => sum + item.originalCents, 0);\n    const deliveryCents = itemRows.reduce((sum, item) => sum + item.shippingCents, 0);
+    const subtotalCents = itemRows.reduce((sum, item) => sum + item.originalCents, 0);\n    const deliveryCents = [...new Map(itemRows.map(item => [item.product.id, item])).values()].reduce((sum, item) => sum + item.shippingCents, 0);
     let voucher: { id: string; code: string } | null = null;
     let voucherDiscountCents = 0;
     const taxCents = subtotalCents >= 290000 ? Math.round(subtotalCents * 0.16) : 0;
