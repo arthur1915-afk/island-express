@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 
     const productIds = rows.map((row) => row.product_id).filter(Boolean);
     const { data: productsData, error: productsError } = await db.from("products")
-      .select("id,title,price_scr,status,shop_id").in("id", productIds);
+      .select("id,title,price_scr,shipping_fee_scr,status,shop_id").in("id", productIds);
     // The Supabase client is not generated with the database schema types in this project.
     // Cast the selected rows explicitly so TypeScript can type the product fields.
     const products = (productsData ?? []) as Array<{
@@ -76,10 +76,10 @@ export async function POST(request: Request) {
       if (row.variant_id && (!variant || variant.product_id !== product.id || !variant.is_active || variant.stock_quantity < row.quantity)) throw new Error("The selected option is unavailable or has insufficient stock. Please return to your cart.");
       const unitCents = Math.round(Number(variant?.price_scr ?? product.price_scr) * 100);
       if (!Number.isSafeInteger(unitCents) || unitCents < 1) throw new Error("A product has an invalid price.");
-      return { product, variant, quantity: row.quantity, originalCents: unitCents * row.quantity, discountCents: 0 };
+      return { product, variant, quantity: row.quantity, originalCents: unitCents * row.quantity, shippingCents: Math.round(Number(product.shipping_fee_scr||0)*100), discountCents: 0 };
     });
 
-    const subtotalCents = itemRows.reduce((sum, item) => sum + item.originalCents, 0);
+    const subtotalCents = itemRows.reduce((sum, item) => sum + item.originalCents, 0);\n    const deliveryCents = itemRows.reduce((sum, item) => sum + item.shippingCents, 0);
     let voucher: { id: string; code: string } | null = null;
     let voucherDiscountCents = 0;
     const taxCents = subtotalCents >= 290000 ? Math.round(subtotalCents * 0.16) : 0;
