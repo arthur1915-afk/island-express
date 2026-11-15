@@ -10,7 +10,7 @@ type Variant = {id:string;label:string;price_scr:number;stock_quantity:number;at
 type ProductReview = { id:string; rating:number; title:string|null; body:string; created_at:string };
 type ProductDetails = {
   id: string; title: string; description: string | null; category: string;
-  price_scr: number; shipping_fee_scr:number; stock_quantity: number; image_urls: string[]; shipping_days_min: number | null; shipping_days_max: number | null;
+  price_scr: number; shipping_fee_scr:number; stock_quantity: number; image_urls: string[]; product_video_urls:string[]; shipping_days_min: number | null; shipping_days_max: number | null;
   shops: { id: string; name: string; island: string | null; description: string | null; logo_url: string | null } | null;
 };
 
@@ -34,7 +34,7 @@ export default function ProductDetailsPage() {
     let active = true;
     async function load() {
       const { data,error } = await supabase.from("products")
-        .select("id,title,description,category,price_scr,shipping_fee_scr,stock_quantity,image_urls,shipping_days_min,shipping_days_max,shops(id,name,island,description,logo_url)")
+        .select("id,title,description,category,price_scr,shipping_fee_scr,stock_quantity,image_urls,product_video_urls,shipping_days_min,shipping_days_max,shops(id,name,island,description,logo_url)")
         .eq("id",productId).eq("status","approved").or("is_archived.is.null,is_archived.eq.false").single();
       if (!active) return;
       if (error || !data) setError("This product could not be found or is no longer available.");
@@ -100,6 +100,7 @@ export default function ProductDetailsPage() {
           </div>
           {images.length>0&&<div className="product-gallery-thumbs">{images.map((url,index)=><button type="button" key={url+index} className={activeImage===index?"active":""} onClick={()=>setActiveImage(index)} aria-label={"View photo "+(index+1)}><img src={url} alt={product.title+" thumbnail "+(index+1)}/></button>)}</div>}
         </section>
+        {product.product_video_urls?.length>0&&<section className="product-video-section"><h2>Product videos</h2><div className="product-video-grid">{product.product_video_urls.map((url,index)=><video key={url+index} src={url} controls playsInline preload="metadata" style={{width:"100%",maxWidth:420,borderRadius:12,background:"#111"}} aria-label={product.title+" video "+(index+1)}/>)}</div></section>}
         <section className="product-detail-info">
           <div className="eyebrow">{product.category}</div>
           <h1>{product.title}</h1><p className="product-shipping-fee">Delivery: SCR {Number(product.shipping_fee_scr??0).toFixed(2)}</p>
