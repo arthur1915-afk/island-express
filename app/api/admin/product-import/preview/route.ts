@@ -5,12 +5,18 @@ const allowed = ["aliexpress.com","shein.com","iherb.com","asos.com","alibaba.co
 function platform(host:string){return allowed.find(d=>host===d||host.endsWith("."+d))||null;}
 function meta(html:string,key:string,attr="property"){const escaped=key.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");const a=new RegExp(`<meta[^>]+${attr}=[\"']${escaped}[\"'][^>]+content=[\"']([^\"']*)[\"'][^>]*>`,"i");const b=new RegExp(`<meta[^>]+content=[\"']([^\"']*)[\"'][^>]+${attr}=[\"']${escaped}[\"'][^>]*>`,"i");const m=html.match(a)||html.match(b);return (m?.[1]||"").replace(/&amp;/g,"&").replace(/&quot;/g,'"').trim();}
 function collect(value:any,out:any[]){if(!value||typeof value!=="object")return;if(Array.isArray(value)){value.forEach(v=>collect(v,out));return;}const types=Array.isArray(value["@type"])?value["@type"]:[value["@type"]];if(types.some((t:any)=>String(t).toLowerCase()==="product"))out.push(value);for(const [k,v] of Object.entries(value)){if(k!=="@type"&&v&&typeof v==="object")collect(v,out);}}
-function imageCandidates(html:string,product:any){const found:string[]=[];const add=(v:any)=>{if(typeof v==="string"){const s=v.replace(/&amp;/g,"&").replace(/\\u0026/gi,"&").replace(/\\\//g,"/").trim();const u=s.startsWith("//")?"https:"+s:s;if(/^https?:\\/\\//i.test(u)&&!/(sprite|logo|icon|avatar|placeholder)/i.test(u))found.push(u);}else if(Array.isArray(v))v.forEach(add);else if(v&&typeof v==="object"){add(v.url);add(v.contentUrl);}};add(product?.image);add(product?.images);
-for(const m of html.matchAll(/<meta\\b[^>]*(?:property|name)=[\"'](?:og:image(?::secure_url)?|twitter:image|twitter:image:src)[\"'][^>]*content=[\"']([^\"']+)[\"'][^>]*>/gi))add(m[1]);
-for(const m of html.matchAll(/<meta\\b[^>]*content=[\"']([^\"']+)[\"'][^>]*(?:property|name)=[\"'](?:og:image(?::secure_url)?|twitter:image|twitter:image:src)[\"'][^>]*>/gi))add(m[1]);
-for(const m of html.matchAll(/<(?:img|source)\\b[^>]*>/gi)){for(const a of m[0].matchAll(/(?:src|data-src|data-original|data-lazy-src|data-zoom-image|srcset)=[\"']([^\"']+)[\"']/gi)){add(a[1].split(",")[0].trim().split(/\\s+/)[0]);}}
-for(const m of html.matchAll(/https?:\\/\\/[^\\s\"'<>\\\\]+?\\.(?:jpg|jpeg|png|webp)(?:\\?[^\\s\"'<>\\\\]*)?/gi))add(m[0]);
-return [...new Set(found)].slice(0,12);}
+function imageCandidates(html:string,product:any){
+ const found:string[]=[];
+ const add=(v:any)=>{if(typeof v==="string"){const s=v.replace(/&amp;/g,"&").replace(/\\u0026/gi,"&").trim();const u=s.startsWith("//")?"https:"+s:s;if(u.startsWith("https://")&&!/(sprite|logo|icon|avatar|placeholder)/i.test(u))found.push(u);}else if(Array.isArray(v))v.forEach(add);else if(v&&typeof v==="object"){add(v.url);add(v.contentUrl);}};
+ add(product?.image);add(product?.images);
+ const metaTags=html.match(/<meta\b[^>]*>/gi)||[];
+ for(const tag of metaTags){if(/(?:og:image|twitter:image)/i.test(tag)){const m=tag.match(/content=["']([^"']+)["']/i);if(m)add(m[1]);}}
+ const imageTags=html.match(/<(?:img|source)\b[^>]*>/gi)||[];
+ for(const tag of imageTags){const attrs=tag.matchAll(/(?:src|data-src|data-original|data-lazy-src|data-zoom-image|srcset)=["']([^"']+)["']/gi);for(const a of attrs)add(a[1].split(",")[0].trim().split(/\s+/)[0]);}
+ const urls=html.match(/https:\/\/[^"'<> ]+\.(?:jpg|jpeg|png|webp)(?:\?[^"'<> ]*)?/gi)||[];
+ urls.forEach(add);
+ return [...new Set(found)].slice(0,12);
+}
 export async function POST(request:NextRequest){try{
  const token=(request.headers.get("authorization")||"").replace(/^Bearer\s+/i,"");if(!token)return NextResponse.json({error:"Sign in as an administrator."},{status:401});
  const u=process.env.NEXT_PUBLIC_SUPABASE_URL,a=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,s=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!u||!a||!s)return NextResponse.json({error:"Admin importer is not configured."},{status:500});
