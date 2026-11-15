@@ -729,3 +729,36 @@
 .admin-display-fields input,.admin-featured-review textarea{width:100%;min-width:0;padding:9px 10px;border:1px solid #dfe7e1;border-radius:8px;background:#fff;color:#263a30;font:inherit}
 .admin-featured-review textarea{resize:vertical;font-weight:400}
 @media(max-width:600px){.admin-display-fields{grid-template-columns:1fr}}
+
+/* Product display admin: guided shop -> product workflow */
+.admin-display-wrap{max-width:1040px}
+.admin-display-selector,.admin-display-editor{background:#fff;border:1px solid #e8eeeb;border-radius:16px;padding:24px;margin:22px 0;box-shadow:0 5px 20px #1c382b07}
+.admin-display-step{display:flex;align-items:center;gap:11px;margin:4px 0 13px}
+.admin-display-step>span{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#fff0e8;color:#e96532;font-size:12px;font-weight:800;flex:none}
+.admin-display-step b,.admin-display-step small{display:block}.admin-display-step b{font-size:14px;color:#26352d}.admin-display-step small{font-size:11px;color:#89958e;margin-top:3px}
+.admin-display-select{height:50px;display:flex;align-items:center;gap:11px;padding:0 14px;border:1px solid #dfe7e2;border-radius:9px;color:#748279;margin-bottom:22px}
+.admin-display-select:last-child{margin-bottom:0}.admin-display-select select{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#26352d;font:13px 'DM Sans'}
+.admin-display-empty{min-height:210px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:9px;background:#fff;border:1px dashed #dce6df;border-radius:15px;color:#91a097;text-align:center;padding:25px}
+.admin-display-empty b{font-size:14px;color:#43544a}.admin-display-empty span{font-size:12px}
+.admin-display-product-head{display:flex;align-items:center;justify-content:space-between;gap:20px;padding-bottom:20px;margin-bottom:22px;border-bottom:1px solid #edf1ee}
+.admin-display-product-head small{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#819087}.admin-display-product-head h2{font-size:21px;line-height:1.3;margin:7px 0}.admin-display-product-head>div>span{font-size:13px;color:#77857c}
+.admin-display-product-icon{width:52px;height:52px;border-radius:12px;background:#f4f7f5;display:grid;place-items:center;color:#7c8d82}
+.admin-display-input-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:18px 0}
+.admin-display-input-grid label,.admin-display-review{display:grid;gap:7px;font-size:12px;font-weight:700;color:#53645b}
+.admin-display-input-grid input,.admin-display-review textarea{width:100%;min-width:0;padding:12px;border:1px solid #dfe7e1;border-radius:9px;background:#fff;color:#263a30;font:14px 'DM Sans';outline:none}
+.admin-display-input-grid input:focus,.admin-display-review textarea:focus{border-color:#e87949;box-shadow:0 0 0 3px #e8794918}
+.admin-display-review textarea{resize:vertical;font-weight:400;line-height:1.6}
+.admin-display-editor-footer{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:20px;padding-top:17px;border-top:1px solid #edf1ee}
+.admin-display-editor-footer>span{font-size:11px;line-height:1.5;color:#89958e}.admin-display-editor-footer button{white-space:nowrap}
+@media(max-width:600px){.admin-display-selector,.admin-display-editor{padding:17px}.admin-display-input-grid{grid-template-columns:1fr}.admin-display-editor-footer{align-items:stretch;flex-direction:column-reverse}.admin-display-editor-footer button{justify-content:center}}
+/* Compact marketplace social proof */
+.product-card-social-proof{display:flex;align-items:center;gap:9px;min-height:20px;margin:7px 0 2px;color:#65746b;font-size:11px;font-weight:600}
+.product-card-social-proof span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.product-card-social-proof span+span{padding-left:9px;border-left:1px solid #e7ece8}
+.product-card-social-proof svg{color:#e5a33b}
+.product-card-rating{display:flex;align-items:center;gap:5px;min-height:20px;margin-top:4px;font-size:11px;color:#718078}
+.product-card-rating .rating-stars,.product-card-rating svg{color:#e5a33b}
+.product-detail-social-proof{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0 8px;color:#65746b;font-size:12px;font-weight:650}
+.product-detail-social-proof span{display:inline-flex;align-items:center;gap:5px}.product-detail-social-proof svg{color:#e5a33b}
+.product-editorial-highlight{margin:22px 0;padding:17px 19px;border:1px solid #f2e5dc;border-radius:12px;background:#fffaf6}
+.product-editorial-highlight .eyebrow{font-size:10px;letter-spacing:.1em;color:#d56d40}.product-editorial-highlight p{margin:8px 0 0;color:#53645b;font-size:13px;line-height:1.7}
