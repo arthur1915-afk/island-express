@@ -58,6 +58,7 @@ export async function POST(request: Request) {
       price_scr: number | string;
       status: string;
       shop_id: string;
+      shipping_fee_scr: number | string;
     }>;
 
     if (productsError || !products.length || products.length !== new Set(productIds).size || products.some((p) => p.status !== "approved")) {
@@ -79,7 +80,8 @@ export async function POST(request: Request) {
       return { product, variant, quantity: row.quantity, originalCents: unitCents * row.quantity, shippingCents: Math.round(Number(product.shipping_fee_scr||0)*100), discountCents: 0 };
     });
 
-    const subtotalCents = itemRows.reduce((sum, item) => sum + item.originalCents, 0);\n    const deliveryCents = [...new Map(itemRows.map(item => [item.product.id, item])).values()].reduce((sum, item) => sum + item.shippingCents, 0);
+    const subtotalCents = itemRows.reduce((sum, item) => sum + item.originalCents, 0);
+    const deliveryCents = [...new Map(itemRows.map(item => [item.product.id, item])).values()].reduce((sum, item) => sum + item.shippingCents, 0);
     let voucher: { id: string; code: string } | null = null;
     let voucherDiscountCents = 0;
     const taxCents = subtotalCents >= 290000 ? Math.round(subtotalCents * 0.16) : 0;
@@ -192,6 +194,8 @@ export async function POST(request: Request) {
     if (taxCents > 0) {
       lineItems.push({ price_data: { currency: "scr", product_data: { name: "Tax (16%)" }, unit_amount: taxCents }, quantity: 1 });
     }
+
+    if (deliveryCents > 0) lineItems.push({ price_data: { currency: "scr", product_data: { name: "Delivery fee" }, unit_amount: deliveryCents }, quantity: 1 });
 
     const totalCents = lineItems.reduce((sum, item) => sum + (item.price_data?.unit_amount || 0) * (item.quantity || 1), 0);
     if (totalCents < 100) {
