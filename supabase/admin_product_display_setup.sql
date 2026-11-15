@@ -14,3 +14,13 @@ DROP POLICY IF EXISTS "Admins can update product display figures" ON public.prod
 CREATE POLICY "Admins can update product display figures" ON public.products FOR UPDATE TO authenticated
 USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id=auth.uid() AND p.is_admin=true))
 WITH CHECK (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id=auth.uid() AND p.is_admin=true));
+
+-- Ensure administrators can read and update product display fields.
+DROP POLICY IF EXISTS "Admins can view all products" ON public.products;
+CREATE POLICY "Admins can view all products" ON public.products FOR SELECT TO authenticated
+USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id=auth.uid() AND p.is_admin=true));
+
+DROP POLICY IF EXISTS "Admins can update product display figures" ON public.products;
+CREATE POLICY "Admins can update product display figures" ON public.products FOR UPDATE TO authenticated
+USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id=auth.uid() AND p.is_admin=true))
+WITH CHECK (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id=auth.uid() AND p.is_admin=true));
