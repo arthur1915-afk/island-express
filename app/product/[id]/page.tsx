@@ -10,7 +10,7 @@ type Variant = {id:string;label:string;price_scr:number;stock_quantity:number;at
 type ProductReview = { id:string; rating:number; title:string|null; body:string; created_at:string };
 type ProductDetails = {
   id: string; title: string; description: string | null; category: string;
-  price_scr: number; stock_quantity: number; image_urls: string[]; shipping_days_min: number | null; shipping_days_max: number | null;
+  price_scr: number; shipping_fee_scr:number; stock_quantity: number; image_urls: string[]; shipping_days_min: number | null; shipping_days_max: number | null;
   shops: { id: string; name: string; island: string | null; description: string | null; logo_url: string | null } | null;
 };
 
@@ -34,7 +34,7 @@ export default function ProductDetailsPage() {
     let active = true;
     async function load() {
       const { data,error } = await supabase.from("products")
-        .select("id,title,description,category,price_scr,stock_quantity,image_urls,shipping_days_min,shipping_days_max,shops(id,name,island,description,logo_url)")
+        .select("id,title,description,category,price_scr,shipping_fee_scr,stock_quantity,image_urls,shipping_days_min,shipping_days_max,shops(id,name,island,description,logo_url)")
         .eq("id",productId).eq("status","approved").or("is_archived.is.null,is_archived.eq.false").single();
       if (!active) return;
       if (error || !data) setError("This product could not be found or is no longer available.");
@@ -102,7 +102,7 @@ export default function ProductDetailsPage() {
         </section>
         <section className="product-detail-info">
           <div className="eyebrow">{product.category}</div>
-          <h1>{product.title}</h1>
+          <h1>{product.title}</h1><p className="product-shipping-fee">Delivery: SCR {Number(product.shipping_fee_scr??0).toFixed(2)}</p>
           <div className="product-detail-rating"><span className="rating-stars"><Star size={17} fill={ratingSummary.count?"currentColor":"none"}/></span>{ratingSummary.count?<><b>{ratingSummary.average.toFixed(1)} / 5</b><a href="#reviews">{ratingSummary.count} customer {ratingSummary.count===1?"review":"reviews"}</a></>:<span>No reviews yet</span>}</div>
           {variants.length>0&&<div className="product-variation-picker"><div className="product-variation-heading"><div><h2>Select your options</h2><p>Choose a colour and size to find your preferred option.</p></div></div>{variationKeys.length>0?variationKeys.map(key=>{const values=[...new Set(variants.map(v=>v.attributes?.[key]).filter(Boolean))];const isColor=/colou?r/i.test(key);const isSize=/size/i.test(key);return <div key={key} className={"product-variation-group"+(isColor?" product-variation-color-group":isSize?" product-variation-size-group":"")}><div className="product-variation-group-heading"><b>{key}</b><span>{selectedVariant?.attributes?.[key]||"Select "+key.toLowerCase()}</span></div>{isColor?<div className="product-variation-color-options">{values.map(value=>{const available=variants.some(v=>v.attributes?.[key]===value&&v.stock_quantity>0);const active=selectedVariant?.attributes?.[key]===value;return <button type="button" key={value} title={value} aria-label={key+": "+value} aria-pressed={active} className={"product-variation-color-option"+(active?" selected":"")} disabled={!available} onClick={()=>chooseAttribute(key,value)}><span style={{backgroundColor:swatchColor(value)}}/>{active&&<i>✓</i>}</button>})}</div>:<div className={isSize?"product-variation-size-options":"product-variation-options"}>{values.map(value=>{const available=variants.some(v=>v.attributes?.[key]===value&&v.stock_quantity>0);const active=selectedVariant?.attributes?.[key]===value;return <button type="button" key={value} className={"product-variation-option"+(active?" selected":"")} disabled={!available} aria-pressed={active} onClick={()=>chooseAttribute(key,value)}>{value}{active&&<span className="variation-option-check">✓</span>}</button>})}</div>}</div>}):<div className="product-variation-size-options">{variants.map(v=><button type="button" key={v.id} className={"product-variation-option"+(selectedVariant?.id===v.id?" selected":"")} disabled={v.stock_quantity<=0} aria-pressed={selectedVariant?.id===v.id} onClick={()=>{setSelectedVariant(v);setActiveImage(0);}}>{v.label}{v.stock_quantity<=0&&<small>Out of stock</small>}</button>)}</div>}<div className="product-variation-selection-summary">{selectedVariant&&selectedVariant.stock_quantity>0?<><span><i/> {selectedVariant.label} selected</span><b>SCR {Number(selectedVariant.price_scr).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</b></>:<span>Please select an available option</span>}</div></div>}
           <div className="product-detail-price">SCR {Number(selectedVariant?.price_scr??product.price_scr).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
