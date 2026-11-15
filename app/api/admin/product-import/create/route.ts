@@ -1,0 +1,15 @@
+import { NextRequest,NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+export const runtime="nodejs";
+export async function POST(request:NextRequest){try{
+ const token=(request.headers.get("authorization")||"").replace(/^Bearer\s+/i,"");if(!token)return NextResponse.json({error:"Sign in as an administrator."},{status:401});
+ const url=process.env.NEXT_PUBLIC_SUPABASE_URL,anon=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,key=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!anon||!key)return NextResponse.json({error:"Admin importer is not configured."},{status:500});
+ const auth=createClient(url,anon,{auth:{persistSession:false,autoRefreshToken:false}});const {data:{user}}=await auth.auth.getUser(token);if(!user)return NextResponse.json({error:"Session expired."},{status:401});
+ const db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});const {data:profile}=await db.from("profiles").select("is_admin").eq("id",user.id).single();if(!profile?.is_admin)return NextResponse.json({error:"Administrator access required."},{status:403});
+ const b=await request.json();const shopId=String(b.shopId||"");const title=String(b.title||"").trim();const price=Number(b.price);const shipping=Number(b.shipping);const stock=Number(b.stock);const images=Array.isArray(b.images)?b.images.filter((v:any)=>typeof v==="string"&&v.startsWith("https://")).slice(0,8):[];
+ if(!shopId||!title||!Number.isFinite(price)||price<0||!Number.isFinite(shipping)||shipping<0||!Number.isInteger(stock)||stock<0)return NextResponse.json({error:"Complete the shop, title, price, shipping and stock fields."},{status:400});
+ const {data:shop,error:shopError}=await db.from("shops").select("id").eq("id",shopId).eq("is_active",true).single();if(shopError||!shop)return NextResponse.json({error:"Selected seller shop is unavailable."},{status:400});
+ const {data:product,error}=await db.from("products").insert({shop_id:shopId,title,description:String(b.description||""),category:String(b.category||"Other"),price_scr:price,shipping_fee_scr:shipping,stock_quantity:stock,image_urls:images,status:"pending_review"}).select("id").single();if(error)throw error;
+ const {error:historyError}=await db.from("admin_product_imports").insert({product_id:product.id,shop_id:shopId,source_url:String(b.sourceUrl),source_platform:String(b.platform),source_price:b.sourcePrice??null,source_currency:b.sourceCurrency??null,exchange_rate_to_scr:b.exchangeRate??null,cost_scr:b.costScr??null,markup_percent:20,supplier_shipping_scr:b.supplierShippingAvailable?shipping:null,supplier_shipping_status:b.supplierShippingAvailable?"quoted":"unavailable",imported_by:user.id});
+ return NextResponse.json({success:true,productId:product.id,historyWarning:historyError?.message||null});
+}catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Could not create product."},{status:400});}}
