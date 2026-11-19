@@ -37,10 +37,11 @@ export default function NotificationListener() {
           if (!active) return;
           const type = (row.notification_type || "").toLowerCase();
           const title = (row.title || "").toLowerCase();
+          const isCustomerCareReply = type.includes("customer_support") || type.includes("support_reply") || title.includes("customercare replied") || title.includes("customer care replied");
           const isSellerOrder = type.startsWith("new_order") || title.includes("new order received");
-          const isAdminAlert = !isSellerOrder && (type.startsWith("admin_") || type.includes("cancellation_request"));
-          const destination = isSellerOrder ? "/seller/orders" : isAdminAlert ? "/admin" : "/orders";
-          const destinationLabel = isSellerOrder ? "View customer orders" : isAdminAlert ? "Open Admin Centre" : "View My Orders";
+          const isAdminAlert = !isSellerOrder && !isCustomerCareReply && (type.startsWith("admin_") || type.includes("cancellation_request"));
+          const destination = isCustomerCareReply ? "/support" : isSellerOrder ? "/seller/orders" : isAdminAlert ? "/admin" : "/orders";
+          const destinationLabel = isCustomerCareReply ? "Open Customer Care" : isSellerOrder ? "View customer orders" : isAdminAlert ? "Open Admin Centre" : "View My Orders";
           setNotice({ id: row.id, title: row.title, message: row.message, order_id: row.order_id, notification_type: row.notification_type, href: destination, linkLabel: destinationLabel });
           if (hideTimer) clearTimeout(hideTimer);
           hideTimer = setTimeout(() => setNotice(null), 9000);
