@@ -8,6 +8,18 @@ import { supabase } from "../../lib/supabase";
 
 type Notification = { id: string; order_id: string | null; notification_type: string; title: string; message: string; read_at: string | null; created_at: string };
 
+function getNotificationDestination(item: Notification, role: "customer" | "seller" | "admin") {
+  const type = (item.notification_type || "").toLowerCase();
+  const title = (item.title || "").toLowerCase();
+  const isCustomerCareReply = type.includes("customer_support") || type.includes("support_reply") || title.includes("customer care replied");
+  const isSellerOrder = type.startsWith("new_order") || title.includes("new order received");
+  const isAdminAlert = !isCustomerCareReply && !isSellerOrder && (type.startsWith("admin_") || type.includes("cancellation_request"));
+  if (isCustomerCareReply) return { href: "/support", label: "Open Customer Care" };
+  if (isSellerOrder) return { href: "/seller/orders", label: "View customer orders" };
+  if (isAdminAlert) return { href: "/admin", label: "Open Admin Centre" };
+  return { href: "/orders", label: "View My Orders" };
+}
+
 export default function NotificationsPage() {
   const router = useRouter();
   const [items, setItems] = useState<Notification[]>([]);
@@ -65,7 +77,7 @@ export default function NotificationsPage() {
       {message && <div className="account-message">{message}</div>}
       <div className="notifications-actions"><span>{unread} unread</span><button onClick={markAllRead} disabled={busy || unread === 0}><CheckCheck size={14}/> Mark all as read</button></div>
       {loading ? <div className="seller-order-empty">Loading notifications…</div> : items.length === 0 ? <div className="notifications-empty"><Bell size={32}/><b>You’re all caught up</b><p>Updates about your orders will appear here.</p></div> : <div className="notifications-list">{items.map(item => <div className={"notification-card" + (!item.read_at ? " unread" : "")} key={item.id}>
-        <span className="notification-icon"><Package size={18}/></span><div className="notification-copy"><b>{item.title}</b><p>{item.message}</p><small>{new Date(item.created_at).toLocaleString()}</small><div><Link href={(item.notification_type || "").toLowerCase().startsWith("new_order") || item.title.toLowerCase().includes("new order received") ? "/seller/orders" : (item.notification_type || "").toLowerCase().startsWith("admin_") || (item.notification_type || "").toLowerCase().includes("cancellation_request") ? "/admin" : "/orders"} onClick={()=>{if(!item.read_at) void markRead(item.id);}} className="review-open-button">{(item.notification_type || "").toLowerCase().startsWith("new_order") || item.title.toLowerCase().includes("new order received") ? "View customer orders" : (item.notification_type || "").toLowerCase().startsWith("admin_") || (item.notification_type || "").toLowerCase().includes("cancellation_request") ? "Open Admin Centre" : "View My Orders"}</Link></div></div>{!item.read_at && <span className="notification-unread-dot" aria-label="Unread"/>}
+        <span className="notification-icon"><Package size={18}/></span><div className="notification-copy"><b>{item.title}</b><p>{item.message}</p><small>{new Date(item.created_at).toLocaleString()}</small><div><Link href={getNotificationDestination(item, accountRole).href} onClick={()=>{if(!item.read_at) void markRead(item.id);}} className="review-open-button">{getNotificationDestination(item, accountRole).label}</Link></div></div>{!item.read_at && <span className="notification-unread-dot" aria-label="Unread"/>}
       </div>)}</div>}
     </div>
   </main>;
