@@ -1,4 +1,4 @@
-# Island Express
+# islandXpress
 
 Seychelles multi-vendor marketplace starter built with Next.js and Supabase.
 
