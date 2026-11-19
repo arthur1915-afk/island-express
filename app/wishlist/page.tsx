@@ -76,7 +76,7 @@ export default function WishlistPage() {
             <div className="wishlist-product-image">{product.image_urls?.[0] ? <img src={product.image_urls[0]} alt={product.title}/> : <span>📦</span>}</div>
             <div className="wishlist-product-info">
               <small>{product.category}</small><h2>{product.title}</h2>
-              <p>{product.shops?.name ?? "Island Express seller"} · {product.shops?.island ?? "Seychelles"}</p>
+              <p>{product.shops?.name ?? "islandXpress seller"} · {product.shops?.island ?? "Seychelles"}</p>
               <strong>SCR {Number(product.price_scr).toLocaleString()}</strong>
               <div className="wishlist-product-actions">
                 <button className="wishlist-cart-button" onClick={()=>addToCart(product.id)}><ShoppingBag size={15}/> Add to cart</button>
