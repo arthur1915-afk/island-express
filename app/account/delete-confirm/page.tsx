@@ -28,7 +28,7 @@ export default function ConfirmAccountDeletionPage() {
       }
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
-        setMessage("Your email link has been opened, but we could not establish your islandxpress session. Please open the link again in the same browser where you use islandxpress, or request a new link.");
+        setMessage("Your email link has been opened, but we could not establish your islandXpress session. Please open the link again in the same browser where you use islandXpress, or request a new link.");
         return;
       }
       const response = await fetch("/api/account/delete-confirm", {
@@ -49,9 +49,9 @@ export default function ConfirmAccountDeletionPage() {
   }, []);
 
   return <main className="account-page"><section className="account-card" style={{maxWidth:620,margin:"8vh auto",padding:32}}>
-    <div className="eyebrow">ISLANDXPRESS ACCOUNT</div>
+    <div className="eyebrow">islandXpress ACCOUNT</div>
     <h1>{success ? "Account deletion confirmed" : "Confirm account deletion"}</h1>
     <p role="status">{message}</p>
-    <Link className="primary account-shop-button" href="/">{success ? "Return to islandxpress" : "Back to islandxpress"}</Link>
+    <Link className="primary account-shop-button" href="/">{success ? "Return to islandXpress" : "Back to islandXpress"}</Link>
   </section></main>;
 }
