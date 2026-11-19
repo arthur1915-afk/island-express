@@ -61,13 +61,13 @@ export default function ResetPasswordPage() {
     <main className="account-page">
       <div className="account-top">
         <Link href="/account" className="account-back"><ArrowLeft size={17}/> Back to login</Link>
-        <span className="account-brand">island<span>express</span></span>
+        <span className="account-brand">island<span>xpress</span></span>
       </div>
       <section className="account-card">
         <div className="account-icon"><LockKeyhole size={25}/></div>
         <div className="eyebrow">ACCOUNT SECURITY</div>
         <h1>Set a new password</h1>
-        <p className="account-sub">Choose a new password for your Island Express account.</p>
+        <p className="account-sub">Choose a new password for your islandxpress account.</p>
         {ready && !message.startsWith("This password reset link") ? (
           <form onSubmit={updatePassword} className="account-form">
             <label>New password<input type="password" required minLength={8} autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="At least 8 characters"/></label>
@@ -76,7 +76,7 @@ export default function ResetPasswordPage() {
           </form>
         ) : null}
         {message && <div className="account-message" role="status">{message}</div>}
-        <p className="account-sub"><Link href="/account">Return to Island Express login</Link></p>
+        <p className="account-sub"><Link href="/account">Return to islandxpress login</Link></p>
       </section>
     </main>
   );
