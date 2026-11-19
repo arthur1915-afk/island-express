@@ -67,7 +67,7 @@ export default function AdminCampaignsPage(){
  return <main className="admin-page">
   <header className="seller-dash-header"><Link href="/admin" className="account-back"><ArrowLeft size={16}/> Admin Centre</Link><Link href="/" className="account-brand">island<span>xpress</span></Link></header>
   <div className="admin-wrap">
-   <div className="admin-heading"><div><div className="eyebrow">ISLANDXPRESS · MARKETING</div><h1><Megaphone size={25}/> Promotional campaigns</h1><p>Manage the rotating promotions shown to shoppers on the marketplace homepage.</p></div><div className="admin-heading-actions"><button className="admin-refresh" onClick={load}><RefreshCw size={15}/> Refresh</button><button className="admin-refresh campaign-add-button" onClick={newCampaign}><Plus size={15}/> New campaign</button></div></div>
+   <div className="admin-heading"><div><div className="eyebrow">islandXpress · MARKETING</div><h1><Megaphone size={25}/> Promotional campaigns</h1><p>Manage the rotating promotions shown to shoppers on the marketplace homepage.</p></div><div className="admin-heading-actions"><button className="admin-refresh" onClick={load}><RefreshCw size={15}/> Refresh</button><button className="admin-refresh campaign-add-button" onClick={newCampaign}><Plus size={15}/> New campaign</button></div></div>
    {notice&&<div className="account-message">{notice}</div>}
    {editing&&<form className="campaign-editor" onSubmit={save}>
     <div className="campaign-editor-heading"><div><b>{draft.id?"Edit campaign":"Create a campaign"}</b><small>Set the message, schedule and destination for shoppers.</small></div><button type="button" className="campaign-close" onClick={()=>setEditing(false)} aria-label="Close"><X size={18}/></button></div>
