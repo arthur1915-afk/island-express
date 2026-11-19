@@ -69,9 +69,9 @@ export default function AdminSupportPage(){
  }
  if(loading)return <main className="admin-page"><div className="account-card">Loading Customer Care…</div></main>;
  return <main className="admin-page">
-  <header className="seller-dash-header"><Link href="/admin" className="account-back"><ArrowLeft size={16}/> Admin Centre</Link><Link href="/" className="account-brand">island<span>express</span></Link></header>
+  <header className="seller-dash-header"><Link href="/admin" className="account-back"><ArrowLeft size={16}/> Admin Centre</Link><Link href="/" className="account-brand">island<span>xpress</span></Link></header>
   <div className="admin-wrap">
-   <div className="admin-heading"><div><div className="eyebrow">ISLAND EXPRESS · SUPPORT</div><h1>Customer Care Inbox</h1><p>Manage AI handovers and reply to customer support requests. Sellers cannot access this inbox.</p></div><button className="admin-refresh" onClick={load}><RefreshCw size={15}/> Refresh</button></div>
+   <div className="admin-heading"><div><div className="eyebrow">ISLANDXPRESS · SUPPORT</div><h1>Customer Care Inbox</h1><p>Manage AI handovers and reply to customer support requests. Sellers cannot access this inbox.</p></div><button className="admin-refresh" onClick={load}><RefreshCw size={15}/> Refresh</button></div>
    {notice&&<div className="account-message">{notice}</div>}
    <div className="admin-support-layout">
     <aside className="admin-support-list"><h2>Support requests ({tickets.length})</h2>{tickets.map(t=><button key={t.id} className={active===t.id?"active":""} onClick={()=>openTicket(t.id)}><b>{t.subject}</b><small>{customers[t.customer_id]?.full_name || "Customer"}</small><small>{customers[t.customer_id]?.email || "Email unavailable"}</small><small>{t.category.replaceAll("_"," ")} · {t.status.replaceAll("_"," ")}</small>{t.handoff_requested&&<em>Needs human reply</em>}</button>)}{!tickets.length&&<p>No support requests yet.</p>}</aside>
