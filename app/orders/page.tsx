@@ -130,7 +130,7 @@ export default function CustomerOrdersPage() {
 
   return <main className="cart-page">
     <header className="cart-page-header">
-      <Link href="/" className="account-brand">island<span>express</span></Link>
+      <Link href="/" className="account-brand">island<span>xpress</span></Link>
       <span>YOUR PURCHASES</span>
     </header>
     <div className="cart-page-wrap">
@@ -151,7 +151,7 @@ export default function CustomerOrdersPage() {
             <div className="seller-order-date">{new Date(order.created_at).toLocaleString()}</div>
             <div className="seller-order-items">
               {(order.order_items ?? []).map(item => <div className="seller-order-item" key={item.id}>
-                <Package size={17}/><span>{item.product_title} <small>× {item.quantity} · {item.shop_name || "Island Express seller"}</small></span>
+                <Package size={17}/><span>{item.product_title} <small>× {item.quantity} · {item.shop_name || "islandxpress seller"}</small></span>
                 <b>SCR {(Number(item.unit_price_scr) * item.quantity).toLocaleString()}</b>
                 {order.status === "completed" && item.product_id && (reviewed.includes(item.product_id) ? <span className="review-submitted">Review submitted</span> : <button className="review-open-button" onClick={() => { setReviewProduct(reviewProduct === item.product_id ? null : item.product_id); setReviewRating(5); }}><Star size={14}/> Write a review</button>)}
                 {reviewProduct === item.product_id && order.status === "completed" && item.product_id && <div className="review-form">
