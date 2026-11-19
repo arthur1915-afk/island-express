@@ -64,7 +64,7 @@ function SearchResults() {
     <main className="search-page">
       <header className="search-page-header">
         <Link href="/" className="search-back"><ArrowLeft size={17}/> Home</Link>
-        <Link href="/" className="search-page-brand"><ShoppingBag size={19}/> island<span>express</span></Link>
+        <Link href="/" className="search-page-brand"><ShoppingBag size={19}/> island<span>xpress</span></Link>
       </header>
       <section className="search-results-wrap">
         <form className="search-results-form" onSubmit={submit}>
@@ -92,7 +92,7 @@ function SearchResults() {
                         <div className="search-result-info">
                           <small>{product.category}</small>
                           <h2>{product.title}</h2>
-                          <p>{product.shops?.name || "Island Express seller"} · {product.shops?.island || "Seychelles"}</p>
+                          <p>{product.shops?.name || "islandxpress seller"} · {product.shops?.island || "Seychelles"}</p>
                           <strong>SCR {Number(product.price_scr).toLocaleString()}</strong><div className="product-card-rating"><span className="rating-stars"><Star size={14} fill={ratings[product.id]?"currentColor":"none"}/></span>{ratings[product.id]?<><b>{ratings[product.id].average.toFixed(1)}</b><span>({ratings[product.id].count} {ratings[product.id].count===1?"review":"reviews"})</span></>:<span>No reviews yet</span>}</div>
                         </div>
                       </Link>
