@@ -44,7 +44,7 @@ export default function AdminSupportPage(){
   if(error)setNotice(error.message);
   else{
    setDraft("");
-   const {error:statusError}=await supabase.from("support_conversations").update({status:"in_progress",handoff_requested:true,updated_at:new Date().toISOString()}).eq("id",active);
+   const {error:statusError}=await supabase.from("support_conversations").update({status:"in_progress",handoff_requested:true}).eq("id",active);
    if(statusError)setNotice("Reply sent, but conversation status could not be updated: "+statusError.message);
    else setNotice("Reply sent. Conversation moved to In progress.");
    await openTicket(active);await load();
