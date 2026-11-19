@@ -37,11 +37,11 @@ export default function ShopPage() {
   if (error || !shop) return <main className="shop-page"><div className="shop-page-message"><h1>Shop unavailable</h1><p>{error}</p><Link href="/">Back to marketplace</Link></div></main>;
 
   return <main className="shop-page">
-    <header className="shop-page-header"><Link href="/" className="account-back"><ArrowLeft size={16}/> Marketplace</Link><Link href="/" className="account-brand">island<span>express</span></Link><Link href="/cart" className="product-detail-cart"><ShoppingBag size={17}/> Cart</Link></header>
+    <header className="shop-page-header"><Link href="/" className="account-back"><ArrowLeft size={16}/> Marketplace</Link><Link href="/" className="account-brand">island<span>xpress</span></Link><Link href="/cart" className="product-detail-cart"><ShoppingBag size={17}/> Cart</Link></header>
     <div className="shop-page-wrap">
       <section className={"shop-profile-banner" + (shop.banner_url ? " has-shop-banner" : "")} style={shop.banner_url ? {backgroundImage:"linear-gradient(90deg,rgba(15,39,32,.88),rgba(15,39,32,.38)),url("+JSON.stringify(shop.banner_url)+")"} : undefined}>
         <div className="shop-profile-logo">{shop.logo_url ? <img src={shop.logo_url} alt={shop.name}/> : <span>🏬</span>}</div>
-        <div><small>ISLAND EXPRESS SHOP</small><h1>{shop.name}</h1><p><MapPin size={15}/>{shop.island || "Seychelles"}</p>{shop.description&&<div className="shop-profile-description">{shop.description}</div>}</div>
+        <div><small>ISLANDXPRESS SHOP</small><h1>{shop.name}</h1><p><MapPin size={15}/>{shop.island || "Seychelles"}</p>{shop.description&&<div className="shop-profile-description">{shop.description}</div>}</div>
       </section>
       <section className="shop-products-section">
         <div className="shop-products-heading"><div><h2>Products from {shop.name}</h2><p>Browse items available from this shop only.</p></div><strong>{products.length} item{products.length===1?"":"s"}</strong></div>
