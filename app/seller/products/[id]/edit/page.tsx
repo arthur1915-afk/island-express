@@ -6,7 +6,7 @@ import {useParams,useRouter} from "next/navigation";
 import {supabase} from "../../../../../lib/supabase";
 import {ArrowLeft,Plus,Trash2} from "lucide-react";
 
-const categories=["Electronics","Fashion","Home & Living","Beauty","Sports","Automotive","Food & Groceries","Other"];
+const categories=["Electronics","Fashion","Home & Living","Beauty","Party & Celebration","Office & School Supplies","Accessories","Sports & Outdoors","Automotive","Food & Groceries","Other"];
 function getVideoMime(file:File):string|null{const type=file.type.toLowerCase();if(["video/mp4","video/webm","video/quicktime"].includes(type))return type;const ext=file.name.split(".").pop()?.toLowerCase();return ext==="mp4"?"video/mp4":ext==="webm"?"video/webm":ext==="mov"?"video/quicktime":null;}
 type Variant={id?:string;label:string;price:string;stock:string;active:boolean;attributes:Record<string,string>;imageUrl:string|null;imageFile?:File|null};
 type Product={id:string;shop_id:string;image_urls:string[];product_video_urls:string[];title:string;description:string|null;category:string;price_scr:number;shipping_fee_scr:number;stock_quantity:number;status:string;shipping_days_min:number|null;shipping_days_max:number|null};
