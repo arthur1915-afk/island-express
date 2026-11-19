@@ -762,3 +762,8 @@
 .product-detail-social-proof span{display:inline-flex;align-items:center;gap:5px}.product-detail-social-proof svg{color:#e5a33b}
 .product-editorial-highlight{margin:22px 0;padding:17px 19px;border:1px solid #f2e5dc;border-radius:12px;background:#fffaf6}
 .product-editorial-highlight .eyebrow{font-size:10px;letter-spacing:.1em;color:#d56d40}.product-editorial-highlight p{margin:8px 0 0;color:#53645b;font-size:13px;line-height:1.7}
+
+/* Supplied Island Express mark in the main marketplace navigation only */
+.brand.brand-image{width:190px;height:68px;gap:0;flex:0 0 190px;display:flex;align-items:center;justify-content:flex-start;letter-spacing:normal}
+.brand.brand-image img{display:block;width:100%;height:100%;object-fit:contain;object-position:left center}
+@media(max-width:600px){.brand.brand-image{width:125px;height:54px;flex-basis:125px}}
