@@ -7,11 +7,12 @@ import { supabase } from "../../../lib/supabase";
 import { ArrowLeft, Headset, Send, RefreshCw, UserRound } from "lucide-react";
 
 type Ticket={id:string;customer_id:string;subject:string;category:string;status:string;handoff_requested:boolean;created_at:string};
+type CustomerIdentity={id:string;full_name:string|null;email:string|null;phone:string|null};
 type Msg={id:string;sender_type:string;body:string;created_at:string};
 
 export default function AdminSupportPage(){
  const router=useRouter();
- const [tickets,setTickets]=useState<Ticket[]>([]);
+ const [tickets,setTickets]=useState<Ticket[]>([]);\n const [customers,setCustomers]=useState<Record<string,CustomerIdentity>>({});
  const [active,setActive]=useState("");
  const [messages,setMessages]=useState<Msg[]>([]);
  const [draft,setDraft]=useState("");
@@ -26,7 +27,7 @@ export default function AdminSupportPage(){
   if(!profile?.is_admin){setNotice("Administrator access required.");setLoading(false);return;}
   const {data,error}=await supabase.from("support_conversations").select("id,customer_id,subject,category,status,handoff_requested,created_at").order("updated_at",{ascending:false});
   if(error)setNotice(error.message);
-  setTickets((data??[]) as Ticket[]);setLoading(false);
+  const rows=(data??[]) as Ticket[];\n  setTickets(rows);\n  const customerIds=[...new Set(rows.map(t=>t.customer_id).filter(Boolean))];\n  if(customerIds.length){\n   const {data:identityRows,error:identityError}=await supabase.rpc("admin_support_customer_details",{customer_ids:customerIds});\n   if(identityError)setNotice("Customer details could not be loaded: "+identityError.message);\n   else{const lookup:Record<string,CustomerIdentity>={};for(const item of (identityRows??[]) as CustomerIdentity[])lookup[item.id]=item;setCustomers(lookup);}\n  }\n  setLoading(false);
  }
  async function openTicket(id:string){
   setActive(id);
@@ -64,9 +65,9 @@ export default function AdminSupportPage(){
    <div className="admin-heading"><div><div className="eyebrow">ISLAND EXPRESS · SUPPORT</div><h1>Customer Care Inbox</h1><p>Manage AI handovers and reply to customer support requests. Sellers cannot access this inbox.</p></div><button className="admin-refresh" onClick={load}><RefreshCw size={15}/> Refresh</button></div>
    {notice&&<div className="account-message">{notice}</div>}
    <div className="admin-support-layout">
-    <aside className="admin-support-list"><h2>Support requests ({tickets.length})</h2>{tickets.map(t=><button key={t.id} className={active===t.id?"active":""} onClick={()=>openTicket(t.id)}><b>{t.subject}</b><small>{t.category.replaceAll("_"," ")} · {t.status.replaceAll("_"," ")}</small>{t.handoff_requested&&<em>Needs human reply</em>}</button>)}{!tickets.length&&<p>No support requests yet.</p>}</aside>
+    <aside className="admin-support-list"><h2>Support requests ({tickets.length})</h2>{tickets.map(t=><button key={t.id} className={active===t.id?"active":""} onClick={()=>openTicket(t.id)}><b>{t.subject}</b><small>{customers[t.customer_id]?.full_name || "Customer"}</small><small>{customers[t.customer_id]?.email || "Email unavailable"}</small><small>{t.category.replaceAll("_"," ")} · {t.status.replaceAll("_"," ")}</small>{t.handoff_requested&&<em>Needs human reply</em>}</button>)}{!tickets.length&&<p>No support requests yet.</p>}</aside>
     <section className="admin-support-chat">{!active?<div className="admin-empty"><Headset size={34}/><b>Select a conversation</b><span>Customer messages and AI replies will appear here.</span></div>:<>
-      <div className="admin-support-toolbar"><b>{tickets.find(t=>t.id===active)?.subject||"Support conversation"}</b><div><button onClick={()=>setStatus("in_progress")} disabled={busy}>Take over</button><button onClick={()=>setStatus("resolved")} disabled={busy}>Resolve</button></div></div>
+      <div className="admin-support-toolbar"><div><b>{tickets.find(t=>t.id===active)?.subject||"Support conversation"}</b><small style={{display:"block",marginTop:4}}>{customers[tickets.find(t=>t.id===active)?.customer_id||""]?.full_name || "Customer"} · {customers[tickets.find(t=>t.id===active)?.customer_id||""]?.email || "Email unavailable"}{customers[tickets.find(t=>t.id===active)?.customer_id||""]?.phone ? " · "+customers[tickets.find(t=>t.id===active)?.customer_id||""]?.phone : ""}</small></div><div><button onClick={()=>setStatus("in_progress")} disabled={busy}>Take over</button><button onClick={()=>setStatus("resolved")} disabled={busy}>Resolve</button></div></div>
       <div className="admin-support-messages">{messages.map(m=><article key={m.id} className={"support-message "+m.sender_type}><span className="support-message-avatar">{m.sender_type==="customer"?<UserRound size={15}/>:m.sender_type==="ai"?<Headset size={15}/>:<Headset size={15}/>}</span><div><small>{m.sender_type==="customer"?"Customer":m.sender_type==="ai"?"AI Assistant":"You · Customer Care"}</small><p>{m.body}</p></div></article>)}</div>
       <form className="support-compose" onSubmit={reply}><input value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Reply to customer…" maxLength={5000}/><button disabled={busy||!draft.trim()}><Send size={17}/></button></form>
     </>}</section>
