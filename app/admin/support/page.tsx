@@ -12,7 +12,8 @@ type Msg={id:string;sender_type:string;body:string;created_at:string};
 
 export default function AdminSupportPage(){
  const router=useRouter();
- const [tickets,setTickets]=useState<Ticket[]>([]);\n const [customers,setCustomers]=useState<Record<string,CustomerIdentity>>({});
+ const [tickets,setTickets]=useState<Ticket[]>([]);
+ const [customers,setCustomers]=useState<Record<string,CustomerIdentity>>({});
  const [active,setActive]=useState("");
  const [messages,setMessages]=useState<Msg[]>([]);
  const [draft,setDraft]=useState("");
@@ -27,7 +28,15 @@ export default function AdminSupportPage(){
   if(!profile?.is_admin){setNotice("Administrator access required.");setLoading(false);return;}
   const {data,error}=await supabase.from("support_conversations").select("id,customer_id,subject,category,status,handoff_requested,created_at").order("updated_at",{ascending:false});
   if(error)setNotice(error.message);
-  const rows=(data??[]) as Ticket[];\n  setTickets(rows);\n  const customerIds=[...new Set(rows.map(t=>t.customer_id).filter(Boolean))];\n  if(customerIds.length){\n   const {data:identityRows,error:identityError}=await supabase.rpc("admin_support_customer_details",{customer_ids:customerIds});\n   if(identityError)setNotice("Customer details could not be loaded: "+identityError.message);\n   else{const lookup:Record<string,CustomerIdentity>={};for(const item of (identityRows??[]) as CustomerIdentity[])lookup[item.id]=item;setCustomers(lookup);}\n  }\n  setLoading(false);
+  const rows=(data??[]) as Ticket[];
+  setTickets(rows);
+  const customerIds=[...new Set(rows.map(t=>t.customer_id).filter(Boolean))];
+  if(customerIds.length){
+   const {data:identityRows,error:identityError}=await supabase.rpc("admin_support_customer_details",{customer_ids:customerIds});
+   if(identityError)setNotice("Customer details could not be loaded: "+identityError.message);
+   else{const lookup:Record<string,CustomerIdentity>={};for(const item of (identityRows??[]) as CustomerIdentity[])lookup[item.id]=item;setCustomers(lookup);}
+  }
+  setLoading(false);
  }
  async function openTicket(id:string){
   setActive(id);
