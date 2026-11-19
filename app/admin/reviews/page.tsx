@@ -35,7 +35,7 @@ export default function AdminReviewsPage(){
  return <main className="admin-page">
   <header className="seller-dash-header"><Link href="/admin" className="account-back"><ArrowLeft size={16}/> Admin Centre</Link><Link href="/" className="account-brand">island<span>xpress</span></Link></header>
   <div className="admin-wrap">
-   <div className="admin-heading"><div><div className="eyebrow">ISLANDXPRESS · MODERATION</div><h1>Product reviews</h1><p>Approve customer reviews before they appear publicly.</p></div><button className="admin-refresh" onClick={load}><RefreshCw size={15}/> Refresh</button></div>
+   <div className="admin-heading"><div><div className="eyebrow">islandXpress · MODERATION</div><h1>Product reviews</h1><p>Approve customer reviews before they appear publicly.</p></div><button className="admin-refresh" onClick={load}><RefreshCw size={15}/> Refresh</button></div>
    {notice&&<div className="account-message">{notice}</div>}
    {loading?<div className="admin-empty">Loading reviews…</div>:reviews.length===0?<div className="admin-empty"><Star size={34}/><b>No reviews awaiting moderation</b><span>New verified-buyer reviews will appear here.</span></div>:
     <div className="admin-list">{reviews.map(r=><article className="admin-item review-admin-item" key={r.id}>
