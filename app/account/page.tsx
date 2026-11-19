@@ -192,11 +192,11 @@ export default function AccountPage() {
   async function signOut() { await supabase.auth.signOut(); setMessage("You have signed out."); }
 
   return <main className="account-page">
-    <div className="account-top"><Link href="/" className="account-back"><ArrowLeft size={17}/> Back to islandxpress</Link><span className="account-brand">island<span>xpress</span></span></div>
+    <div className="account-top"><Link href="/" className="account-back"><ArrowLeft size={17}/> Back to islandXpress</Link><span className="account-brand">island<span>xpress</span></span></div>
     <section className="account-card">
       {!userId ? <>
         <div className="account-icon"><UserRound size={25}/></div><div className="eyebrow">WELCOME TO THE ISLANDS</div>
-        <h1>{mode === "signup" ? "Create your account" : "Welcome back"}</h1><p className="account-sub">Shop local, discover island businesses and manage your islandxpress account.</p>
+        <h1>{mode === "signup" ? "Create your account" : "Welcome back"}</h1><p className="account-sub">Shop local, discover island businesses and manage your islandXpress account.</p>
         <div className="auth-tabs"><button className={mode === "signup" ? "selected" : ""} onClick={() => {setMode("signup");setMessage("");}}>Create account</button><button className={mode === "login" ? "selected" : ""} onClick={() => {setMode("login");setMessage("");}}>Log in</button></div>
         <form onSubmit={submitAuth} className="account-form">
           {mode === "signup" && <label>Full name<input required value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Your full name"/></label>}
@@ -210,7 +210,7 @@ export default function AccountPage() {
           <aside className="account-sidebar">
             <div className="account-sidebar-user">
               <div className="account-sidebar-avatar">{profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : <UserRound size={24}/>}</div>
-              <div><b>{profile?.full_name || "islandxpress member"}</b><small>{accountEmail}</small></div>
+              <div><b>{profile?.full_name || "islandXpress member"}</b><small>{accountEmail}</small></div>
             </div>
             <div className="account-sidebar-label">YOUR ACCOUNT</div>
             <Link href="/account" className="account-side-link active"><UserRound size={17}/> My profile</Link>
@@ -222,14 +222,14 @@ export default function AccountPage() {
             <div className="account-sidebar-bottom"><button className="account-side-link account-side-logout" onClick={signOut}><LogOut size={17}/> Sign out</button></div>
           </aside>
           <div className="account-dashboard-main">
-        <div className="profile-page-heading"><div><div className="eyebrow">MY ISLANDXPRESS</div><h1>My profile</h1><p>Manage your personal information and account activity.</p></div><span className="account-role">{profile?.role || "customer"}</span></div>
+        <div className="profile-page-heading"><div><div className="eyebrow">MY islandXpress</div><h1>My profile</h1><p>Manage your personal information and account activity.</p></div><span className="account-role">{profile?.role || "customer"}</span></div>
         <div className="profile-hero">
           <div className="profile-photo-wrap">
             {profile?.avatar_url ? <img src={profile.avatar_url} alt="Your profile" className="profile-photo"/> : <div className="profile-photo profile-photo-placeholder"><UserRound size={38}/></div>}
             <button className="profile-camera" type="button" onClick={()=>fileRef.current?.click()} disabled={busy} aria-label="Change profile picture"><Camera size={17}/></button>
             <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={e=>uploadAvatar(e.target.files?.[0])}/>
           </div>
-          <div className="profile-hero-copy"><h2>{profile?.full_name || "islandxpress member"}</h2><p>{accountEmail}</p><span><MapPin size={13}/>{profile?.island || "Island not set"}</span></div>
+          <div className="profile-hero-copy"><h2>{profile?.full_name || "islandXpress member"}</h2><p>{accountEmail}</p><span><MapPin size={13}/>{profile?.island || "Island not set"}</span></div>
           <div className="profile-hero-actions"><button className="profile-edit-button" onClick={()=>setEditProfile(v=>!v)}><Pencil size={15}/>{editProfile ? "Close editor" : "Edit profile"}</button>{profile?.avatar_url && <button className="profile-remove-photo" onClick={removeAvatar} disabled={busy}>Remove photo</button>}</div>
         </div>
         {editProfile ? <div className="profile-edit-panel">
@@ -242,7 +242,7 @@ export default function AccountPage() {
             <label className="profile-bio-field">Bio<textarea maxLength={240} value={bioDraft} onChange={e=>setBioDraft(e.target.value)} placeholder="A little about yourself..."/></label>
           </div>
           <div className="profile-edit-actions"><button className="profile-cancel" onClick={()=>{setEditProfile(false);setNameDraft(profile?.full_name||"");setPhoneDraft(profile?.phone||"");setBioDraft(profile?.bio||"");setIslandDraft(profile?.island||"Mahé");}}><X size={15}/> Cancel</button><button className="primary" onClick={saveProfile} disabled={busy}><Check size={15}/>{busy ? "Saving…" : "Save changes"}</button></div>
-        </div> : <div className="profile-about"><div className="profile-panel-title"><h2>About me</h2></div><p>{profile?.bio || "Add a short bio to tell the islandxpress community a little about yourself."}</p><div className="profile-detail-row"><span>Phone</span><b>{profile?.phone || "Not added"}</b></div><div className="profile-detail-row"><span>Island</span><b>{profile?.island || "Not set"}</b></div></div>}
+        </div> : <div className="profile-about"><div className="profile-panel-title"><h2>About me</h2></div><p>{profile?.bio || "Add a short bio to tell the islandXpress community a little about yourself."}</p><div className="profile-detail-row"><span>Phone</span><b>{profile?.phone || "Not added"}</b></div><div className="profile-detail-row"><span>Island</span><b>{profile?.island || "Not set"}</b></div></div>}
         <div className="profile-activity-heading">ACCOUNT ACTIVITY</div>
         <div className="profile-activity-grid">
           <Link href="/orders"><ShoppingBag/><b>My Orders</b><small>Purchases and delivery updates</small></Link>
@@ -250,15 +250,15 @@ export default function AccountPage() {
           <Link href="/wishlist"><Heart/><b>My Favourites</b><small>Your saved products</small></Link>
           <Link href="/support"><Headset/><b>Customer Care</b><small>Get help from our support team</small></Link>
         </div>
-        {profile?.role === "customer" && <div className="account-feature-card"><div className="account-feature-icon"><Store size={22}/></div><div><h2>Start selling on islandxpress</h2><p>Open your own shop and reach customers across Seychelles. Product listings are reviewed before they go live.</p></div><button className="primary account-submit" disabled={busy} onClick={becomeSeller}>{busy ? "Please wait…" : "Become a seller"}</button></div>}
+        {profile?.role === "customer" && <div className="account-feature-card"><div className="account-feature-icon"><Store size={22}/></div><div><h2>Start selling on islandXpress</h2><p>Open your own shop and reach customers across Seychelles. Product listings are reviewed before they go live.</p></div><button className="primary account-submit" disabled={busy} onClick={becomeSeller}>{busy ? "Please wait…" : "Become a seller"}</button></div>}
         {profile?.role === "seller" && !shop && <form onSubmit={createShop} className="account-form shop-form account-shop-form"><h2>Create your shop</h2><label>Shop name<input required value={shopName} onChange={e=>setShopName(e.target.value)} placeholder="e.g. Island Finds"/></label><label>About your shop<textarea value={shopDescription} onChange={e=>setShopDescription(e.target.value)} placeholder="Tell customers what you sell"/></label><label>Island<select value={shopIsland} onChange={e=>setShopIsland(e.target.value)}><option>Mahé</option><option>Praslin</option><option>La Digue</option><option>Other</option></select></label><button className="primary account-submit" disabled={busy}>{busy ? "Creating shop…" : "Create my shop"}</button></form>}
         {shop && <div className="account-shop-card"><div className="account-shop-card-top"><span className="account-shop-icon"><Store size={22}/></span><span className="account-shop-status">SHOP ACTIVE</span></div><div className="account-shop-logo-editor">{shop.logo_url ? <img src={shop.logo_url} alt={shop.name+" logo"}/> : <span className="account-shop-logo-placeholder"><Store size={27}/></span>}<div><b>Shop profile picture</b><small>Upload your shop logo or business photo (JPG, PNG or WebP, max 5 MB).</small><button type="button" className="profile-edit-button" onClick={()=>shopLogoRef.current?.click()} disabled={busy}>{busy ? "Uploading…" : shop.logo_url ? "Change shop picture" : "Upload shop picture"}</button><input ref={shopLogoRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={e=>{uploadShopLogo(e.target.files?.[0]);e.currentTarget.value="";}}/></div></div><h2>{shop.name}</h2><p>Your shop is set up on {shop.island || "Seychelles"}.</p><small>island-express-one.vercel.app/shop/{shop.id}</small><Link className="primary account-shop-button" href="/seller">Open seller dashboard</Link></div>}
         <section className="account-delete-section" aria-labelledby="delete-account-title">
           <h2 id="delete-account-title">Delete account</h2>
-          <p>If you no longer wish to use islandxpress, you can request account deletion. We will email a confirmation link before taking action.</p>
+          <p>If you no longer wish to use islandXpress, you can request account deletion. We will email a confirmation link before taking action.</p>
           <button type="button" className="profile-remove-photo" onClick={()=>{setDeleteOpen(v=>!v);setDeleteNotice("");}}>Delete my account</button>
           {deleteOpen && <div className="account-delete-panel">
-            <p><strong>Please tell us why you are leaving.</strong> Your feedback helps us improve islandxpress.</p>
+            <p><strong>Please tell us why you are leaving.</strong> Your feedback helps us improve islandXpress.</p>
             <label>Reason for deleting your account
               <select required value={deleteReason} onChange={e=>setDeleteReason(e.target.value)}>
                 <option value="">Select a reason</option>
@@ -294,7 +294,7 @@ export default function AccountPage() {
             {deleteNotice && <p role="status" className="account-message">{deleteNotice}</p>}
           </div>}
         </section>
-        <div className="account-footer-actions"><span>islandxpress · Your account, all in one place</span></div>
+        <div className="account-footer-actions"><span>islandXpress · Your account, all in one place</span></div>
           </div>
         </div>
       </>}
