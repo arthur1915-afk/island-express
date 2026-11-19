@@ -10,7 +10,7 @@ type Product = { id: string; title: string; category: string; price_scr: number;
 type RatingSummary = { average: number; count: number };
 type Campaign = { id:string; eyebrow:string; title:string; subtitle:string|null; description:string|null; image_url:string|null; cta_label:string; cta_url:string; background_style:string };
 
-const categories = ["All", "Electronics", "Fashion", "Home & Living", "Beauty", "Sports", "Automotive", "Food & Groceries"];
+const categories = ["All", "Electronics", "Fashion", "Home & Living", "Beauty", "Party & Celebration", "Office & School Supplies", "Accessories", "Sports & Outdoors", "Automotive", "Food & Groceries"];
 
 export default function Home() {
   const [category, setCategory] = useState("All");
