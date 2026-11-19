@@ -34,7 +34,7 @@ export default function AdminSetPasswordPage() {
   }
 
   return <main className="account-page"><section className="account-card admin-login-card">
-    <div className="account-icon"><ShieldCheck size={26}/></div><div className="eyebrow">ISLAND EXPRESS ADMIN</div>
+    <div className="account-icon"><ShieldCheck size={26}/></div><div className="eyebrow">islandXpress ADMIN</div>
     <h1>Set your password</h1>
     <p className="account-sub">Choose a password for your administrator account.</p>
     {!ready && !complete && <div className="account-message">{message || "Checking your invitation…"}</div>}
