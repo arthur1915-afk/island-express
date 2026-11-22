@@ -44,7 +44,13 @@ export default function CustomerOrdersPage() {
   const [reviewTitle, setReviewTitle] = useState("");
   const [reviewBody, setReviewBody] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
-  const [actionOrder, setActionOrder] = useState<string | null>(null);\n  const [refunds,setRefunds]=useState<Record<string,{status:string;created_at:string;admin_note:string|null}>>({});\n  const [refundOrder,setRefundOrder]=useState<string|null>(null);\n  const [refundReason,setRefundReason]=useState("");\n  const [refundPhoto,setRefundPhoto]=useState<File|null>(null);\n  const [refundVideo,setRefundVideo]=useState<File|null>(null);\n  const [refundBusy,setRefundBusy]=useState(false);
+  const [actionOrder, setActionOrder] = useState<string | null>(null);
+  const [refunds,setRefunds]=useState<Record<string,{status:string;created_at:string;admin_note:string|null}>>({});
+  const [refundOrder,setRefundOrder]=useState<string|null>(null);
+  const [refundReason,setRefundReason]=useState("");
+  const [refundPhoto,setRefundPhoto]=useState<File|null>(null);
+  const [refundVideo,setRefundVideo]=useState<File|null>(null);
+  const [refundBusy,setRefundBusy]=useState(false);
 
   async function loadOrders() {
     setLoading(true);
@@ -62,6 +68,8 @@ export default function CustomerOrdersPage() {
     setOrders((data ?? []) as unknown as Order[]);
     const { data: reviews } = await supabase.from("product_reviews").select("product_id").eq("customer_id", user.id);
     setReviewed((reviews ?? []).map((r: { product_id: string }) => r.product_id));
+    const { data: refundRows } = await supabase.from("refund_requests").select("order_id,status,created_at,admin_note").eq("customer_id", user.id);
+    setRefunds(Object.fromEntries((refundRows ?? []).map((row: any) => [row.order_id, row])));
     setLoading(false);
   }
 
@@ -211,6 +219,31 @@ export default function CustomerOrdersPage() {
               </div>}
               {order.status === "cancelled" && <span>This order was cancelled and cannot be paid.</span>}
             </div>
+            {order.payment_status === "paid" && !["pending","cancelled"].includes(order.status) && (
+              <div className="seller-order-customer refund-request-section">
+                <h3>Refund</h3>
+                {refunds[order.id] ? (
+                  <div className="refund-status">
+                    <b>Request status: {label(refunds[order.id].status)}</b>
+                    {refunds[order.id].admin_note && <p>Admin response: {refunds[order.id].admin_note}</p>}
+                  </div>
+                ) : (
+                  <>
+                    <p>Only requests with a valid reason and clear, relevant photo and video evidence will be considered. Unsupported or unclear claims may be rejected.</p>
+                    <button className="review-open-button" onClick={() => { setRefundOrder(refundOrder === order.id ? null : order.id); setRefundReason(""); setRefundPhoto(null); setRefundVideo(null); }}>Request refund</button>
+                    {refundOrder === order.id && <div className="refund-form">
+                      <label>Reason for refund (at least 20 characters)</label>
+                      <textarea value={refundReason} onChange={e=>setRefundReason(e.target.value)} minLength={20} maxLength={2000} placeholder="Explain clearly why you are requesting a refund." />
+                      <label>Photo evidence (JPG, PNG or WebP; max 10MB)</label>
+                      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setRefundPhoto(e.target.files?.[0] ?? null)} />
+                      <label>Video evidence (MP4, MOV or WebM; max 50MB)</label>
+                      <input type="file" accept="video/mp4,video/quicktime,video/webm" onChange={e=>setRefundVideo(e.target.files?.[0] ?? null)} />
+                      <button disabled={refundBusy || refundReason.trim().length<20 || !refundPhoto || !refundVideo} onClick={()=>submitRefund(order.id)}>{refundBusy ? "Submitting…" : "Submit refund request"}</button>
+                    </div>}
+                  </>
+                )}
+              </div>
+            )}
           </article>
         ))}</div>
       }
