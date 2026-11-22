@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Package, RefreshCw, ShoppingBag, Star, CreditCard, XCircle } from "lucide-react";
+import { ArrowLeft, Package, RefreshCw, ShoppingBag, Star, CreditCard, XCircle, FileVideo, ImagePlus } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 
 type OrderItem = {
@@ -44,7 +44,7 @@ export default function CustomerOrdersPage() {
   const [reviewTitle, setReviewTitle] = useState("");
   const [reviewBody, setReviewBody] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
-  const [actionOrder, setActionOrder] = useState<string | null>(null);
+  const [actionOrder, setActionOrder] = useState<string | null>(null);\n  const [refunds,setRefunds]=useState<Record<string,{status:string;created_at:string;admin_note:string|null}>>({});\n  const [refundOrder,setRefundOrder]=useState<string|null>(null);\n  const [refundReason,setRefundReason]=useState("");\n  const [refundPhoto,setRefundPhoto]=useState<File|null>(null);\n  const [refundVideo,setRefundVideo]=useState<File|null>(null);\n  const [refundBusy,setRefundBusy]=useState(false);
 
   async function loadOrders() {
     setLoading(true);
@@ -104,6 +104,32 @@ export default function CustomerOrdersPage() {
     } finally {
       setActionOrder(null);
     }
+  }
+
+  async function submitRefund(orderId:string) {
+    if(refundReason.trim().length<20){setMessage("Please explain the refund reason in at least 20 characters.");return;}
+    if(!refundPhoto||!refundVideo){setMessage("Please attach both a clear photo and a video as evidence.");return;}
+    if(refundPhoto.size>10*1024*1024||refundVideo.size>50*1024*1024){setMessage("Photo must be 10MB or less and video must be 50MB or less.");return;}
+    if(!refundPhoto.type.startsWith("image/")||!["image/jpeg","image/png","image/webp"].includes(refundPhoto.type)){setMessage("Use a JPG, PNG or WebP photo.");return;}
+    if(!["video/mp4","video/quicktime","video/webm"].includes(refundVideo.type)){setMessage("Use an MP4, MOV or WebM video.");return;}
+    setRefundBusy(true);setMessage("");
+    try{
+      const {data:{user}}=await supabase.auth.getUser();if(!user)throw new Error("Please sign in again.");
+      const photoExt=refundPhoto.name.split(".").pop()?.toLowerCase()||"jpg";
+      const videoExt=refundVideo.name.split(".").pop()?.toLowerCase()||"mp4";
+      const photoPath=user.id+"/"+orderId+"/"+crypto.randomUUID()+"."+photoExt;
+      const videoPath=user.id+"/"+orderId+"/"+crypto.randomUUID()+"."+videoExt;
+      const photoUpload=await supabase.storage.from("refund-evidence").upload(photoPath,refundPhoto,{contentType:refundPhoto.type,upsert:false});
+      if(photoUpload.error)throw photoUpload.error;
+      const videoUpload=await supabase.storage.from("refund-evidence").upload(videoPath,refundVideo,{contentType:refundVideo.type,upsert:false});
+      if(videoUpload.error){await supabase.storage.from("refund-evidence").remove([photoPath]);throw videoUpload.error;}
+      const {error}=await supabase.from("refund_requests").insert({order_id:orderId,customer_id:user.id,reason:refundReason.trim(),photo_path:photoPath,video_path:videoPath});
+      if(error){await supabase.storage.from("refund-evidence").remove([photoPath,videoPath]);throw error;}
+      setRefundOrder(null);setRefundReason("");setRefundPhoto(null);setRefundVideo(null);
+      setMessage("Your refund request and evidence have been submitted for admin review.");
+      await loadOrders();
+    }catch(error){setMessage(error instanceof Error?error.message:"Could not submit your refund request.");}
+    finally{setRefundBusy(false);}
   }
 
   useEffect(() => { loadOrders(); }, []);
