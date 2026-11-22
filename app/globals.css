@@ -785,3 +785,22 @@
 .campaign-offer-card .campaign-cta{margin-top:auto}
 
 .customer-refund-area{margin:14px 0;padding:14px;border:1px solid #e9edf0;border-radius:12px;background:#fbfcfc}.customer-refund-form{display:grid;gap:12px;margin-top:12px}.customer-refund-form h3{margin:0}.customer-refund-form label{display:grid;gap:7px;font-weight:700}.customer-refund-form textarea{min-height:100px;padding:11px;border:1px solid #dce3e6;border-radius:8px;font:inherit;resize:vertical}.customer-refund-form input[type=file]{max-width:100%;padding:8px;border:1px solid #dce3e6;border-radius:8px}.customer-refund-form label small{font-weight:400;color:#71808b}.refund-important-note{padding:12px;border-left:3px solid #f26a35;background:#fff4ed;color:#65412f;font-size:13px;line-height:1.55}.refund-evidence-selected,.customer-refund-status{font-size:13px;color:#52616b;display:grid;gap:5px}.customer-refund-status{padding:10px;background:#f2f7f4;border-radius:8px}.refund-admin-evidence{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}.refund-admin-evidence a{display:inline-flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #dce3e6;border-radius:8px;font-weight:700;color:#244b50}.refund-admin-evidence a:hover{background:#eef6f4}
+
+
+/* Customer order action buttons */
+.order-customer-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:18px 0 8px;padding-top:14px;border-top:1px solid #edf0ee}
+.order-customer-actions button{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:10px 16px;border-radius:8px;font:inherit;font-size:13px;font-weight:750;cursor:pointer}
+.order-received-button{border:1px solid #1d684d;background:#1d684d;color:#fff}
+.order-received-button:hover{background:#17563f}
+.request-refund-button{border:1px solid #e26b3b;background:#fff;color:#c9572b}
+.request-refund-button:hover{background:#fff4ee}
+.refund-status-inline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 13px;border:1px solid #dce9e1;border-radius:8px;background:#f5faf6;color:#315a43;font-size:13px}
+.refund-status-inline span{color:#617168}
+.order-refund-form{display:grid;gap:10px;margin:12px 0 4px;padding:16px;border:1px solid #e7ece8;border-radius:10px;background:#fbfcfb}
+.order-refund-form p{margin:0 0 4px;color:#79513c;font-size:13px;line-height:1.55}
+.order-refund-form label{font-size:13px;font-weight:700;color:#405348}
+.order-refund-form textarea{min-height:90px;padding:11px;border:1px solid #dce3df;border-radius:8px;font:inherit;resize:vertical}
+.order-refund-form input[type=file]{max-width:100%;padding:8px;border:1px solid #dce3df;border-radius:8px;background:#fff}
+.order-refund-form button{justify-self:start;padding:10px 16px;border:0;border-radius:8px;background:#e56d3c;color:#fff;font-weight:750}
+.order-refund-form button:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:520px){.order-customer-actions{gap:8px}.order-customer-actions button{flex:1;min-width:0}}
