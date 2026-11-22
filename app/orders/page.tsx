@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Package, RefreshCw, ShoppingBag, Star, CreditCard, XCircle, FileVideo, ImagePlus } from "lucide-react";
+import { ArrowLeft, Package, RefreshCw, ShoppingBag, Star, CreditCard, XCircle, FileVideo, ImagePlus, CheckCircle2, RotateCcw } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 
 type OrderItem = {
@@ -221,7 +221,7 @@ export default function CustomerOrdersPage() {
             </div>
             <div className="order-customer-actions">
               {(order.seller_order_fulfillments ?? []).filter(s => s.status === "delivered").map(shipping => (
-                <button key={shipping.shop_id} className="order-received-button" onClick={() => confirmReceived(order.id, shipping.shop_id)}>Order received</button>
+                <button key={shipping.shop_id} className="order-received-button" onClick={() => confirmReceived(order.id, shipping.shop_id)}><CheckCircle2 size={16}/>Order received</button>
               ))}
               {order.payment_status === "paid" && !["pending","cancelled"].includes(order.status) && (
                 refunds[order.id] ? (
@@ -230,7 +230,7 @@ export default function CustomerOrdersPage() {
                     {refunds[order.id].admin_note && <span>{refunds[order.id].admin_note}</span>}
                   </div>
                 ) : (
-                  <button className="request-refund-button" onClick={() => { setRefundOrder(refundOrder === order.id ? null : order.id); setRefundReason(""); setRefundPhoto(null); setRefundVideo(null); }}>Request refund</button>
+                  <button className="request-refund-button" onClick={() => { setRefundOrder(refundOrder === order.id ? null : order.id); setRefundReason(""); setRefundPhoto(null); setRefundVideo(null); }}><RotateCcw size={16}/>{refundOrder === order.id ? "Close refund form" : "Request refund"}</button>
                 )
               )}
             </div>
