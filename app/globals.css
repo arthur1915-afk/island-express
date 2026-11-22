@@ -804,3 +804,15 @@
 .order-refund-form button{justify-self:start;padding:10px 16px;border:0;border-radius:8px;background:#e56d3c;color:#fff;font-weight:750}
 .order-refund-form button:disabled{opacity:.5;cursor:not-allowed}
 @media(max-width:520px){.order-customer-actions{gap:8px}.order-customer-actions button{flex:1;min-width:0}}
+
+
+/* Polished, compact customer order action group */
+.order-customer-actions{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;margin:16px 0 6px;padding:0;border:0}
+.order-customer-actions button{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:0 16px;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;line-height:1;letter-spacing:0;white-space:nowrap;box-shadow:none;transition:background .15s ease,border-color .15s ease,color .15s ease}
+.order-customer-actions .order-received-button{border:1px solid #176747;background:#176747;color:#fff}
+.order-customer-actions .order-received-button:hover{border-color:#10583b;background:#10583b;color:#fff}
+.order-customer-actions .request-refund-button{border:1px solid #d9e0dc;background:#fff;color:#45564c}
+.order-customer-actions .request-refund-button:hover{border-color:#d56b42;background:#fff8f4;color:#b95732}
+.order-customer-actions button svg{flex:0 0 auto}
+.order-customer-actions .refund-status-inline{min-height:42px;box-sizing:border-box;padding:0 13px;border:1px solid #dce9e1;border-radius:9px;background:#f5faf6;color:#315a43;font-size:12px}
+@media(max-width:520px){.order-customer-actions{gap:8px}.order-customer-actions button{flex:1;min-width:0;padding:0 10px;font-size:12px}}
