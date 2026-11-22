@@ -8,7 +8,7 @@ import { supabase } from "../../../lib/supabase";
 
 type Campaign = { id:string; title:string; subtitle:string|null; starts_at:string; ends_at:string|null };
 type Product = { id:string; title:string; price_scr:number; image_urls:string[]; status:string };
-type Submission = { id:string; campaign_id:string; product_id:string };
+type Submission = { id:string; campaign_id:string; product_id:string; discount_percent:number };
 
 export default function SellerCampaignsPage(){
  const router=useRouter();
@@ -16,6 +16,7 @@ export default function SellerCampaignsPage(){
  const [products,setProducts]=useState<Product[]>([]);
  const [submissions,setSubmissions]=useState<Submission[]>([]);
  const [selected,setSelected]=useState<Record<string,string>>({});
+ const [discounts,setDiscounts]=useState<Record<string,string>>({});
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState("");
  const [notice,setNotice]=useState("");
@@ -32,7 +33,7 @@ export default function SellerCampaignsPage(){
   if(!shopResult.data){setNotice("Your seller shop could not be found.");setLoading(false);return;}
   const [productResult,submissionResult]=await Promise.all([
    supabase.from("products").select("id,title,price_scr,image_urls,status").eq("shop_id",shopResult.data.id).eq("status","approved").or("is_archived.is.null,is_archived.eq.false").order("created_at",{ascending:false}),
-   supabase.from("promotional_campaign_products").select("id,campaign_id,product_id").eq("seller_id",user.id)
+   supabase.from("promotional_campaign_products").select("id,campaign_id,product_id,discount_percent").eq("seller_id",user.id)
   ]);
   setProducts((productResult.data??[]) as Product[]);
   setCampaigns((campaignResult.data??[]) as Campaign[]);
@@ -41,11 +42,12 @@ export default function SellerCampaignsPage(){
  })();},[router]);
  async function add(campaignId:string){
   const productId=selected[campaignId]; if(!productId){setNotice("Choose one of your approved products first.");return;}
+  const discount=Number(discounts[campaignId]??0); if(!Number.isFinite(discount)||discount<0||discount>90){setNotice("Enter a discount between 0% and 90%.");return;}
   setBusy(campaignId);setNotice("");
   const {data:{user}}=await supabase.auth.getUser();if(!user){setNotice("Please sign in again.");setBusy("");return;}
-  const {data,error}=await supabase.from("promotional_campaign_products").insert({campaign_id:campaignId,product_id:productId,seller_id:user.id}).select("id,campaign_id,product_id").single();
+  const {data,error}=await supabase.from("promotional_campaign_products").insert({campaign_id:campaignId,product_id:productId,seller_id:user.id,discount_percent:Number(discounts[campaignId]??0)}).select("id,campaign_id,product_id,discount_percent").single();
   if(error)setNotice(error.code==="23505"?"That product is already included in this campaign.":error.message);
-  else{setSubmissions(old=>[...old,data as Submission]);setSelected(old=>({...old,[campaignId]:""}));setNotice("Product added to the campaign.");}
+  else{setSubmissions(old=>[...old,data as Submission]);setSelected(old=>({...old,[campaignId]:""}));setDiscounts(old=>({...old,[campaignId]:"0"}));setNotice("Product added to the campaign.");}
   setBusy("");
  }
  async function remove(row:Submission){
@@ -68,8 +70,10 @@ export default function SellerCampaignsPage(){
        <div className="eyebrow">LIVE CAMPAIGN</div><h2>{c.title}</h2>{c.subtitle&&<p>{c.subtitle}</p>}
        <p>{new Date(c.starts_at).toLocaleDateString()} – {c.ends_at?new Date(c.ends_at).toLocaleDateString():"No end date"}</p>
        <label className="account-form">Choose an approved product<select value={selected[c.id]??""} onChange={e=>setSelected(old=>({...old,[c.id]:e.target.value}))}><option value="">Select a product</option>{available.map(p=><option key={p.id} value={p.id}>{p.title} · SCR {Number(p.price_scr).toLocaleString()}</option>)}</select></label>
+       <label className="account-form">Discount for this campaign (%)<input type="number" min="0" max="90" step="1" value={discounts[c.id]??"0"} onChange={e=>setDiscounts(old=>({...old,[c.id]:e.target.value}))} placeholder="0"/></label>
+       <small>Enter 50 for 50% off. Leave at 0 for no discount.</small>
        <button className="primary account-submit" disabled={!!busy||!available.length} onClick={()=>add(c.id)}><Plus size={16}/> {busy===c.id?"Adding…":"Add product to campaign"}</button>
-       <div style={{marginTop:18}}><b>Your submitted products ({existing.length})</b>{existing.map(row=>{const p=products.find(x=>x.id===row.product_id);return <div key={row.id} className="seller-balance-footer"><span>{p?.title??"Product submitted"}</span><button type="button" className="campaign-delete" disabled={!!busy} onClick={()=>remove(row)}><Trash2 size={14}/> Remove</button></div>})}{!existing.length&&<p>You have not submitted any products to this campaign yet.</p>}</div>
+       <div style={{marginTop:18}}><b>Your submitted products ({existing.length})</b>{existing.map(row=>{const p=products.find(x=>x.id===row.product_id);return <div key={row.id} className="seller-balance-footer"><span>{p?.title??"Product submitted"} · {row.discount_percent>0?row.discount_percent+"% off":"No discount"}</span><button type="button" className="campaign-delete" disabled={!!busy} onClick={()=>remove(row)}><Trash2 size={14}/> Remove</button></div>})}{!existing.length&&<p>You have not submitted any products to this campaign yet.</p>}</div>
       </section>;
     })}</div>}
    </div>
