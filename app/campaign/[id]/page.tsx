@@ -18,6 +18,7 @@ type Campaign = {
 
 type Product = {
   id: string;
+  discount_percent: number;
   title: string;
   description: string | null;
   price_scr: number;
@@ -72,7 +73,7 @@ export default function CampaignOffersPage() {
 
     const { data: submissionRows, error: submissionError } = await supabase
       .from("promotional_campaign_products")
-      .select("product_id")
+      .select("product_id,discount_percent")
       .eq("campaign_id", campaignId);
 
     if (submissionError) {
@@ -85,6 +86,7 @@ export default function CampaignOffersPage() {
       return;
     }
 
+    const discountByProduct = new Map((submissionRows ?? []).map((row) => [row.product_id, Number(row.discount_percent ?? 0)]));
     const productIds = (submissionRows ?? []).map((row) => row.product_id);
     if (productIds.length === 0) {
       setProducts([]);
@@ -106,7 +108,10 @@ export default function CampaignOffersPage() {
     }
 
     const productsById = new Map((productRows ?? []).map((product: any) => [product.id, product]));
-    setProducts(productIds.map((id) => productsById.get(id)).filter(Boolean) as Product[]);
+    setProducts(productIds.map((id) => {
+      const product = productsById.get(id);
+      return product ? { ...product, discount_percent: discountByProduct.get(id) ?? 0 } : null;
+    }).filter(Boolean) as Product[]);
     setLoading(false);
   }, [campaignId]);
 
@@ -169,6 +174,7 @@ export default function CampaignOffersPage() {
                     </Link>
                   </div>
                   <div className="product-info">
+                    {product.discount_percent > 0 && <span className="campaign-discount-badge">{product.discount_percent}% OFF</span>}
                     <small>{product.category || "General"}</small>
                     <Link href={"/product/" + product.id} className="product-title-link">
                       <h3>{product.title}</h3>
@@ -176,7 +182,9 @@ export default function CampaignOffersPage() {
                     <div className="seller">
                       {product.shops?.name ?? "Seychelles seller"} · {product.shops?.island ?? "Seychelles"}
                     </div>
-                    <div className="price">SCR {Number(product.price_scr).toLocaleString()}</div>
+                    <div className="price campaign-offer-pricing">
+                      {product.discount_percent > 0 ? <><del>SCR {Number(product.price_scr).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</del><strong>SCR {(Number(product.price_scr) * (1 - product.discount_percent / 100)).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></> : <strong>SCR {Number(product.price_scr).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>}
+                    </div>
                     <Link href={"/product/" + product.id} className="campaign-cta">
                       View product <ShoppingBag size={15} />
                     </Link>
