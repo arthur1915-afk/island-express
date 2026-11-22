@@ -48,3 +48,32 @@ create policy "Customers and admins view refund evidence" on storage.objects for
 revoke all on public.refund_requests from anon;
 grant select,insert on public.refund_requests to authenticated;
 grant update(status,admin_note,reviewed_by,reviewed_at) on public.refund_requests to authenticated;
+
+create or replace function public.admin_decide_refund(
+ target_request_id uuid,
+ decision text,
+ response_note text default null
+) returns void
+language plpgsql security definer set search_path=public
+as $$
+declare req public.refund_requests%rowtype;
+begin
+ if not exists(select 1 from public.profiles where id=auth.uid() and is_admin=true) then
+  raise exception 'Administrator access required';
+ end if;
+ if decision not in ('approved','rejected') then raise exception 'Invalid refund decision'; end if;
+ if decision='rejected' and length(trim(coalesce(response_note,'')))<5 then
+  raise exception 'Please provide a reason when rejecting a refund request';
+ end if;
+ select * into req from public.refund_requests where id=target_request_id for update;
+ if not found or req.status<>'pending' then raise exception 'This refund request is no longer pending'; end if;
+ update public.refund_requests set status=decision,admin_note=nullif(trim(response_note),''),reviewed_by=auth.uid(),reviewed_at=now() where id=req.id;
+ insert into public.notifications(user_id,order_id,notification_type,title,message)
+ values(req.customer_id,req.order_id,
+  case when decision='approved' then 'refund_request_approved' else 'refund_request_rejected' end,
+  case when decision='approved' then 'Refund request approved' else 'Refund request not approved' end,
+  case when decision='approved' then 'Your refund request has been approved. The marketplace team will follow up on the refund processing.' else 'Your refund request was not approved. Admin note: '||trim(response_note) end);
+end;
+$$;
+revoke all on function public.admin_decide_refund(uuid,text,text) from public;
+grant execute on function public.admin_decide_refund(uuid,text,text) to authenticated;
