@@ -50,3 +50,9 @@ on public.promotional_campaign_products for delete to authenticated
 using (seller_id = auth.uid());
 grant select on public.promotional_campaign_products to anon, authenticated;
 grant insert, delete on public.promotional_campaign_products to authenticated;
+
+
+-- Optional campaign-specific discount percentage (0 means no discount).
+alter table public.promotional_campaign_products
+  add column if not exists discount_percent numeric(5,2) not null default 0
+  check (discount_percent >= 0 and discount_percent <= 90);
