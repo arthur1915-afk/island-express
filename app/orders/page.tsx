@@ -204,7 +204,7 @@ export default function CustomerOrdersPage() {
                 {shipping.courier && <span>Courier: {shipping.courier}</span>}
                 {shipping.tracking_number && <span>Tracking number: {shipping.tracking_number}</span>}
                 {shipping.estimated_delivery && <span>Estimated delivery: {new Date(shipping.estimated_delivery + "T00:00:00").toLocaleDateString()}</span>}
-                {shipping.shipping_note && <span>{shipping.shipping_note}</span>}{shipping.status === "cancellation_requested" && <span><b>Seller cancellation reason:</b> {shipping.seller_note || "Reason not provided"}</span>}{shipping.status === "cancelled" && shipping.seller_note && <span><b>Cancellation reason:</b> {shipping.seller_note}</span>}{shipping.status === "delivered" && <button className="review-open-button" onClick={() => confirmReceived(order.id, shipping.shop_id)}>Confirm order received</button>}{shipping.status === "completed" && <span className="review-submitted">Receipt confirmed</span>}
+                {shipping.shipping_note && <span>{shipping.shipping_note}</span>}{shipping.status === "cancellation_requested" && <span><b>Seller cancellation reason:</b> {shipping.seller_note || "Reason not provided"}</span>}{shipping.status === "cancelled" && shipping.seller_note && <span><b>Cancellation reason:</b> {shipping.seller_note}</span>}{shipping.status === "completed" && <span className="review-submitted">Receipt confirmed</span>}
                 <small>Updated: {new Date(shipping.updated_at).toLocaleString()}</small>
               </div>)}
             </div>}
@@ -219,31 +219,31 @@ export default function CustomerOrdersPage() {
               </div>}
               {order.status === "cancelled" && <span>This order was cancelled and cannot be paid.</span>}
             </div>
-            {order.payment_status === "paid" && !["pending","cancelled"].includes(order.status) && (
-              <div className="seller-order-customer refund-request-section">
-                <h3>Refund</h3>
-                {refunds[order.id] ? (
-                  <div className="refund-status">
-                    <b>Request status: {label(refunds[order.id].status)}</b>
-                    {refunds[order.id].admin_note && <p>Admin response: {refunds[order.id].admin_note}</p>}
+            <div className="order-customer-actions">
+              {(order.seller_order_fulfillments ?? []).filter(s => s.status === "delivered").map(shipping => (
+                <button key={shipping.shop_id} className="order-received-button" onClick={() => confirmReceived(order.id, shipping.shop_id)}>Order received</button>
+              ))}
+              {order.payment_status === "paid" && !["pending","cancelled"].includes(order.status) && (
+                refunds[order.id] ? (
+                  <div className="refund-status-inline">
+                    <b>Refund: {label(refunds[order.id].status)}</b>
+                    {refunds[order.id].admin_note && <span>{refunds[order.id].admin_note}</span>}
                   </div>
                 ) : (
-                  <>
-                    <p>Only requests with a valid reason and clear, relevant photo and video evidence will be considered. Unsupported or unclear claims may be rejected.</p>
-                    <button className="review-open-button" onClick={() => { setRefundOrder(refundOrder === order.id ? null : order.id); setRefundReason(""); setRefundPhoto(null); setRefundVideo(null); }}>Request refund</button>
-                    {refundOrder === order.id && <div className="refund-form">
-                      <label>Reason for refund (at least 20 characters)</label>
-                      <textarea value={refundReason} onChange={e=>setRefundReason(e.target.value)} minLength={20} maxLength={2000} placeholder="Explain clearly why you are requesting a refund." />
-                      <label>Photo evidence (JPG, PNG or WebP; max 10MB)</label>
-                      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setRefundPhoto(e.target.files?.[0] ?? null)} />
-                      <label>Video evidence (MP4, MOV or WebM; max 50MB)</label>
-                      <input type="file" accept="video/mp4,video/quicktime,video/webm" onChange={e=>setRefundVideo(e.target.files?.[0] ?? null)} />
-                      <button disabled={refundBusy || refundReason.trim().length<20 || !refundPhoto || !refundVideo} onClick={()=>submitRefund(order.id)}>{refundBusy ? "Submitting…" : "Submit refund request"}</button>
-                    </div>}
-                  </>
-                )}
-              </div>
-            )}
+                  <button className="request-refund-button" onClick={() => { setRefundOrder(refundOrder === order.id ? null : order.id); setRefundReason(""); setRefundPhoto(null); setRefundVideo(null); }}>Request refund</button>
+                )
+              )}
+            </div>
+            {refundOrder === order.id && <div className="refund-form order-refund-form">
+              <p>Only requests with a valid reason and clear, relevant photo and video evidence will be considered. Unsupported or unclear claims may be rejected.</p>
+              <label>Reason for refund (at least 20 characters)</label>
+              <textarea value={refundReason} onChange={e=>setRefundReason(e.target.value)} minLength={20} maxLength={2000} placeholder="Explain clearly why you are requesting a refund." />
+              <label>Photo evidence (JPG, PNG or WebP; max 10MB)</label>
+              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setRefundPhoto(e.target.files?.[0] ?? null)} />
+              <label>Video evidence (MP4, MOV or WebM; max 50MB)</label>
+              <input type="file" accept="video/mp4,video/quicktime,video/webm" onChange={e=>setRefundVideo(e.target.files?.[0] ?? null)} />
+              <button disabled={refundBusy || refundReason.trim().length<20 || !refundPhoto || !refundVideo} onClick={()=>submitRefund(order.id)}>{refundBusy ? "Submitting…" : "Submit refund request"}</button>
+            </div>}
           </article>
         ))}</div>
       }
