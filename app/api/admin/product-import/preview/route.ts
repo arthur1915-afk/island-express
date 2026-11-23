@@ -63,7 +63,7 @@ export async function POST(request:NextRequest){try{
   if(!apiKey)return NextResponse.json({error:"AliExpress blocks direct server extraction. Connect the free AliExpress Scraper API key in Vercel to enable reliable product imports. The other suppliers still use page extraction."},{status:503});
   const apiUrl=new URL("https://aliexpress-scraper-api.omkar.cloud/aliexpress/v2/product");
   const itemId=parsed.pathname.match(/\/item\/(\d+)(?:\.html)?/i)?.[1]||parsed.pathname.match(/\/(\d{10,})\.html/i)?.[1];
-  apiUrl.searchParams.set("product",itemId||parsed.toString());apiUrl.searchParams.set("country_code","SC");
+  apiUrl.searchParams.set("product",itemId||parsed.toString());
   const apiResponse=await fetch(apiUrl.toString(),{headers:{"API-Key":apiKey,Accept:"application/json"},signal:AbortSignal.timeout(30000)});
   const responseText=await apiResponse.text();let apiData:any=null;try{apiData=JSON.parse(responseText);}catch{}
   if(!apiResponse.ok||!apiData||apiData.error||apiData.success===false) {
