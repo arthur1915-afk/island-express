@@ -128,13 +128,14 @@ export async function POST(request:NextRequest){try{
   const skuRows=Array.isArray(productData.skus)?productData.skus:Array.isArray(productData.variants)?productData.variants:Array.isArray(productData.sku_list)?productData.sku_list:[];
   const propertyRows=Array.isArray(productData.sku_properties)?productData.sku_properties:Array.isArray(productData.skuProperties)?productData.skuProperties:Array.isArray(productData.sku_property_list)?productData.sku_property_list:[];
   const supplierDebug={topLevelKeys:Object.keys(apiData),productKeys:Object.keys(productData||{}),skuCount:skuRows.length,skuPropertyCount:propertyRows.length,firstSkuAttributes:skuRows[0]?.attributes??null,firstSkuProperty:propertyRows[0]??null};
-  const rawSourcePrice=productData.pricing?.sale_price??productData.price??productData.sale_price??productData.min_price;\n  const sourcePrice=Number(String(rawSourcePrice??"").replace(/[^0-9.,]/g,"").replace(/,(?=\\d{3}(?:\\D|$))/g,"").replace(",", "."));
+  const rawSourcePrice=productData.pricing?.sale_price??productData.price??productData.sale_price??productData.min_price;
+  const sourcePrice=parseSupplierPrice(rawSourcePrice);
   const sourceCurrency=String(productData.pricing?.currency||productData.currency||"").toUpperCase();
   const images=(Array.isArray(productData.images)?productData.images:[]).filter((v:any)=>typeof v==="string"&&/^https:\/\//i.test(v)).slice(0,8);
   const specifications=Array.isArray(productData.specifications)?productData.specifications:[];
   const description=String(productData.description||productData.product_description||specifications.map((s:any)=>s?.name&&s?.value?String(s.name)+": "+String(s.value):"").filter(Boolean).join("\\n"));
   let fx:any=null;
-  if(sourceCurrency&&Number.isFinite(sourcePrice)&&sourcePrice>0){const fr=await fetch("https://open.er-api.com/v6/latest/"+encodeURIComponent(sourceCurrency),{signal:AbortSignal.timeout(8000)});if(fr.ok){const fd=await fr.json();const rate=Number(fd?.rates?.SCR);if(fd?.result==="success"&&rate>0)fx={rate,provider:"open.er-api.com",updated:fd.time_last_update_utc};}}
+  if(sourceCurrency&&Number.isFinite(sourcePrice)&&sourcePrice>0){const convertedRate=await getScrRate(sourceCurrency);if(convertedRate)fx={rate:convertedRate,provider:"open.er-api.com (direct or USD cross-rate)"};}
   const rate=fx?.rate||null;const costScr=rate?Math.round(sourcePrice*rate*100)/100:null;
   const shippingOptions=Array.isArray(productData.shipping?.options)?productData.shipping.options:[];
   const shippingOption=shippingOptions.find((s:any)=>Number.isFinite(Number(s.price))&&String(s.currency||sourceCurrency).toUpperCase()===sourceCurrency);
