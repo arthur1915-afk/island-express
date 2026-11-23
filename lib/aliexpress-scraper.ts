@@ -78,7 +78,6 @@ export async function scrapeAliExpressPage(url: string): Promise<AliExpressPageD
     /(?:window\.)?runParams\s*=\s*/g,
     /(?:window\.)?__INITIAL_STATE__\s*=\s*/g,
     /(?:window\.)?pageData\s*=\s*/g,
-    /data\s*:\s*/g,
   ]) states.push(...extractAssignedJson(html, marker));
 
   const jsonLd: any[] = [];
