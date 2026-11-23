@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 
     const productIds = rows.map((row) => row.product_id).filter(Boolean);
     const { data: productsData, error: productsError } = await db.from("products")
-      .select("id,title,price_scr,shipping_fee_scr,status,shop_id").in("id", productIds);
+      .select("id,title,category,price_scr,shipping_fee_scr,status,shop_id").in("id", productIds);
     // The Supabase client is not generated with the database schema types in this project.
     // Cast the selected rows explicitly so TypeScript can type the product fields.
     const products = (productsData ?? []) as Array<{
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
     });
 
     const subtotalCents = itemRows.reduce((sum, item) => sum + item.originalCents, 0);
-    const deliveryCents = [...new Map(itemRows.map(item => [item.product.id, item])).values()].reduce((sum, item) => sum + item.shippingCents, 0);
+    const uniqueProducts = [...new Map(itemRows.map(item => [item.product.id, item.product])).values()];\n    const hasFashion = uniqueProducts.some((product) => (product.category || "").toLowerCase().startsWith("fashion"));\n    const deliveryCents = uniqueProducts.filter((product) => !(product.category || "").toLowerCase().startsWith("fashion")).reduce((sum, product) => sum + Math.round(Number(product.shipping_fee_scr || 0) * 100), 0) + (hasFashion ? 30000 : 0);
     let voucher: { id: string; code: string } | null = null;
     let voucherDiscountCents = 0;
     const taxCents = subtotalCents >= 290000 ? Math.round(subtotalCents * 0.16) : 0;
