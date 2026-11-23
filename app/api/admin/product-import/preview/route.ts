@@ -62,10 +62,14 @@ export async function POST(request:NextRequest){try{
   const apiKey=process.env.ALIEXPRESS_SCRAPER_API_KEY;
   if(!apiKey)return NextResponse.json({error:"AliExpress blocks direct server extraction. Connect the free AliExpress Scraper API key in Vercel to enable reliable product imports. The other suppliers still use page extraction."},{status:503});
   const apiUrl=new URL("https://aliexpress-scraper-api.omkar.cloud/aliexpress/v2/product");
-  apiUrl.searchParams.set("product",parsed.toString());apiUrl.searchParams.set("country_code","SC");
+  const itemId=parsed.pathname.match(/\\/item\\/(\\d+)(?:\\.html)?/i)?.[1]||parsed.pathname.match(/\\/(\\d{10,})\\.html/i)?.[1];
+  apiUrl.searchParams.set("product",itemId||parsed.toString());apiUrl.searchParams.set("country_code","SC");
   const apiResponse=await fetch(apiUrl.toString(),{headers:{"API-Key":apiKey,Accept:"application/json"},signal:AbortSignal.timeout(30000)});
-  const apiData=await apiResponse.json().catch(()=>null);
-  if(!apiResponse.ok||!apiData||apiData.error||apiData.code)throw new Error(apiData?.message||apiData?.error||"AliExpress product service could not retrieve this listing. Check the product URL or API quota.");
+  const responseText=await apiResponse.text();let apiData:any=null;try{apiData=JSON.parse(responseText);}catch{}
+  if(!apiResponse.ok||!apiData||apiData.error||apiData.success===false) {
+   const detail=String(apiData?.message||apiData?.error||apiData?.detail||responseText||"No response body").slice(0,350);
+   throw new Error("AliExpress API request failed (HTTP "+apiResponse.status+"). "+detail+" Check that the API key is active and the link is a direct product listing.");
+  }
   const productData=apiData.data?.product??apiData.data??apiData.product??apiData;
   const skuRows=Array.isArray(productData.skus)?productData.skus:Array.isArray(productData.variants)?productData.variants:Array.isArray(productData.sku_list)?productData.sku_list:[];
   const propertyRows=Array.isArray(productData.sku_properties)?productData.sku_properties:Array.isArray(productData.skuProperties)?productData.skuProperties:Array.isArray(productData.sku_property_list)?productData.sku_property_list:[];
