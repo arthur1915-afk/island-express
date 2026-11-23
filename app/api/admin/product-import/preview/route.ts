@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { scrapeAliExpressPage } from "@/lib/aliexpress-scraper";
+import { scrapeAliExpressPage } from "../../../../../lib/aliexpress-scraper";
 export const runtime = "nodejs";
 const allowed = ["aliexpress.com","shein.com","iherb.com","asos.com","alibaba.com"];
 function platform(host:string){return allowed.find(d=>host===d||host.endsWith("."+d))||null;}
