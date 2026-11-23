@@ -10,10 +10,12 @@ type Product = { id: string; title: string; category: string; price_scr: number;
 type RatingSummary = { average: number; count: number };
 type Campaign = { id:string; eyebrow:string; title:string; subtitle:string|null; description:string|null; image_url:string|null; cta_label:string; cta_url:string; background_style:string };
 
-const categories = ["All", "Electronics", "Fashion", "Home & Living", "Beauty", "Party & Celebration", "Office & School Supplies", "Accessories", "Sports & Outdoors", "Automotive", "Food & Groceries"];\nconst fashionSubcategories = ["Shoes", "Shirts & Tops", "Men’s Clothing", "Women’s Clothing", "Baby Clothing", "Fashion Accessories"];
+const categories = ["All", "Electronics", "Fashion", "Home & Living", "Beauty", "Party & Celebration", "Office & School Supplies", "Accessories", "Sports & Outdoors", "Automotive", "Food & Groceries"];
+const fashionSubcategories = ["Shoes", "Shirts & Tops", "Men’s Clothing", "Women’s Clothing", "Baby Clothing", "Fashion Accessories"];
 
 export default function Home() {
-  const [category, setCategory] = useState("All");\n  const [fashionSubcategory, setFashionSubcategory] = useState("All fashion");
+  const [category, setCategory] = useState("All");
+  const [fashionSubcategory, setFashionSubcategory] = useState("All fashion");
   const [query, setQuery] = useState("");
   const [island, setIsland] = useState("All islands");
   const [sort, setSort] = useState("newest");
@@ -126,7 +128,8 @@ export default function Home() {
     return () => window.clearInterval(timer);
   }, [campaigns.length, campaignPaused]);
   const filtered = useMemo(() => products.filter(p =>
-    (category === "All" || (category === "Fashion" ? p.category === "Fashion" || p.category.startsWith("Fashion - ") : p.category === category)) &&\n    (category !== "Fashion" || fashionSubcategory === "All fashion" || p.category === "Fashion - " + fashionSubcategory) &&
+    (category === "All" || (category === "Fashion" ? p.category === "Fashion" || p.category.startsWith("Fashion - ") : p.category === category)) &&
+    (category !== "Fashion" || fashionSubcategory === "All fashion" || p.category === "Fashion - " + fashionSubcategory) &&
     (p.title.toLowerCase().includes(query.toLowerCase()) || (p.description ?? "").toLowerCase().includes(query.toLowerCase()) || (p.shops?.name ?? "").toLowerCase().includes(query.toLowerCase())) &&
     (island === "All islands" || p.shops?.island === island)
   ).sort((a,b) => sort === "price-low" ? Number(a.price_scr)-Number(b.price_scr) : sort === "price-high" ? Number(b.price_scr)-Number(a.price_scr) : sort === "name" ? a.title.localeCompare(b.title) : new Date(b.created_at ?? 0).getTime()-new Date(a.created_at ?? 0).getTime()), [category, fashionSubcategory, query, island, sort, products]);
