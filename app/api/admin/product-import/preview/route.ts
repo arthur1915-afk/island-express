@@ -12,6 +12,7 @@ function normaliseSkus(skus:any[],basePrice:number,rate:number|null,skuPropertie
  for(const property of properties)propertyById.set(String(property.id),property);
  return skus.map((sku:any,index:number)=>{
   const attributes:Record<string,string>={};
+  let imageUrl:string|null=null;
   const raw=sku?.attributes??sku?.sku_attributes??sku?.properties;
   const addAttribute=(key:string,value:any)=>{if(key&&value!==undefined&&value!==null&&String(value).trim())attributes[key]=String(value).trim();};
   if(typeof raw==="string"){
@@ -22,6 +23,7 @@ function normaliseSkus(skus:any[],basePrice:number,rate:number|null,skuPropertie
     const property=propertyById.get(String(propertyId));
     const option=property?.values?.find((v:any)=>String(v?.id)===String(valueId));
     addAttribute(String(property?.name||("Option "+propertyId)),option?.name??labelPart??valueId);
+    if(!imageUrl&&typeof option?.image==="string"&&/^https:\/\//i.test(option.image))imageUrl=option.image;
    }
   }else if(raw&&typeof raw==="object"&&!Array.isArray(raw)){
    for(const [key,value] of Object.entries(raw)){const v=typeof value==="object"&&value!==null?((value as any).name??(value as any).value??(value as any).label??JSON.stringify(value)):value;addAttribute(String(key),v);}
@@ -35,7 +37,7 @@ function normaliseSkus(skus:any[],basePrice:number,rate:number|null,skuPropertie
   const available=sku?.is_available??sku?.available??sku?.in_stock;
   const stock=available===false?0:(Number.isFinite(stockValue)?Math.max(0,Math.floor(stockValue)):0);
   const priceScr=rate&&Number.isFinite(sourcePrice)&&sourcePrice>0?Math.round(sourcePrice*rate*1.2*100)/100:null;
-  return {label,attributes,sourcePrice:Number.isFinite(sourcePrice)?sourcePrice:basePrice,priceScr,stock,imageUrl:null};
+  return {label,attributes,sourcePrice:Number.isFinite(sourcePrice)?sourcePrice:basePrice,priceScr,stock,imageUrl:sku?.image_url||sku?.imageUrl||imageUrl};
  }).filter((variant:any)=>variant.label);
 }
 function imageCandidates(html:string,product:any){
