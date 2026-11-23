@@ -7,6 +7,24 @@ function meta(html:string,key:string,attr="property"){const escaped=key.replace(
 function collect(value:any,out:any[]){if(!value||typeof value!=="object")return;if(Array.isArray(value)){value.forEach(v=>collect(v,out));return;}const types=Array.isArray(value["@type"])?value["@type"]:[value["@type"]];if(types.some((t:any)=>String(t).toLowerCase()==="product"))out.push(value);for(const [k,v] of Object.entries(value)){if(k!=="@type"&&v&&typeof v==="object")collect(v,out);}}
 
 const MARKUP_MULTIPLIER=1.25;
+function parseSupplierPrice(value:any):number{
+ let s=String(value??"").trim().replace(/[^0-9,.-]/g,"");
+ if(!s)return NaN;
+ const comma=s.lastIndexOf(","),dot=s.lastIndexOf(".");
+ if(comma>=0&&dot>=0){
+  const decimal=comma>dot?",":".";
+  const grouping=decimal===","?".":",";
+  s=s.split(grouping).join("");
+  if(decimal===",")s=s.replace(",",".");
+  else s=s.replace(/,/g,"");
+ }else if(comma>=0||dot>=0){
+  const sep=comma>=0?",":".";
+  const parts=s.split(sep);
+  if(parts.length>2){const tail=parts.pop()!;s=parts.join("")+(tail.length<=2?"."+tail:"");}
+  else if(parts.length===2){s=parts[0]+(parts[1].length<=2?"."+parts[1]:parts[1]);}
+ } 
+ return Number(s);
+}
 async function fetchRateTable(base:string):Promise<{rates:Record<string,number>;updated?:string}|null>{
  try{
   const response=await fetch("https://open.er-api.com/v6/latest/"+encodeURIComponent(base),{signal:AbortSignal.timeout(9000),cache:"no-store"});
@@ -65,7 +83,7 @@ async function normaliseSkus(skus:any[],basePrice:number,baseCurrency:string,bas
   if(!Object.keys(attributes).length&&sku?.label)addAttribute("Option",sku.label);
   const label=Object.entries(attributes).map(([key,value])=>key+": "+value).join(" / ")||String(sku?.label||sku?.name||"Option "+(index+1));
   const rawPrice=sku?.pricing?.sale_price??sku?.sale_price??sku?.price??sku?.price_scr??basePrice;
-  const sourcePrice=Number(String(rawPrice).replace(/[^0-9.]/g,""));
+  const sourcePrice=parseSupplierPrice(rawPrice);
   const sourceCurrency=String(sku?.pricing?.currency??sku?.currency??baseCurrency).toUpperCase();
   const rate=rates.get(sourceCurrency)??null;
   const costScr=rate&&Number.isFinite(sourcePrice)&&sourcePrice>0?Math.round(sourcePrice*rate*100)/100:null;
@@ -125,7 +143,7 @@ export async function POST(request:NextRequest){try{
  const response=await fetch(parsed.toString(),{headers:{"User-Agent":"Mozilla/5.0 (compatible; islandXpressProductPreview/1.0)",Accept:"text/html,application/xhtml+xml"},signal:AbortSignal.timeout(12000),redirect:"follow"});if(!response.ok)throw new Error("Supplier page could not be accessed. Enter product details manually.");
  const html=(await response.text()).slice(0,2500000);const products:any[]=[];const scripts=[...html.matchAll(/<script[^>]*type=["\']application\/ld\+json["\'][^>]*>([\s\S]*?)<\/script>/gi)];for(const m of scripts){try{collect(JSON.parse(m[1]),products);}catch{}}
  const p=products[0]||{};const offers=Array.isArray(p.offers)?p.offers[0]:(p.offers||{});const priceText=offers.price||offers.lowPrice||meta(html,"product:price:amount")||meta(html,"og:price:amount")||meta(html,"price");
- const sourcePrice=Number(String(priceText).replace(/[^0-9.]/g,""));
+ const sourcePrice=parseSupplierPrice(priceText);
  const sourceCurrency=String(offers.priceCurrency||meta(html,"product:price:currency")||meta(html,"og:price:currency")||"").toUpperCase();
  const title=String(p.name||meta(html,"og:title")||meta(html,"twitter:title","name")||((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||"").replace(/&amp;/g,"&").trim());
  const description=String(p.description||meta(html,"og:description")||meta(html,"description","name")||"");
