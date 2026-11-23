@@ -140,8 +140,8 @@ export async function POST(request:NextRequest){try{
   const scraped=await scrapeAliExpressPage(parsed.toString());
   const productData=scraped.product||{};
   const priceModule=productData.priceModule||{};
-  const rawPrice=priceModule.formatedActivityPrice??priceModule.formatedPrice??priceModule.minPrice??priceModule.activityPrice??productData.price??productData.minPrice??meta(scraped.html,"product:price:amount")??meta(scraped.html,"og:price:amount");
-  const sourcePrice=parseSupplierPrice(rawPrice);
+  const priceCandidates=[priceModule.formatedActivityPrice,priceModule.formatedPrice,priceModule.minPrice?.value,priceModule.minPrice,priceModule.activityPrice,productData.price,productData.minPrice,meta(scraped.html,"product:price:amount"),meta(scraped.html,"og:price:amount")];
+  const sourcePrice=priceCandidates.map(parseSupplierPrice).find((value:number)=>Number.isFinite(value)&&value>0)??NaN;
   const sourceCurrency=normaliseCurrencyCode(priceModule.currencyCode??priceModule.currency??productData.currencyCode??productData.currency??meta(scraped.html,"product:price:currency")??meta(scraped.html,"og:price:currency"));
   const title=String(productData.title??productData.subject??meta(scraped.html,"og:title")??((scraped.html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i)||[])[1]||"").replace(/&amp;/g,"&").trim());
   const description=String(productData.description??productData.productDescription??meta(scraped.html,"og:description")??meta(scraped.html,"description","name")??"");
