@@ -81,7 +81,9 @@ export async function POST(request: Request) {
     });
 
     const subtotalCents = itemRows.reduce((sum, item) => sum + item.originalCents, 0);
-    const uniqueProducts = [...new Map(itemRows.map(item => [item.product.id, item.product])).values()];\n    const hasFashion = uniqueProducts.some((product) => (product.category || "").toLowerCase().startsWith("fashion"));\n    const deliveryCents = uniqueProducts.filter((product) => !(product.category || "").toLowerCase().startsWith("fashion")).reduce((sum, product) => sum + Math.round(Number(product.shipping_fee_scr || 0) * 100), 0) + (hasFashion ? 30000 : 0);
+    const uniqueProducts = [...new Map(itemRows.map(item => [item.product.id, item.product])).values()];
+    const hasFashion = uniqueProducts.some((product) => (product.category || "").toLowerCase().startsWith("fashion"));
+    const deliveryCents = uniqueProducts.filter((product) => !(product.category || "").toLowerCase().startsWith("fashion")).reduce((sum, product) => sum + Math.round(Number(product.shipping_fee_scr || 0) * 100), 0) + (hasFashion ? 30000 : 0);
     let voucher: { id: string; code: string } | null = null;
     let voucherDiscountCents = 0;
     const taxCents = subtotalCents >= 290000 ? Math.round(subtotalCents * 0.16) : 0;
