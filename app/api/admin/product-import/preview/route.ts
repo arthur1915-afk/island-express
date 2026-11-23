@@ -62,18 +62,22 @@ export async function POST(request:NextRequest){try{
   apiUrl.searchParams.set("product",parsed.toString());apiUrl.searchParams.set("country_code","MY");
   const apiResponse=await fetch(apiUrl.toString(),{headers:{"API-Key":apiKey,Accept:"application/json"},signal:AbortSignal.timeout(30000)});
   const apiData=await apiResponse.json().catch(()=>null);
-  if(!apiResponse.ok||!apiData||apiData.error)throw new Error(apiData?.error||"AliExpress product service could not retrieve this listing. Check the product URL or API quota.");
-  const sourcePrice=Number(apiData.pricing?.sale_price);
-  const sourceCurrency=String(apiData.pricing?.currency||"").toUpperCase();
-  const images=(Array.isArray(apiData.images)?apiData.images:[]).filter((v:any)=>typeof v==="string"&&/^https:\/\//i.test(v)).slice(0,8);
-  const specifications=Array.isArray(apiData.specifications)?apiData.specifications:[];
-  const description=String(apiData.description||apiData.product_description||specifications.map((s:any)=>s?.name&&s?.value?String(s.name)+": "+String(s.value):"").filter(Boolean).join("\\n"));
+  if(!apiResponse.ok||!apiData||productData.error||productData.code)throw new Error(apiData?.message||apiData?.error||"AliExpress product service could not retrieve this listing. Check the product URL or API quota.");
+  const productData=productData.data?.product??productData.data??productData.product??apiData;
+  const skuRows=Array.isArray(productData.skus)?productData.skus:Array.isArray(productData.variants)?productData.variants:[];
+  const propertyRows=Array.isArray(productData.sku_properties)?productData.sku_properties:Array.isArray(productData.skuProperties)?productData.skuProperties:[];
+  const supplierDebug={topLevelKeys:Object.keys(apiData),productKeys:Object.keys(productData||{}),skuCount:skuRows.length,skuPropertyCount:propertyRows.length,firstSkuAttributes:skuRows[0]?.attributes??null,firstSkuProperty:propertyRows[0]??null};
+  const sourcePrice=Number(productData.pricing?.sale_price??productData.price);
+  const sourceCurrency=String(productData.pricing?.currency||"").toUpperCase();
+  const images=(Array.isArray(productData.images)?productData.images:[]).filter((v:any)=>typeof v==="string"&&/^https:\/\//i.test(v)).slice(0,8);
+  const specifications=Array.isArray(productData.specifications)?productData.specifications:[];
+  const description=String(productData.description||productData.product_description||specifications.map((s:any)=>s?.name&&s?.value?String(s.name)+": "+String(s.value):"").filter(Boolean).join("\\n"));
   let fx:any=null;
   if(sourceCurrency&&Number.isFinite(sourcePrice)&&sourcePrice>0){const fr=await fetch("https://open.er-api.com/v6/latest/"+encodeURIComponent(sourceCurrency),{signal:AbortSignal.timeout(8000)});if(fr.ok){const fd=await fr.json();const rate=Number(fd?.rates?.SCR);if(fd?.result==="success"&&rate>0)fx={rate,provider:"open.er-api.com",updated:fd.time_last_update_utc};}}
   const rate=fx?.rate||null;const costScr=rate?Math.round(sourcePrice*rate*100)/100:null;
-  const shippingOptions=Array.isArray(apiData.shipping?.options)?apiData.shipping.options:[];
+  const shippingOptions=Array.isArray(productData.shipping?.options)?productData.shipping.options:[];
   const shippingOption=shippingOptions.find((s:any)=>Number.isFinite(Number(s.price))&&String(s.currency||sourceCurrency).toUpperCase()===sourceCurrency);
-  return NextResponse.json({platform:"aliexpress.com",sourceUrl:parsed.toString(),title:String(apiData.title||""),description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*1.2*100)/100,fx,shipping:null,shippingMessage:shippingOption?"Supplier shipping options were found, but not confirmed for Seychelles. Enter a Seychelles delivery fee manually.":"AliExpress did not return a verified Seychelles shipping quote. Enter the delivery fee manually.",supplierDataSource:"AliExpress Scraper API",variants:normaliseSkus(Array.isArray(apiData.skus)?apiData.skus:[],Number.isFinite(sourcePrice)?sourcePrice:0,rate,apiData.sku_properties),specifications});
+  return NextResponse.json({platform:"aliexpress.com",sourceUrl:parsed.toString(),title:String(productData.title||""),description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*1.2*100)/100,fx,shipping:null,shippingMessage:shippingOption?"Supplier shipping options were found, but not confirmed for Seychelles. Enter a Seychelles delivery fee manually.":"AliExpress did not return a verified Seychelles shipping quote. Enter the delivery fee manually.",supplierDataSource:"AliExpress Scraper API",variants:normaliseSkus(skuRows,Number.isFinite(sourcePrice)?sourcePrice:0,rate,propertyRows),supplierDebug,specifications});
  }
  const response=await fetch(parsed.toString(),{headers:{"User-Agent":"Mozilla/5.0 (compatible; islandXpressProductPreview/1.0)",Accept:"text/html,application/xhtml+xml"},signal:AbortSignal.timeout(12000),redirect:"follow"});if(!response.ok)throw new Error("Supplier page could not be accessed. Enter product details manually.");
  const html=(await response.text()).slice(0,2500000);const products:any[]=[];const scripts=[...html.matchAll(/<script[^>]*type=["\']application\/ld\+json["\'][^>]*>([\s\S]*?)<\/script>/gi)];for(const m of scripts){try{collect(JSON.parse(m[1]),products);}catch{}}
