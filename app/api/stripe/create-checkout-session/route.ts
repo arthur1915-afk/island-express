@@ -55,6 +55,7 @@ export async function POST(request: Request) {
     const products = (productsData ?? []) as Array<{
       id: string;
       title: string;
+      category: string | null;
       price_scr: number | string;
       status: string;
       shop_id: string;
