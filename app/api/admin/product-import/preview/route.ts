@@ -12,6 +12,16 @@ function normaliseCurrencyCode(value:any):string{
  const aliases:Record<string,string>={"SEYCHELLES RUPEE":"SCR","SEYCHELLES RUPEES":"SCR","SCR":"SCR","US DOLLAR":"USD","US DOLLARS":"USD","U.S. DOLLAR":"USD","CHINESE YUAN":"CNY","RENMINBI":"CNY"};
  return aliases[raw]||raw;
 }
+function supplierPrice(pricing:any,fallback:any=null):number{
+ // AliExpress may return a discounted "new shopper" price that is only available
+ // to first-time buyers. Use the regular/original price for resale costing.
+ const newShopper=pricing?.is_new_shopper_price===true||pricing?.isNewShopperPrice===true;
+ const candidates=newShopper
+  ? [pricing?.original_price,pricing?.originalPrice,pricing?.sale_price,pricing?.salePrice,fallback]
+  : [pricing?.sale_price,pricing?.salePrice,pricing?.price,pricing?.original_price,pricing?.originalPrice,fallback];
+ for(const candidate of candidates){const parsed=parseSupplierPrice(candidate);if(Number.isFinite(parsed)&&parsed>0)return parsed;}
+ return NaN;
+}
 function priceInScr(sourcePrice:number,currencyValue:any,rate:number|null):number|null{
  if(!Number.isFinite(sourcePrice)||sourcePrice<=0)return null;
  const currency=normaliseCurrencyCode(currencyValue);
@@ -95,8 +105,8 @@ async function normaliseSkus(skus:any[],basePrice:number,baseCurrency:string,bas
   }
   if(!Object.keys(attributes).length&&sku?.label)addAttribute("Option",sku.label);
   const label=Object.entries(attributes).map(([key,value])=>key+": "+value).join(" / ")||String(sku?.label||sku?.name||"Option "+(index+1));
-  const rawPrice=sku?.pricing?.sale_price??sku?.sale_price??sku?.price??sku?.price_scr??basePrice;
-  const sourcePrice=parseSupplierPrice(rawPrice);
+  const rawPrice=sku?.pricing??null;
+  const sourcePrice=rawPrice?supplierPrice(rawPrice,sku?.sale_price??sku?.price??sku?.price_scr??basePrice):parseSupplierPrice(sku?.sale_price??sku?.price??sku?.price_scr??basePrice);
   const sourceCurrency=normaliseCurrencyCode(sku?.pricing?.currency??sku?.currency??baseCurrency);
   const rate=rates.get(sourceCurrency)??null;
   const costScr=priceInScr(sourcePrice,sourceCurrency,rate);
@@ -140,9 +150,10 @@ export async function POST(request:NextRequest){try{
   const productData=apiData.data?.product??apiData.data??apiData.product??apiData;
   const skuRows=Array.isArray(productData.skus)?productData.skus:Array.isArray(productData.variants)?productData.variants:Array.isArray(productData.sku_list)?productData.sku_list:[];
   const propertyRows=Array.isArray(productData.sku_properties)?productData.sku_properties:Array.isArray(productData.skuProperties)?productData.skuProperties:Array.isArray(productData.sku_property_list)?productData.sku_property_list:[];
-  const supplierDebug={topLevelKeys:Object.keys(apiData),productKeys:Object.keys(productData||{}),skuCount:skuRows.length,skuPropertyCount:propertyRows.length,firstSkuAttributes:skuRows[0]?.attributes??null,firstSkuProperty:propertyRows[0]??null};
-  const rawSourcePrice=productData.pricing?.sale_price??productData.price??productData.sale_price??productData.min_price;
-  const sourcePrice=parseSupplierPrice(rawSourcePrice);
+  const supplierDebug={topLevelKeys:Object.keys(apiData),productKeys:Object.keys(productData||{}),skuCount:skuRows.length,skuPropertyCount:propertyRows.length,firstSkuAttributes:skuRows[0]?.attributes??null,firstSkuProperty:propertyRows[0]??null,pricing:productData.pricing??productData.price_info??null,firstSkuPricing:skuRows[0]?.pricing??null,usedRegularPrice:(productData.pricing?.is_new_shopper_price===true||productData.pricing?.isNewShopperPrice===true)};
+  const pricing=productData.pricing??productData.price_info??{};
+  const rawSourcePrice=supplierPrice(pricing,productData.price??productData.sale_price??productData.min_price);
+  const sourcePrice=rawSourcePrice;
   const sourceCurrency=normaliseCurrencyCode(productData.pricing?.currency??productData.currency??productData.price_currency??productData.currency_code);
   const images=(Array.isArray(productData.images)?productData.images:[]).filter((v:any)=>typeof v==="string"&&/^https:\/\//i.test(v)).slice(0,8);
   const specifications=Array.isArray(productData.specifications)?productData.specifications:[];
