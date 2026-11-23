@@ -37,8 +37,10 @@ async function normaliseSkus(skus:any[],basePrice:number,baseCurrency:string,bas
  const properties=Array.isArray(skuProperties)?skuProperties:[];
  const propertyById=new Map<string,any>();
  for(const property of properties)propertyById.set(String(property.id),property);
+ const defaultCurrency=String(baseCurrency||"").toUpperCase();
  const currencies=[...new Set(skus.map((sku:any)=>String(sku?.pricing?.currency??sku?.currency??defaultCurrency).toUpperCase()).filter((c:string)=>/^[A-Z]{3}$/.test(c)))];
- const defaultCurrency=String(baseCurrency||"").toUpperCase();\n const rates=new Map<string,number|null>();\n if(defaultCurrency)rates.set(defaultCurrency,baseRate);
+ const rates=new Map<string,number|null>();
+ if(defaultCurrency)rates.set(defaultCurrency,baseRate);
  await Promise.all(currencies.map(async(currency:string)=>{if(!rates.has(currency))rates.set(currency,await getScrRate(currency));}));
  return skus.map((sku:any,index:number)=>{
   const attributes:Record<string,string>={};
