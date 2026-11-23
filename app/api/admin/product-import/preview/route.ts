@@ -12,7 +12,8 @@ function normaliseSkus(skus:any[],basePrice:number,rate:number|null,skuPropertie
  for(const property of properties)propertyById.set(String(property.id),property);
  return skus.map((sku:any,index:number)=>{
   const attributes:Record<string,string>={};
-  const raw=sku?.attributes;
+  const raw=sku?.attributes??sku?.sku_attributes??sku?.properties;
+  const addAttribute=(key:string,value:any)=>{if(key&&value!==undefined&&value!==null&&String(value).trim())attributes[key]=String(value).trim();};
   if(typeof raw==="string"){
    for(const token of raw.split(";")){
     const [propertyId,valuePart]=token.split(":");
@@ -20,19 +21,19 @@ function normaliseSkus(skus:any[],basePrice:number,rate:number|null,skuPropertie
     const [valueId,labelPart]=valuePart.split("#");
     const property=propertyById.get(String(propertyId));
     const option=property?.values?.find((v:any)=>String(v?.id)===String(valueId));
-    const key=String(property?.name||("Option "+propertyId));
-    const value=String(option?.name||labelPart||valueId);
-    attributes[key]=value;
+    addAttribute(String(property?.name||("Option "+propertyId)),option?.name??labelPart??valueId);
    }
   }else if(raw&&typeof raw==="object"&&!Array.isArray(raw)){
-   for(const [key,value] of Object.entries(raw)){const v=typeof value==="object"&&value!==null?((value as any).name??(value as any).value??JSON.stringify(value)):value;if(v!==undefined&&v!==null)attributes[String(key)]=String(v);}
+   for(const [key,value] of Object.entries(raw)){const v=typeof value==="object"&&value!==null?((value as any).name??(value as any).value??(value as any).label??JSON.stringify(value)):value;addAttribute(String(key),v);}
   }else if(Array.isArray(raw)){
-   for(const item of raw){if(item&&typeof item==="object"){const key=String(item.name??item.attribute??item.key??"Option");const value=item.value??item.label??item.text;if(value!==undefined)attributes[key]=String(value);}}
+   for(const item of raw){if(item&&typeof item==="object"){const key=String(item.name??item.attribute??item.key??"Option");const value=item.value??item.label??item.text??item.option_name;addAttribute(key,value);}}
   }
+  if(!Object.keys(attributes).length&&sku?.label)addAttribute("Option",sku.label);
   const label=Object.entries(attributes).map(([key,value])=>key+": "+value).join(" / ")||String(sku?.label||sku?.name||"Option "+(index+1));
-  const sourcePrice=Number(sku?.pricing?.sale_price??sku?.sale_price??sku?.price??basePrice);
-  const stockValue=Number(sku?.stock);
-  const stock=sku?.is_available===false?0:(Number.isFinite(stockValue)?Math.max(0,Math.floor(stockValue)):0);
+  const sourcePrice=Number(sku?.pricing?.sale_price??sku?.sale_price??sku?.price??sku?.price_scr??basePrice);
+  const stockValue=Number(sku?.stock??sku?.quantity??sku?.stock_quantity);
+  const available=sku?.is_available??sku?.available??sku?.in_stock;
+  const stock=available===false?0:(Number.isFinite(stockValue)?Math.max(0,Math.floor(stockValue)):0);
   const priceScr=rate&&Number.isFinite(sourcePrice)&&sourcePrice>0?Math.round(sourcePrice*rate*1.2*100)/100:null;
   return {label,attributes,sourcePrice:Number.isFinite(sourcePrice)?sourcePrice:basePrice,priceScr,stock,imageUrl:null};
  }).filter((variant:any)=>variant.label);
@@ -59,16 +60,16 @@ export async function POST(request:NextRequest){try{
   const apiKey=process.env.ALIEXPRESS_SCRAPER_API_KEY;
   if(!apiKey)return NextResponse.json({error:"AliExpress blocks direct server extraction. Connect the free AliExpress Scraper API key in Vercel to enable reliable product imports. The other suppliers still use page extraction."},{status:503});
   const apiUrl=new URL("https://aliexpress-scraper-api.omkar.cloud/aliexpress/v2/product");
-  apiUrl.searchParams.set("product",parsed.toString());apiUrl.searchParams.set("country_code","MY");
+  apiUrl.searchParams.set("product",parsed.toString());apiUrl.searchParams.set("country_code","SC");
   const apiResponse=await fetch(apiUrl.toString(),{headers:{"API-Key":apiKey,Accept:"application/json"},signal:AbortSignal.timeout(30000)});
   const apiData=await apiResponse.json().catch(()=>null);
   if(!apiResponse.ok||!apiData||apiData.error||apiData.code)throw new Error(apiData?.message||apiData?.error||"AliExpress product service could not retrieve this listing. Check the product URL or API quota.");
   const productData=apiData.data?.product??apiData.data??apiData.product??apiData;
-  const skuRows=Array.isArray(productData.skus)?productData.skus:Array.isArray(productData.variants)?productData.variants:[];
-  const propertyRows=Array.isArray(productData.sku_properties)?productData.sku_properties:Array.isArray(productData.skuProperties)?productData.skuProperties:[];
+  const skuRows=Array.isArray(productData.skus)?productData.skus:Array.isArray(productData.variants)?productData.variants:Array.isArray(productData.sku_list)?productData.sku_list:[];
+  const propertyRows=Array.isArray(productData.sku_properties)?productData.sku_properties:Array.isArray(productData.skuProperties)?productData.skuProperties:Array.isArray(productData.sku_property_list)?productData.sku_property_list:[];
   const supplierDebug={topLevelKeys:Object.keys(apiData),productKeys:Object.keys(productData||{}),skuCount:skuRows.length,skuPropertyCount:propertyRows.length,firstSkuAttributes:skuRows[0]?.attributes??null,firstSkuProperty:propertyRows[0]??null};
-  const sourcePrice=Number(productData.pricing?.sale_price??productData.price);
-  const sourceCurrency=String(productData.pricing?.currency||"").toUpperCase();
+  const sourcePrice=Number(productData.pricing?.sale_price??productData.price??productData.sale_price??productData.min_price);
+  const sourceCurrency=String(productData.pricing?.currency||productData.currency||"").toUpperCase();
   const images=(Array.isArray(productData.images)?productData.images:[]).filter((v:any)=>typeof v==="string"&&/^https:\/\//i.test(v)).slice(0,8);
   const specifications=Array.isArray(productData.specifications)?productData.specifications:[];
   const description=String(productData.description||productData.product_description||specifications.map((s:any)=>s?.name&&s?.value?String(s.name)+": "+String(s.value):"").filter(Boolean).join("\\n"));
