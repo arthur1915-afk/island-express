@@ -6,9 +6,9 @@ export const metadata: Metadata = {
   title: "islandXpress | Shop Local. Discover More.",
   description: "The Seychelles online marketplace for local shops and independent sellers.",
   icons: {
-    icon: [{ url: "/favicon.svg?v=8", type: "image/svg+xml" }],
-    shortcut: [{ url: "/favicon.svg?v=8", type: "image/svg+xml" }],
-    apple: [{ url: "/favicon.svg?v=8", type: "image/svg+xml" }],
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
   }
 };
 
