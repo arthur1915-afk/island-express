@@ -62,8 +62,8 @@ export async function POST(request:NextRequest){try{
   apiUrl.searchParams.set("product",parsed.toString());apiUrl.searchParams.set("country_code","MY");
   const apiResponse=await fetch(apiUrl.toString(),{headers:{"API-Key":apiKey,Accept:"application/json"},signal:AbortSignal.timeout(30000)});
   const apiData=await apiResponse.json().catch(()=>null);
-  if(!apiResponse.ok||!apiData||productData.error||productData.code)throw new Error(apiData?.message||apiData?.error||"AliExpress product service could not retrieve this listing. Check the product URL or API quota.");
-  const productData=productData.data?.product??productData.data??productData.product??apiData;
+  if(!apiResponse.ok||!apiData||apiData.error||apiData.code)throw new Error(apiData?.message||apiData?.error||"AliExpress product service could not retrieve this listing. Check the product URL or API quota.");
+  const productData=apiData.data?.product??apiData.data??apiData.product??apiData;
   const skuRows=Array.isArray(productData.skus)?productData.skus:Array.isArray(productData.variants)?productData.variants:[];
   const propertyRows=Array.isArray(productData.sku_properties)?productData.sku_properties:Array.isArray(productData.skuProperties)?productData.skuProperties:[];
   const supplierDebug={topLevelKeys:Object.keys(apiData),productKeys:Object.keys(productData||{}),skuCount:skuRows.length,skuPropertyCount:propertyRows.length,firstSkuAttributes:skuRows[0]?.attributes??null,firstSkuProperty:propertyRows[0]??null};
