@@ -7,22 +7,38 @@ function meta(html:string,key:string,attr="property"){const escaped=key.replace(
 function collect(value:any,out:any[]){if(!value||typeof value!=="object")return;if(Array.isArray(value)){value.forEach(v=>collect(v,out));return;}const types=Array.isArray(value["@type"])?value["@type"]:[value["@type"]];if(types.some((t:any)=>String(t).toLowerCase()==="product"))out.push(value);for(const [k,v] of Object.entries(value)){if(k!=="@type"&&v&&typeof v==="object")collect(v,out);}}
 
 const MARKUP_MULTIPLIER=1.25;
+async function fetchRateTable(base:string):Promise<{rates:Record<string,number>;updated?:string}|null>{
+ try{
+  const response=await fetch("https://open.er-api.com/v6/latest/"+encodeURIComponent(base),{signal:AbortSignal.timeout(9000),cache:"no-store"});
+  if(!response.ok)return null;
+  const data=await response.json();
+  if(data?.result!=="success"||!data?.rates||typeof data.rates!=="object")return null;
+  return {rates:data.rates,updated:data.time_last_update_utc};
+ }catch{return null;}
+}
 async function getScrRate(currency:string):Promise<number|null>{
- const code=String(currency||"").toUpperCase();
+ const code=String(currency||"").trim().toUpperCase();
  if(!/^[A-Z]{3}$/.test(code))return null;
  if(code==="SCR")return 1;
- const response=await fetch("https://open.er-api.com/v6/latest/"+encodeURIComponent(code),{signal:AbortSignal.timeout(8000)});
- if(!response.ok)return null;
- const data=await response.json();
- const rate=Number(data?.rates?.SCR);
- return data?.result==="success"&&Number.isFinite(rate)&&rate>0?rate:null;
+ const direct=await fetchRateTable(code);
+ const directRate=Number(direct?.rates?.SCR);
+ if(Number.isFinite(directRate)&&directRate>0)return directRate;
+ // Cross-rate fallback: convert source currency to USD, then USD to SCR.
+ const usd=await fetchRateTable("USD");
+ const sourcePerUsd=Number(usd?.rates?.[code]);
+ const scrPerUsd=Number(usd?.rates?.SCR);
+ if(Number.isFinite(sourcePerUsd)&&sourcePerUsd>0&&Number.isFinite(scrPerUsd)&&scrPerUsd>0){
+  const cross=scrPerUsd/sourcePerUsd;
+  if(Number.isFinite(cross)&&cross>0)return cross;
+ }
+ return null;
 }
 async function normaliseSkus(skus:any[],basePrice:number,baseCurrency:string,baseRate:number|null,skuProperties:any[]=[]){
  const properties=Array.isArray(skuProperties)?skuProperties:[];
  const propertyById=new Map<string,any>();
  for(const property of properties)propertyById.set(String(property.id),property);
- const currencies=[...new Set(skus.map((sku:any)=>String(sku?.pricing?.currency??sku?.currency??baseCurrency).toUpperCase()).filter((c:string)=>/^[A-Z]{3}$/.test(c)))];
- const rates=new Map<string,number|null>([[baseCurrency,baseRate]]);
+ const currencies=[...new Set(skus.map((sku:any)=>String(sku?.pricing?.currency??sku?.currency??defaultCurrency).toUpperCase()).filter((c:string)=>/^[A-Z]{3}$/.test(c)))];
+ const defaultCurrency=String(baseCurrency||"").toUpperCase();\n const rates=new Map<string,number|null>();\n if(defaultCurrency)rates.set(defaultCurrency,baseRate);
  await Promise.all(currencies.map(async(currency:string)=>{if(!rates.has(currency))rates.set(currency,await getScrRate(currency));}));
  return skus.map((sku:any,index:number)=>{
   const attributes:Record<string,string>={};
@@ -92,7 +108,7 @@ export async function POST(request:NextRequest){try{
   const skuRows=Array.isArray(productData.skus)?productData.skus:Array.isArray(productData.variants)?productData.variants:Array.isArray(productData.sku_list)?productData.sku_list:[];
   const propertyRows=Array.isArray(productData.sku_properties)?productData.sku_properties:Array.isArray(productData.skuProperties)?productData.skuProperties:Array.isArray(productData.sku_property_list)?productData.sku_property_list:[];
   const supplierDebug={topLevelKeys:Object.keys(apiData),productKeys:Object.keys(productData||{}),skuCount:skuRows.length,skuPropertyCount:propertyRows.length,firstSkuAttributes:skuRows[0]?.attributes??null,firstSkuProperty:propertyRows[0]??null};
-  const sourcePrice=Number(productData.pricing?.sale_price??productData.price??productData.sale_price??productData.min_price);
+  const rawSourcePrice=productData.pricing?.sale_price??productData.price??productData.sale_price??productData.min_price;\n  const sourcePrice=Number(String(rawSourcePrice??"").replace(/[^0-9.,]/g,"").replace(/,(?=\\d{3}(?:\\D|$))/g,"").replace(",", "."));
   const sourceCurrency=String(productData.pricing?.currency||productData.currency||"").toUpperCase();
   const images=(Array.isArray(productData.images)?productData.images:[]).filter((v:any)=>typeof v==="string"&&/^https:\/\//i.test(v)).slice(0,8);
   const specifications=Array.isArray(productData.specifications)?productData.specifications:[];
@@ -113,7 +129,7 @@ export async function POST(request:NextRequest){try{
  const description=String(p.description||meta(html,"og:description")||meta(html,"description","name")||"");
  const images=imageCandidates(html,p);
  const dv=offers.shippingDetails||p.shippingDetails;const sd=Array.isArray(dv)?dv[0]:dv;const dest=Array.isArray(sd?.shippingDestination)?sd.shippingDestination[0]:sd?.shippingDestination;const shipAmount=Number(sd?.shippingRate?.value);const shipCurrency=String(sd?.shippingRate?.currency||sourceCurrency).toUpperCase();const shipping=String(dest?.addressCountry||"").toUpperCase()==="SC"&&Number.isFinite(shipAmount)&&shipCurrency?{amount:shipAmount,currency:shipCurrency}:null;
- let fx:any=null;if(sourceCurrency&&Number.isFinite(sourcePrice)&&sourcePrice>0){const fr=await fetch("https://open.er-api.com/v6/latest/"+encodeURIComponent(sourceCurrency),{signal:AbortSignal.timeout(8000)});if(fr.ok){const fd=await fr.json();const rate=Number(fd?.rates?.SCR);if(fd?.result==="success"&&rate>0)fx={rate,provider:"open.er-api.com",updated:fd.time_last_update_utc};}}
+ let fx:any=null;if(sourceCurrency&&Number.isFinite(sourcePrice)&&sourcePrice>0){const convertedRate=await getScrRate(sourceCurrency);if(convertedRate)fx={rate:convertedRate,provider:"open.er-api.com (direct or USD cross-rate)"};}
  const rate=fx?.rate||null;const costScr=rate?Math.round(sourcePrice*rate*100)/100:null;
  let shippingScr:number|null=null;if(shipping){let shippingRate=shipping.currency===sourceCurrency?rate:null;if(!shippingRate){const sr=await fetch("https://open.er-api.com/v6/latest/"+encodeURIComponent(shipping.currency),{signal:AbortSignal.timeout(8000)});if(sr.ok){const sj=await sr.json();if(sj?.result==="success"&&Number(sj?.rates?.SCR)>0)shippingRate=Number(sj.rates.SCR);}}if(shippingRate)shippingScr=Math.round(shipping.amount*shippingRate*100)/100;}
  return NextResponse.json({platform:platform(parsed.hostname.toLowerCase()),sourceUrl:parsed.toString(),title,description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100,fx,shipping:shipping?{...shipping,scrAmount:shippingScr}:null,shippingMessage:shipping?"Supplier page exposes a Seychelles shipping quote.":"No verifiable Seychelles shipping quote was exposed in the page data; supplier may require address/login/checkout."});
