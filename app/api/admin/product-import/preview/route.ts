@@ -7,39 +7,35 @@ function meta(html:string,key:string,attr="property"){const escaped=key.replace(
 function collect(value:any,out:any[]){if(!value||typeof value!=="object")return;if(Array.isArray(value)){value.forEach(v=>collect(v,out));return;}const types=Array.isArray(value["@type"])?value["@type"]:[value["@type"]];if(types.some((t:any)=>String(t).toLowerCase()==="product"))out.push(value);for(const [k,v] of Object.entries(value)){if(k!=="@type"&&v&&typeof v==="object")collect(v,out);}}
 
 function normaliseSkus(skus:any[],basePrice:number,rate:number|null,skuProperties:any[]=[]){
- const propertyList=Array.isArray(skuProperties)?skuProperties:[];
- function findValues(node:any,sku:any,out:Record<string,string>){
-  if(!node||typeof node!=="object")return;
-  if(Array.isArray(node)){for(const child of node)findValues(child,sku,out);return;}
-  const skuId=String(sku?.id??sku?.sku_id??sku?.skuId??"");
-  const name=String(node.name??node.property_name??node.attr_name??node.label??"");
-  const optionValue=node.value??node.value_name??node.option_name??node.label;
-  const refs=[node.sku_id,node.skuId,node.sku_ids,node.skuIds,node.sku_list,node.skus,node.sku??null].flatMap((v:any)=>Array.isArray(v)?v:[v]).filter(v=>v!==null&&v!==undefined).map((v:any)=>String(typeof v==="object"?(v.id??v.sku_id??v.skuId??""):v));
-  const matches=skuId&&refs.includes(skuId);
-  if(matches&&name&&optionValue!==undefined)out[name]=String(optionValue);
-  for(const [key,value] of Object.entries(node)){
-   if(value&&typeof value==="object")findValues(value,sku,out);
-   else if(typeof value==="string"&&skuId&&value===skuId&&name&&optionValue!==undefined)out[name]=String(optionValue);
-  }
- }
+ const properties=Array.isArray(skuProperties)?skuProperties:[];
+ const propertyById=new Map<string,any>();
+ for(const property of properties)propertyById.set(String(property.id),property);
  return skus.map((sku:any,index:number)=>{
   const attributes:Record<string,string>={};
-  const rawAttrs=sku?.attributes??sku?.properties??sku?.specifications??sku?.sku_attributes??sku?.sku_attr_name;
-  if(rawAttrs&&typeof rawAttrs==="object"&&!Array.isArray(rawAttrs))for(const [k,v] of Object.entries(rawAttrs)){const value=typeof v==="object"&&v!==null?((v as any).value??(v as any).name??JSON.stringify(v)):v;if(value!==undefined&&value!==null&&String(value).trim())attributes[String(k)]=String(value);}
-  else if(Array.isArray(rawAttrs))for(const item of rawAttrs){if(item&&typeof item==="object"){const k=String(item.name??item.attribute??item.key??"Option");const v=item.value??item.label??item.text;if(v!==undefined&&String(v).trim())attributes[k]=String(v);}}
-  findValues(propertyList,sku,attributes);
-  const labelRaw=sku?.label??sku?.name??sku?.sku_name??sku?.variant_name??sku?.title;
-  const label=String(labelRaw??(Object.entries(attributes).map(([k,v])=>k+": "+v).join(" / ")||"Option "+(index+1)));
-  const rawPrice=sku?.pricing?.sale_price??sku?.pricing?.original_price??sku?.sale_price??sku?.sku_price??sku?.price??sku?.price_value??sku?.sku_price_value??sku?.promotion_price;
-  const numericPrice=Number(rawPrice);
-  const sourcePrice=Number.isFinite(numericPrice)&&numericPrice>0?numericPrice:basePrice;
-  const rawStock=sku?.stock??sku?.stock_quantity??sku?.sku_stock??sku?.quantity??sku?.inventory;
-  const stockNumber=Number(rawStock);
-  const stock=rawStock!==undefined&&rawStock!==null&&Number.isFinite(stockNumber)?Math.max(0,Math.floor(stockNumber)):0;
-  const image=sku?.image_url??sku?.image??sku?.sku_image??sku?.imageUrl??null;
-  const isAvailable=sku?.is_available!==false&&stock>0;
-  return {label,attributes,sourcePrice,priceScr:rate&&sourcePrice>0?Math.round(sourcePrice*rate*1.2*100)/100:null,stock:isAvailable?stock:0,imageUrl:typeof image==="string"&&image.startsWith("https://")?image:null};
- }).filter((v:any)=>v.label);
+  const raw=sku?.attributes;
+  if(typeof raw==="string"){
+   for(const token of raw.split(";")){
+    const [propertyId,valuePart]=token.split(":");
+    if(!propertyId||!valuePart)continue;
+    const [valueId,labelPart]=valuePart.split("#");
+    const property=propertyById.get(String(propertyId));
+    const option=property?.values?.find((v:any)=>String(v?.id)===String(valueId));
+    const key=String(property?.name||("Option "+propertyId));
+    const value=String(option?.name||labelPart||valueId);
+    attributes[key]=value;
+   }
+  }else if(raw&&typeof raw==="object"&&!Array.isArray(raw)){
+   for(const [key,value] of Object.entries(raw)){const v=typeof value==="object"&&value!==null?((value as any).name??(value as any).value??JSON.stringify(value)):value;if(v!==undefined&&v!==null)attributes[String(key)]=String(v);}
+  }else if(Array.isArray(raw)){
+   for(const item of raw){if(item&&typeof item==="object"){const key=String(item.name??item.attribute??item.key??"Option");const value=item.value??item.label??item.text;if(value!==undefined)attributes[key]=String(value);}}
+  }
+  const label=Object.entries(attributes).map(([key,value])=>key+": "+value).join(" / ")||String(sku?.label||sku?.name||"Option "+(index+1));
+  const sourcePrice=Number(sku?.pricing?.sale_price??sku?.sale_price??sku?.price??basePrice);
+  const stockValue=Number(sku?.stock);
+  const stock=sku?.is_available===false?0:(Number.isFinite(stockValue)?Math.max(0,Math.floor(stockValue)):0);
+  const priceScr=rate&&Number.isFinite(sourcePrice)&&sourcePrice>0?Math.round(sourcePrice*rate*1.2*100)/100:null;
+  return {label,attributes,sourcePrice:Number.isFinite(sourcePrice)?sourcePrice:basePrice,priceScr,stock,imageUrl:null};
+ }).filter((variant:any)=>variant.label);
 }
 function imageCandidates(html:string,product:any){
  const found:string[]=[];
