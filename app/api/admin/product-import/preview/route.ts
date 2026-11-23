@@ -5,7 +5,26 @@ const allowed = ["aliexpress.com","shein.com","iherb.com","asos.com","alibaba.co
 function platform(host:string){return allowed.find(d=>host===d||host.endsWith("."+d))||null;}
 function meta(html:string,key:string,attr="property"){const escaped=key.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");const a=new RegExp(`<meta[^>]+${attr}=[\"']${escaped}[\"'][^>]+content=[\"']([^\"']*)[\"'][^>]*>`,"i");const b=new RegExp(`<meta[^>]+content=[\"']([^\"']*)[\"'][^>]+${attr}=[\"']${escaped}[\"'][^>]*>`,"i");const m=html.match(a)||html.match(b);return (m?.[1]||"").replace(/&amp;/g,"&").replace(/&quot;/g,'"').trim();}
 function collect(value:any,out:any[]){if(!value||typeof value!=="object")return;if(Array.isArray(value)){value.forEach(v=>collect(v,out));return;}const types=Array.isArray(value["@type"])?value["@type"]:[value["@type"]];if(types.some((t:any)=>String(t).toLowerCase()==="product"))out.push(value);for(const [k,v] of Object.entries(value)){if(k!=="@type"&&v&&typeof v==="object")collect(v,out);}}
-function imageCandidates(html:string,product:any){
+
+function normaliseSkus(skus:any[],basePrice:number,rate:number|null){
+ return skus.map((sku:any,index:number)=>{
+  const rawAttrs=sku?.attributes??sku?.properties??sku?.specifications??sku?.sku_attributes??sku?.sku_attr_name??sku?.sku_name??{};
+  const attributes:Record<string,string>={};
+  if(rawAttrs&&typeof rawAttrs==="object"&&!Array.isArray(rawAttrs))for(const [k,v] of Object.entries(rawAttrs)){const value=typeof v==="object"&&v!==null?((v as any).value??(v as any).name??JSON.stringify(v)):v;if(value!==undefined&&value!==null&&String(value).trim())attributes[String(k)]=String(value);}
+  else if(Array.isArray(rawAttrs))for(const item of rawAttrs){if(item&&typeof item==="object"){const k=String(item.name??item.attribute??item.key??"Option");const v=item.value??item.label??item.text;if(v!==undefined&&String(v).trim())attributes[k]=String(v);}}
+  const labelRaw=sku?.label??sku?.name??sku?.sku_name??sku?.variant_name??sku?.title;
+  const label=String(labelRaw??Object.entries(attributes).map(([k,v])=>k+": "+v).join(" / ")||"Option "+(index+1));
+  const rawPrice=sku?.sale_price??sku?.sku_price??sku?.price??sku?.price_value??sku?.sku_price_value??sku?.promotion_price;
+  const numericPrice=Number(String(rawPrice??"").replace(/[^0-9.]/g,""));
+  const sourcePrice=Number.isFinite(numericPrice)&&numericPrice>0?numericPrice:basePrice;
+  const rawStock=sku?.stock_quantity??sku?.sku_stock??sku?.stock??sku?.quantity??sku?.inventory;
+  const stockNumber=Number(rawStock);
+  const stock=rawStock!==undefined&&rawStock!==null&&Number.isFinite(stockNumber)?Math.max(0,Math.floor(stockNumber)):0;
+  const image=sku?.image_url??sku?.image??sku?.sku_image??sku?.imageUrl??null;
+  return {label,attributes,sourcePrice,priceScr:rate&&sourcePrice>0?Math.round(sourcePrice*rate*1.2*100)/100:null,stock,imageUrl:typeof image==="string"&&image.startsWith("https://")?image:null};
+ }).filter((v:any)=>v.label);
+}
+\nfunction imageCandidates(html:string,product:any){
  const found:string[]=[];
  const add=(v:any)=>{if(typeof v==="string"){const s=v.replace(/&amp;/g,"&").replace(/\\u0026/gi,"&").trim();const u=s.startsWith("//")?"https:"+s:s;if(u.startsWith("https://")&&!/(sprite|logo|icon|avatar|placeholder)/i.test(u))found.push(u);}else if(Array.isArray(v))v.forEach(add);else if(v&&typeof v==="object"){add(v.url);add(v.contentUrl);}};
  add(product?.image);add(product?.images);
@@ -41,7 +60,7 @@ export async function POST(request:NextRequest){try{
   const rate=fx?.rate||null;const costScr=rate?Math.round(sourcePrice*rate*100)/100:null;
   const shippingOptions=Array.isArray(apiData.shipping?.options)?apiData.shipping.options:[];
   const shippingOption=shippingOptions.find((s:any)=>Number.isFinite(Number(s.price))&&String(s.currency||sourceCurrency).toUpperCase()===sourceCurrency);
-  return NextResponse.json({platform:"aliexpress.com",sourceUrl:parsed.toString(),title:String(apiData.title||""),description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*1.2*100)/100,fx,shipping:null,shippingMessage:shippingOption?"Supplier shipping options were found, but not confirmed for Seychelles. Enter a Seychelles delivery fee manually.":"AliExpress did not return a verified Seychelles shipping quote. Enter the delivery fee manually.",supplierDataSource:"AliExpress Scraper API",variants:Array.isArray(apiData.skus)?apiData.skus:[],specifications});
+  return NextResponse.json({platform:"aliexpress.com",sourceUrl:parsed.toString(),title:String(apiData.title||""),description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*1.2*100)/100,fx,shipping:null,shippingMessage:shippingOption?"Supplier shipping options were found, but not confirmed for Seychelles. Enter a Seychelles delivery fee manually.":"AliExpress did not return a verified Seychelles shipping quote. Enter the delivery fee manually.",supplierDataSource:"AliExpress Scraper API",variants:normaliseSkus(Array.isArray(apiData.skus)?apiData.skus:[],Number.isFinite(sourcePrice)?sourcePrice:0,rate),specifications});
  }
  const response=await fetch(parsed.toString(),{headers:{"User-Agent":"Mozilla/5.0 (compatible; islandXpressProductPreview/1.0)",Accept:"text/html,application/xhtml+xml"},signal:AbortSignal.timeout(12000),redirect:"follow"});if(!response.ok)throw new Error("Supplier page could not be accessed. Enter product details manually.");
  const html=(await response.text()).slice(0,2500000);const products:any[]=[];const scripts=[...html.matchAll(/<script[^>]*type=["\']application\/ld\+json["\'][^>]*>([\s\S]*?)<\/script>/gi)];for(const m of scripts){try{collect(JSON.parse(m[1]),products);}catch{}}
