@@ -13,7 +13,7 @@ function normaliseSkus(skus:any[],basePrice:number,rate:number|null){
   if(rawAttrs&&typeof rawAttrs==="object"&&!Array.isArray(rawAttrs))for(const [k,v] of Object.entries(rawAttrs)){const value=typeof v==="object"&&v!==null?((v as any).value??(v as any).name??JSON.stringify(v)):v;if(value!==undefined&&value!==null&&String(value).trim())attributes[String(k)]=String(value);}
   else if(Array.isArray(rawAttrs))for(const item of rawAttrs){if(item&&typeof item==="object"){const k=String(item.name??item.attribute??item.key??"Option");const v=item.value??item.label??item.text;if(v!==undefined&&String(v).trim())attributes[k]=String(v);}}
   const labelRaw=sku?.label??sku?.name??sku?.sku_name??sku?.variant_name??sku?.title;
-  const label=String(labelRaw??Object.entries(attributes).map(([k,v])=>k+": "+v).join(" / ")||"Option "+(index+1));
+  const label=String(labelRaw ?? (Object.entries(attributes).map(([k,v])=>k+": "+v).join(" / ") || "Option "+(index+1)));
   const rawPrice=sku?.sale_price??sku?.sku_price??sku?.price??sku?.price_value??sku?.sku_price_value??sku?.promotion_price;
   const numericPrice=Number(String(rawPrice??"").replace(/[^0-9.]/g,""));
   const sourcePrice=Number.isFinite(numericPrice)&&numericPrice>0?numericPrice:basePrice;
@@ -24,7 +24,8 @@ function normaliseSkus(skus:any[],basePrice:number,rate:number|null){
   return {label,attributes,sourcePrice,priceScr:rate&&sourcePrice>0?Math.round(sourcePrice*rate*1.2*100)/100:null,stock,imageUrl:typeof image==="string"&&image.startsWith("https://")?image:null};
  }).filter((v:any)=>v.label);
 }
-\nfunction imageCandidates(html:string,product:any){
+
+function imageCandidates(html:string,product:any){
  const found:string[]=[];
  const add=(v:any)=>{if(typeof v==="string"){const s=v.replace(/&amp;/g,"&").replace(/\\u0026/gi,"&").trim();const u=s.startsWith("//")?"https:"+s:s;if(u.startsWith("https://")&&!/(sprite|logo|icon|avatar|placeholder)/i.test(u))found.push(u);}else if(Array.isArray(v))v.forEach(add);else if(v&&typeof v==="object"){add(v.url);add(v.contentUrl);}};
  add(product?.image);add(product?.images);
