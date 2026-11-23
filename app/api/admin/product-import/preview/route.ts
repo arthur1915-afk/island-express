@@ -7,6 +7,19 @@ function meta(html:string,key:string,attr="property"){const escaped=key.replace(
 function collect(value:any,out:any[]){if(!value||typeof value!=="object")return;if(Array.isArray(value)){value.forEach(v=>collect(v,out));return;}const types=Array.isArray(value["@type"])?value["@type"]:[value["@type"]];if(types.some((t:any)=>String(t).toLowerCase()==="product"))out.push(value);for(const [k,v] of Object.entries(value)){if(k!=="@type"&&v&&typeof v==="object")collect(v,out);}}
 
 const MARKUP_MULTIPLIER=1.25;
+function normaliseCurrencyCode(value:any):string{
+ const raw=String(value??"").trim().toUpperCase();
+ const aliases:Record<string,string>={"SEYCHELLES RUPEE":"SCR","SEYCHELLES RUPEES":"SCR","SCR":"SCR","US DOLLAR":"USD","US DOLLARS":"USD","U.S. DOLLAR":"USD","CHINESE YUAN":"CNY","RENMINBI":"CNY"};
+ return aliases[raw]||raw;
+}
+function priceInScr(sourcePrice:number,currencyValue:any,rate:number|null):number|null{
+ if(!Number.isFinite(sourcePrice)||sourcePrice<=0)return null;
+ const currency=normaliseCurrencyCode(currencyValue);
+ // SCR is already the marketplace currency: never run it through FX.
+ if(currency==="SCR")return Math.round(sourcePrice*100)/100;
+ if(!currency||!rate||!Number.isFinite(rate)||rate<=0)return null;
+ return Math.round(sourcePrice*rate*100)/100;
+}
 function parseSupplierPrice(value:any):number{
  let s=String(value??"").trim().replace(/[^0-9,.-]/g,"");
  if(!s)return NaN;
@@ -55,8 +68,8 @@ async function normaliseSkus(skus:any[],basePrice:number,baseCurrency:string,bas
  const properties=Array.isArray(skuProperties)?skuProperties:[];
  const propertyById=new Map<string,any>();
  for(const property of properties)propertyById.set(String(property.id),property);
- const defaultCurrency=String(baseCurrency||"").toUpperCase();
- const currencies=[...new Set(skus.map((sku:any)=>String(sku?.pricing?.currency??sku?.currency??defaultCurrency).toUpperCase()).filter((c:string)=>/^[A-Z]{3}$/.test(c)))];
+ const defaultCurrency=normaliseCurrencyCode(baseCurrency);
+ const currencies=[...new Set(skus.map((sku:any)=>normaliseCurrencyCode(sku?.pricing?.currency??sku?.currency??defaultCurrency)).filter((c:string)=>/^[A-Z]{3}$/.test(c)))];
  const rates=new Map<string,number|null>();
  if(defaultCurrency)rates.set(defaultCurrency,baseRate);
  await Promise.all(currencies.map(async(currency:string)=>{if(!rates.has(currency))rates.set(currency,await getScrRate(currency));}));
@@ -84,9 +97,9 @@ async function normaliseSkus(skus:any[],basePrice:number,baseCurrency:string,bas
   const label=Object.entries(attributes).map(([key,value])=>key+": "+value).join(" / ")||String(sku?.label||sku?.name||"Option "+(index+1));
   const rawPrice=sku?.pricing?.sale_price??sku?.sale_price??sku?.price??sku?.price_scr??basePrice;
   const sourcePrice=parseSupplierPrice(rawPrice);
-  const sourceCurrency=String(sku?.pricing?.currency??sku?.currency??baseCurrency).toUpperCase();
+  const sourceCurrency=normaliseCurrencyCode(sku?.pricing?.currency??sku?.currency??baseCurrency);
   const rate=rates.get(sourceCurrency)??null;
-  const costScr=rate&&Number.isFinite(sourcePrice)&&sourcePrice>0?Math.round(sourcePrice*rate*100)/100:null;
+  const costScr=priceInScr(sourcePrice,sourceCurrency,rate);
   const sellingPriceScr=costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100;
   const stockValue=Number(sku?.stock??sku?.quantity??sku?.stock_quantity);
   const available=sku?.is_available??sku?.available??sku?.in_stock;
@@ -130,13 +143,13 @@ export async function POST(request:NextRequest){try{
   const supplierDebug={topLevelKeys:Object.keys(apiData),productKeys:Object.keys(productData||{}),skuCount:skuRows.length,skuPropertyCount:propertyRows.length,firstSkuAttributes:skuRows[0]?.attributes??null,firstSkuProperty:propertyRows[0]??null};
   const rawSourcePrice=productData.pricing?.sale_price??productData.price??productData.sale_price??productData.min_price;
   const sourcePrice=parseSupplierPrice(rawSourcePrice);
-  const sourceCurrency=String(productData.pricing?.currency||productData.currency||"").toUpperCase();
+  const sourceCurrency=normaliseCurrencyCode(productData.pricing?.currency??productData.currency??productData.price_currency??productData.currency_code);
   const images=(Array.isArray(productData.images)?productData.images:[]).filter((v:any)=>typeof v==="string"&&/^https:\/\//i.test(v)).slice(0,8);
   const specifications=Array.isArray(productData.specifications)?productData.specifications:[];
   const description=String(productData.description||productData.product_description||specifications.map((s:any)=>s?.name&&s?.value?String(s.name)+": "+String(s.value):"").filter(Boolean).join("\\n"));
   let fx:any=null;
   if(sourceCurrency&&Number.isFinite(sourcePrice)&&sourcePrice>0){const convertedRate=await getScrRate(sourceCurrency);if(convertedRate)fx={rate:convertedRate,provider:"open.er-api.com (direct or USD cross-rate)"};}
-  const rate=fx?.rate||null;const costScr=rate?Math.round(sourcePrice*rate*100)/100:null;
+  const rate=sourceCurrency==="SCR"?1:(fx?.rate||null);const costScr=priceInScr(sourcePrice,sourceCurrency,rate);
   const shippingOptions=Array.isArray(productData.shipping?.options)?productData.shipping.options:[];
   const shippingOption=shippingOptions.find((s:any)=>Number.isFinite(Number(s.price))&&String(s.currency||sourceCurrency).toUpperCase()===sourceCurrency);
   return NextResponse.json({platform:"aliexpress.com",sourceUrl:parsed.toString(),title:String(productData.title||""),description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100,fx,shipping:null,shippingMessage:shippingOption?"Supplier shipping options were found, but not confirmed for Seychelles. Enter a Seychelles delivery fee manually.":"AliExpress did not return a verified Seychelles shipping quote. Enter the delivery fee manually.",supplierDataSource:"AliExpress Scraper API",variants:await normaliseSkus(skuRows,Number.isFinite(sourcePrice)?sourcePrice:0,sourceCurrency,rate,propertyRows),supplierDebug,specifications});
@@ -145,13 +158,13 @@ export async function POST(request:NextRequest){try{
  const html=(await response.text()).slice(0,2500000);const products:any[]=[];const scripts=[...html.matchAll(/<script[^>]*type=["\']application\/ld\+json["\'][^>]*>([\s\S]*?)<\/script>/gi)];for(const m of scripts){try{collect(JSON.parse(m[1]),products);}catch{}}
  const p=products[0]||{};const offers=Array.isArray(p.offers)?p.offers[0]:(p.offers||{});const priceText=offers.price||offers.lowPrice||meta(html,"product:price:amount")||meta(html,"og:price:amount")||meta(html,"price");
  const sourcePrice=parseSupplierPrice(priceText);
- const sourceCurrency=String(offers.priceCurrency||meta(html,"product:price:currency")||meta(html,"og:price:currency")||"").toUpperCase();
+ const sourceCurrency=normaliseCurrencyCode(offers.priceCurrency||meta(html,"product:price:currency")||meta(html,"og:price:currency")||"");
  const title=String(p.name||meta(html,"og:title")||meta(html,"twitter:title","name")||((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||"").replace(/&amp;/g,"&").trim());
  const description=String(p.description||meta(html,"og:description")||meta(html,"description","name")||"");
  const images=imageCandidates(html,p);
  const dv=offers.shippingDetails||p.shippingDetails;const sd=Array.isArray(dv)?dv[0]:dv;const dest=Array.isArray(sd?.shippingDestination)?sd.shippingDestination[0]:sd?.shippingDestination;const shipAmount=Number(sd?.shippingRate?.value);const shipCurrency=String(sd?.shippingRate?.currency||sourceCurrency).toUpperCase();const shipping=String(dest?.addressCountry||"").toUpperCase()==="SC"&&Number.isFinite(shipAmount)&&shipCurrency?{amount:shipAmount,currency:shipCurrency}:null;
  let fx:any=null;if(sourceCurrency&&Number.isFinite(sourcePrice)&&sourcePrice>0){const convertedRate=await getScrRate(sourceCurrency);if(convertedRate)fx={rate:convertedRate,provider:"open.er-api.com (direct or USD cross-rate)"};}
- const rate=fx?.rate||null;const costScr=rate?Math.round(sourcePrice*rate*100)/100:null;
+ const rate=sourceCurrency==="SCR"?1:(fx?.rate||null);const costScr=priceInScr(sourcePrice,sourceCurrency,rate);
  let shippingScr:number|null=null;if(shipping){let shippingRate=shipping.currency===sourceCurrency?rate:null;if(!shippingRate){const sr=await fetch("https://open.er-api.com/v6/latest/"+encodeURIComponent(shipping.currency),{signal:AbortSignal.timeout(8000)});if(sr.ok){const sj=await sr.json();if(sj?.result==="success"&&Number(sj?.rates?.SCR)>0)shippingRate=Number(sj.rates.SCR);}}if(shippingRate)shippingScr=Math.round(shipping.amount*shippingRate*100)/100;}
  return NextResponse.json({platform:platform(parsed.hostname.toLowerCase()),sourceUrl:parsed.toString(),title,description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100,fx,shipping:shipping?{...shipping,scrAmount:shippingScr}:null,shippingMessage:shipping?"Supplier page exposes a Seychelles shipping quote.":"No verifiable Seychelles shipping quote was exposed in the page data; supplier may require address/login/checkout."});
  }catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Could not preview product."},{status:400});}}
