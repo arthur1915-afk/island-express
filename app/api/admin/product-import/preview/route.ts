@@ -6,10 +6,24 @@ function platform(host:string){return allowed.find(d=>host===d||host.endsWith(".
 function meta(html:string,key:string,attr="property"){const escaped=key.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");const a=new RegExp(`<meta[^>]+${attr}=[\"']${escaped}[\"'][^>]+content=[\"']([^\"']*)[\"'][^>]*>`,"i");const b=new RegExp(`<meta[^>]+content=[\"']([^\"']*)[\"'][^>]+${attr}=[\"']${escaped}[\"'][^>]*>`,"i");const m=html.match(a)||html.match(b);return (m?.[1]||"").replace(/&amp;/g,"&").replace(/&quot;/g,'"').trim();}
 function collect(value:any,out:any[]){if(!value||typeof value!=="object")return;if(Array.isArray(value)){value.forEach(v=>collect(v,out));return;}const types=Array.isArray(value["@type"])?value["@type"]:[value["@type"]];if(types.some((t:any)=>String(t).toLowerCase()==="product"))out.push(value);for(const [k,v] of Object.entries(value)){if(k!=="@type"&&v&&typeof v==="object")collect(v,out);}}
 
-function normaliseSkus(skus:any[],basePrice:number,rate:number|null,skuProperties:any[]=[]){
+const MARKUP_MULTIPLIER=1.2;
+async function getScrRate(currency:string):Promise<number|null>{
+ const code=String(currency||"").toUpperCase();
+ if(!/^[A-Z]{3}$/.test(code))return null;
+ if(code==="SCR")return 1;
+ const response=await fetch("https://open.er-api.com/v6/latest/"+encodeURIComponent(code),{signal:AbortSignal.timeout(8000)});
+ if(!response.ok)return null;
+ const data=await response.json();
+ const rate=Number(data?.rates?.SCR);
+ return data?.result==="success"&&Number.isFinite(rate)&&rate>0?rate:null;
+}
+async function normaliseSkus(skus:any[],basePrice:number,baseCurrency:string,baseRate:number|null,skuProperties:any[]=[]){
  const properties=Array.isArray(skuProperties)?skuProperties:[];
  const propertyById=new Map<string,any>();
  for(const property of properties)propertyById.set(String(property.id),property);
+ const currencies=[...new Set(skus.map((sku:any)=>String(sku?.pricing?.currency??sku?.currency??baseCurrency).toUpperCase()).filter((c:string)=>/^[A-Z]{3}$/.test(c)))];
+ const rates=new Map<string,number|null>([[baseCurrency,baseRate]]);
+ await Promise.all(currencies.map(async(currency:string)=>{if(!rates.has(currency))rates.set(currency,await getScrRate(currency));}));
  return skus.map((sku:any,index:number)=>{
   const attributes:Record<string,string>={};
   let imageUrl:string|null=null;
@@ -32,12 +46,16 @@ function normaliseSkus(skus:any[],basePrice:number,rate:number|null,skuPropertie
   }
   if(!Object.keys(attributes).length&&sku?.label)addAttribute("Option",sku.label);
   const label=Object.entries(attributes).map(([key,value])=>key+": "+value).join(" / ")||String(sku?.label||sku?.name||"Option "+(index+1));
-  const sourcePrice=Number(sku?.pricing?.sale_price??sku?.sale_price??sku?.price??sku?.price_scr??basePrice);
+  const rawPrice=sku?.pricing?.sale_price??sku?.sale_price??sku?.price??sku?.price_scr??basePrice;
+  const sourcePrice=Number(String(rawPrice).replace(/[^0-9.]/g,""));
+  const sourceCurrency=String(sku?.pricing?.currency??sku?.currency??baseCurrency).toUpperCase();
+  const rate=rates.get(sourceCurrency)??null;
+  const costScr=rate&&Number.isFinite(sourcePrice)&&sourcePrice>0?Math.round(sourcePrice*rate*100)/100:null;
+  const sellingPriceScr=costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100;
   const stockValue=Number(sku?.stock??sku?.quantity??sku?.stock_quantity);
   const available=sku?.is_available??sku?.available??sku?.in_stock;
   const stock=available===false?0:(Number.isFinite(stockValue)?Math.max(0,Math.floor(stockValue)):0);
-  const priceScr=rate&&Number.isFinite(sourcePrice)&&sourcePrice>0?Math.round(sourcePrice*rate*1.2*100)/100:null;
-  return {label,attributes,sourcePrice:Number.isFinite(sourcePrice)?sourcePrice:basePrice,priceScr,stock,imageUrl:sku?.image_url||sku?.imageUrl||imageUrl};
+  return {label,attributes,sourcePrice:Number.isFinite(sourcePrice)?sourcePrice:basePrice,sourceCurrency,exchangeRate:rate,costScr,priceScr:sellingPriceScr,stock,imageUrl:sku?.image_url||sku?.imageUrl||imageUrl};
  }).filter((variant:any)=>variant.label);
 }
 function imageCandidates(html:string,product:any){
@@ -84,7 +102,7 @@ export async function POST(request:NextRequest){try{
   const rate=fx?.rate||null;const costScr=rate?Math.round(sourcePrice*rate*100)/100:null;
   const shippingOptions=Array.isArray(productData.shipping?.options)?productData.shipping.options:[];
   const shippingOption=shippingOptions.find((s:any)=>Number.isFinite(Number(s.price))&&String(s.currency||sourceCurrency).toUpperCase()===sourceCurrency);
-  return NextResponse.json({platform:"aliexpress.com",sourceUrl:parsed.toString(),title:String(productData.title||""),description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*1.2*100)/100,fx,shipping:null,shippingMessage:shippingOption?"Supplier shipping options were found, but not confirmed for Seychelles. Enter a Seychelles delivery fee manually.":"AliExpress did not return a verified Seychelles shipping quote. Enter the delivery fee manually.",supplierDataSource:"AliExpress Scraper API",variants:normaliseSkus(skuRows,Number.isFinite(sourcePrice)?sourcePrice:0,rate,propertyRows),supplierDebug,specifications});
+  return NextResponse.json({platform:"aliexpress.com",sourceUrl:parsed.toString(),title:String(productData.title||""),description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100,fx,shipping:null,shippingMessage:shippingOption?"Supplier shipping options were found, but not confirmed for Seychelles. Enter a Seychelles delivery fee manually.":"AliExpress did not return a verified Seychelles shipping quote. Enter the delivery fee manually.",supplierDataSource:"AliExpress Scraper API",variants:await normaliseSkus(skuRows,Number.isFinite(sourcePrice)?sourcePrice:0,sourceCurrency,rate,propertyRows),supplierDebug,specifications});
  }
  const response=await fetch(parsed.toString(),{headers:{"User-Agent":"Mozilla/5.0 (compatible; islandXpressProductPreview/1.0)",Accept:"text/html,application/xhtml+xml"},signal:AbortSignal.timeout(12000),redirect:"follow"});if(!response.ok)throw new Error("Supplier page could not be accessed. Enter product details manually.");
  const html=(await response.text()).slice(0,2500000);const products:any[]=[];const scripts=[...html.matchAll(/<script[^>]*type=["\']application\/ld\+json["\'][^>]*>([\s\S]*?)<\/script>/gi)];for(const m of scripts){try{collect(JSON.parse(m[1]),products);}catch{}}
@@ -98,5 +116,5 @@ export async function POST(request:NextRequest){try{
  let fx:any=null;if(sourceCurrency&&Number.isFinite(sourcePrice)&&sourcePrice>0){const fr=await fetch("https://open.er-api.com/v6/latest/"+encodeURIComponent(sourceCurrency),{signal:AbortSignal.timeout(8000)});if(fr.ok){const fd=await fr.json();const rate=Number(fd?.rates?.SCR);if(fd?.result==="success"&&rate>0)fx={rate,provider:"open.er-api.com",updated:fd.time_last_update_utc};}}
  const rate=fx?.rate||null;const costScr=rate?Math.round(sourcePrice*rate*100)/100:null;
  let shippingScr:number|null=null;if(shipping){let shippingRate=shipping.currency===sourceCurrency?rate:null;if(!shippingRate){const sr=await fetch("https://open.er-api.com/v6/latest/"+encodeURIComponent(shipping.currency),{signal:AbortSignal.timeout(8000)});if(sr.ok){const sj=await sr.json();if(sj?.result==="success"&&Number(sj?.rates?.SCR)>0)shippingRate=Number(sj.rates.SCR);}}if(shippingRate)shippingScr=Math.round(shipping.amount*shippingRate*100)/100;}
- return NextResponse.json({platform:platform(parsed.hostname.toLowerCase()),sourceUrl:parsed.toString(),title,description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*1.2*100)/100,fx,shipping:shipping?{...shipping,scrAmount:shippingScr}:null,shippingMessage:shipping?"Supplier page exposes a Seychelles shipping quote.":"No verifiable Seychelles shipping quote was exposed in the page data; supplier may require address/login/checkout."});
+ return NextResponse.json({platform:platform(parsed.hostname.toLowerCase()),sourceUrl:parsed.toString(),title,description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100,fx,shipping:shipping?{...shipping,scrAmount:shippingScr}:null,shippingMessage:shipping?"Supplier page exposes a Seychelles shipping quote.":"No verifiable Seychelles shipping quote was exposed in the page data; supplier may require address/login/checkout."});
  }catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Could not preview product."},{status:400});}}
