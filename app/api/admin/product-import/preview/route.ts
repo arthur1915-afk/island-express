@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { scrapeAliExpressPage } from "@/lib/aliexpress-scraper";
 export const runtime = "nodejs";
 const allowed = ["aliexpress.com","shein.com","iherb.com","asos.com","alibaba.com"];
 function platform(host:string){return allowed.find(d=>host===d||host.endsWith("."+d))||null;}
@@ -136,34 +137,37 @@ export async function POST(request:NextRequest){try{
  const db=createClient(u,s,{auth:{persistSession:false,autoRefreshToken:false}});const {data:profile}=await db.from("profiles").select("is_admin").eq("id",user.id).single();if(!profile?.is_admin)return NextResponse.json({error:"Administrator access required."},{status:403});
  const body=await request.json();const parsed=new URL(String(body.url||""));if(parsed.protocol!=="https:"||!platform(parsed.hostname.toLowerCase()))return NextResponse.json({error:"Use an HTTPS product URL from AliExpress, SHEIN, iHerb, ASOS or Alibaba."},{status:400});
  if(platform(parsed.hostname.toLowerCase())==="aliexpress.com"){
-  const apiKey=process.env.ALIEXPRESS_SCRAPER_API_KEY;
-  if(!apiKey)return NextResponse.json({error:"AliExpress blocks direct server extraction. Connect the free AliExpress Scraper API key in Vercel to enable reliable product imports. The other suppliers still use page extraction."},{status:503});
-  const apiUrl=new URL("https://aliexpress-scraper-api.omkar.cloud/aliexpress/v2/product");
-  const itemId=parsed.pathname.match(/\/item\/(\d+)(?:\.html)?/i)?.[1]||parsed.pathname.match(/\/(\d{10,})\.html/i)?.[1];
-  apiUrl.searchParams.set("product",itemId||parsed.toString());
-  const apiResponse=await fetch(apiUrl.toString(),{headers:{"API-Key":apiKey,Accept:"application/json"},signal:AbortSignal.timeout(30000)});
-  const responseText=await apiResponse.text();let apiData:any=null;try{apiData=JSON.parse(responseText);}catch{}
-  if(!apiResponse.ok||!apiData||apiData.error||apiData.success===false) {
-   const detail=String(apiData?.message||apiData?.error||apiData?.detail||responseText||"No response body").slice(0,350);
-   throw new Error("AliExpress API request failed (HTTP "+apiResponse.status+"). "+detail+" Check that the API key is active and the link is a direct product listing.");
-  }
-  const productData=apiData.data?.product??apiData.data??apiData.product??apiData;
-  const skuRows=Array.isArray(productData.skus)?productData.skus:Array.isArray(productData.variants)?productData.variants:Array.isArray(productData.sku_list)?productData.sku_list:[];
-  const propertyRows=Array.isArray(productData.sku_properties)?productData.sku_properties:Array.isArray(productData.skuProperties)?productData.skuProperties:Array.isArray(productData.sku_property_list)?productData.sku_property_list:[];
-  const supplierDebug={topLevelKeys:Object.keys(apiData),productKeys:Object.keys(productData||{}),skuCount:skuRows.length,skuPropertyCount:propertyRows.length,firstSkuAttributes:skuRows[0]?.attributes??null,firstSkuProperty:propertyRows[0]??null,pricing:productData.pricing??productData.price_info??null,firstSkuPricing:skuRows[0]?.pricing??null,usedRegularPrice:(productData.pricing?.is_new_shopper_price===true||productData.pricing?.isNewShopperPrice===true)};
-  const pricing=productData.pricing??productData.price_info??{};
-  const rawSourcePrice=supplierPrice(pricing,productData.price??productData.sale_price??productData.min_price);
-  const sourcePrice=rawSourcePrice;
-  const sourceCurrency=normaliseCurrencyCode(productData.pricing?.currency??productData.currency??productData.price_currency??productData.currency_code);
-  const images=(Array.isArray(productData.images)?productData.images:[]).filter((v:any)=>typeof v==="string"&&/^https:\/\//i.test(v)).slice(0,8);
-  const specifications=Array.isArray(productData.specifications)?productData.specifications:[];
-  const description=String(productData.description||productData.product_description||specifications.map((s:any)=>s?.name&&s?.value?String(s.name)+": "+String(s.value):"").filter(Boolean).join("\\n"));
+  const scraped=await scrapeAliExpressPage(parsed.toString());
+  const productData=scraped.product||{};
+  const priceModule=productData.priceModule||{};
+  const rawPrice=priceModule.formatedActivityPrice??priceModule.formatedPrice??priceModule.minPrice??priceModule.activityPrice??productData.price??productData.minPrice??meta(scraped.html,"product:price:amount")??meta(scraped.html,"og:price:amount");
+  const sourcePrice=parseSupplierPrice(rawPrice);
+  const sourceCurrency=normaliseCurrencyCode(priceModule.currencyCode??priceModule.currency??productData.currencyCode??productData.currency??meta(scraped.html,"product:price:currency")??meta(scraped.html,"og:price:currency"));
+  const title=String(productData.title??productData.subject??meta(scraped.html,"og:title")??((scraped.html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i)||[])[1]||"").replace(/&amp;/g,"&").trim());
+  const description=String(productData.description??productData.productDescription??meta(scraped.html,"og:description")??meta(scraped.html,"description","name")??"");
+  const imageModule=productData.imageModule||{};
+  const images=[...(Array.isArray(imageModule.imagePathList)?imageModule.imagePathList:[]),...(Array.isArray(productData.images)?productData.images:[]),...imageCandidates(scraped.html,productData)].filter((v:any)=>typeof v==="string"&&/^https:\\/\\//i.test(v)).slice(0,12);
+  const uniqueImages=[...new Set(images)];
+  const skuRows=scraped.skuRows.map((sku:any)=>({
+   ...sku,
+   attributes:sku.attributes??sku.sku_attributes??sku.skuAttr??sku.properties,
+   pricing:sku.pricing??{sale_price:sku.offerSalePrice??sku.skuVal?.skuAmount?.value??sku.skuVal?.skuAmount??sku.price??sku.price_scr,currency:sku.currency??sourceCurrency},
+   stock:sku.stock??sku.quantity??sku.skuVal?.inventory??sku.skuVal?.availQuantity,
+   image_url:sku.image_url??sku.imageUrl??sku.skuVal?.skuPropertyImagePath
+  }));
+  const propertyRows=scraped.propertyRows.map((property:any)=>({
+   ...property,
+   id:property.id??property.skuPropertyId,
+   name:property.name??property.skuPropertyName,
+   values:(property.values??property.skuPropertyValues??[]).map((v:any)=>({...v,id:v.id??v.propertyValueId,name:v.name??v.propertyValueName,image:v.image??v.skuPropertyImagePath}))
+  }));
   let fx:any=null;
   if(sourceCurrency&&Number.isFinite(sourcePrice)&&sourcePrice>0){const convertedRate=await getScrRate(sourceCurrency);if(convertedRate)fx={rate:convertedRate,provider:"open.er-api.com (direct or USD cross-rate)"};}
-  const rate=sourceCurrency==="SCR"?1:(fx?.rate||null);const costScr=priceInScr(sourcePrice,sourceCurrency,rate);
-  const shippingOptions=Array.isArray(productData.shipping?.options)?productData.shipping.options:[];
-  const shippingOption=shippingOptions.find((s:any)=>Number.isFinite(Number(s.price))&&String(s.currency||sourceCurrency).toUpperCase()===sourceCurrency);
-  return NextResponse.json({platform:"aliexpress.com",sourceUrl:parsed.toString(),title:String(productData.title||""),description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100,fx,shipping:null,shippingMessage:shippingOption?"Supplier shipping options were found, but not confirmed for Seychelles. Enter a Seychelles delivery fee manually.":"AliExpress did not return a verified Seychelles shipping quote. Enter the delivery fee manually.",supplierDataSource:"AliExpress Scraper API",variants:await normaliseSkus(skuRows,Number.isFinite(sourcePrice)?sourcePrice:0,sourceCurrency,rate,propertyRows),supplierDebug,specifications});
+  const rate=sourceCurrency==="SCR"?1:(fx?.rate||null);
+  const costScr=priceInScr(sourcePrice,sourceCurrency,rate);
+  const supplierDebug={productKeys:Object.keys(productData||{}),skuCount:skuRows.length,skuPropertyCount:propertyRows.length,firstSkuAttributes:skuRows[0]?.attributes??null,firstSkuProperty:propertyRows[0]??null,scraper:"self-hosted HTML extraction"};
+  if(!title&&!uniqueImages.length&&!Number.isFinite(sourcePrice))throw new Error("AliExpress did not expose product details in its page HTML. It may require sign-in or be showing an anti-bot challenge. Try another product URL or complete the listing manually.");
+  return NextResponse.json({platform:"aliexpress.com",sourceUrl:parsed.toString(),title,description,images:uniqueImages,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100,fx,shipping:null,shippingMessage:"No verified Seychelles delivery quote was exposed by the supplier page. Enter the customer delivery fee manually.",supplierDataSource:"Self-hosted AliExpress HTML scraper",variants:await normaliseSkus(skuRows,Number.isFinite(sourcePrice)?sourcePrice:0,sourceCurrency,rate,propertyRows),supplierDebug,specifications:[]});
  }
  const response=await fetch(parsed.toString(),{headers:{"User-Agent":"Mozilla/5.0 (compatible; islandXpressProductPreview/1.0)",Accept:"text/html,application/xhtml+xml"},signal:AbortSignal.timeout(12000),redirect:"follow"});if(!response.ok)throw new Error("Supplier page could not be accessed. Enter product details manually.");
  const html=(await response.text()).slice(0,2500000);const products:any[]=[];const scripts=[...html.matchAll(/<script[^>]*type=["\']application\/ld\+json["\'][^>]*>([\s\S]*?)<\/script>/gi)];for(const m of scripts){try{collect(JSON.parse(m[1]),products);}catch{}}
