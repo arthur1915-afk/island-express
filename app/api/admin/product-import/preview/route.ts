@@ -169,7 +169,7 @@ async function scrapeAliExpressManaged(url:string):Promise<any>{
  storage.searchParams.set("token",token);
  storage.searchParams.set("rid",String(rid));
  storage.searchParams.set("format","json");
- const deadline=Date.now()+240000;
+ const deadline=Date.now()+180000;
  let lastStorageError="";
  while(Date.now()<deadline){
   await new Promise(resolve=>setTimeout(resolve,5000));
@@ -206,7 +206,7 @@ async function scrapeAliExpressManaged(url:string):Promise<any>{
   }
   lastStorageError="Stored result is not ready yet.";
  }
- throw new Error("Crawlbase accepted the AliExpress crawl but no stored result became available within 4 minutes. Request "+rid+". "+lastStorageError+" Check this RID in Crawlbase request logs.");
+ throw new Error("Crawlbase accepted the AliExpress crawl but no stored result became available within 3 minutes. Request "+rid+". "+lastStorageError+" Check this RID in Crawlbase request logs.");
 }
 function managedImages(value:any):string[]{
  const items=Array.isArray(value)?value:[value];
