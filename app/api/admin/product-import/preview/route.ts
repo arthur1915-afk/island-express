@@ -175,7 +175,7 @@ async function scrapeAliExpressManaged(url:string,snapshotId?:string):Promise<an
  if(snapshotId){
   const download=await fetch("https://api.brightdata.com/datasets/v3/snapshot/"+encodeURIComponent(snapshotId)+"?format=json",{headers:{"Authorization":"Bearer "+token,"Accept":"application/json"},signal:AbortSignal.timeout(30000),cache:"no-store"});
   const raw=await download.text();
-  try{payload=JSON.parse(raw);}catch{throw new Error("Bright Data snapshot download returned HTTP "+download.status+" with an unreadable response: "+raw.replace(/\\s+/g," ").slice(0,300));}
+  try{payload=JSON.parse(raw);}catch{throw new Error("Bright Data snapshot download returned HTTP "+download.status+" with an unreadable response: "+raw.replace(/\s+/g," ").slice(0,300));}
   if(!download.ok)throw new Error("Bright Data snapshot download failed (HTTP "+download.status+"): "+String(payload?.error||payload?.message||raw).slice(0,300));
  }else{
   const endpoint=new URL("https://api.brightdata.com/datasets/v3/trigger");
@@ -186,8 +186,8 @@ async function scrapeAliExpressManaged(url:string,snapshotId?:string):Promise<an
    response=await fetch(endpoint.toString(),{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({input:[{url:canonicalAliExpressProductUrl(url)}]}),signal:AbortSignal.timeout(15000),cache:"no-store"});
   }catch(error){throw new Error("Could not submit the AliExpress scrape to Bright Data: "+(error instanceof Error?error.message:"network error"));}
   const raw=await response.text();
-  try{payload=JSON.parse(raw);}catch{throw new Error("Bright Data trigger returned HTTP "+response.status+" with a non-JSON response: "+raw.replace(/\\s+/g," ").slice(0,300));}
-  if(!response.ok)throw new Error("Bright Data trigger failed (HTTP "+response.status+"): "+String(payload?.error||payload?.message||payload?.detail||raw).replace(/\\s+/g," ").slice(0,300));
+  try{payload=JSON.parse(raw);}catch{throw new Error("Bright Data trigger returned HTTP "+response.status+" with a non-JSON response: "+raw.replace(/\s+/g," ").slice(0,300));}
+  if(!response.ok)throw new Error("Bright Data trigger failed (HTTP "+response.status+"): "+String(payload?.error||payload?.message||payload?.detail||raw).replace(/\s+/g," ").slice(0,300));
   const id=String(payload?.snapshot_id||payload?.snapshotId||"");
   if(!id)throw new Error("Bright Data accepted no snapshot ID. Response keys: "+Object.keys(payload||{}).join(", "));
   return {snapshot_id:id,dataset_id:datasetId,_brightData:{datasetId,submittedAt:Date.now()}};
