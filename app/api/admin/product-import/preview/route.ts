@@ -175,7 +175,10 @@ async function scrapeAliExpressManaged(url:string):Promise<any>{
   let product=payload;
   for(let depth=0;depth<3;depth++){
    if(typeof product==="string"){try{product=JSON.parse(product);continue;}catch{break;}}
-   if(product&&typeof product==="object"&&typeof product.body==="string"){product=product.body;continue;}
+   // Crawlbase may return its metadata envelope with body already parsed as
+   // an object, or as a JSON string depending on response content negotiation.
+   // Unwrap both forms before looking for product fields.
+   if(product&&typeof product==="object"&&product.body!==undefined&&product.body!==null){product=product.body;continue;}
    if(product&&typeof product==="object"&&product.data&&typeof product.data==="object"){product=product.data;continue;}
    if(product&&typeof product==="object"&&product.product&&typeof product.product==="object"){product=product.product;continue;}
    break;
