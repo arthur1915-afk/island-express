@@ -131,31 +131,54 @@ function imageCandidates(html:string,product:any){
  urls.forEach(add);
  return [...new Set(found)].slice(0,12);
 }
+function canonicalAliExpressProductUrl(input:string):string{
+ const parsed=new URL(input);
+ const match=parsed.pathname.match(/\/item\/(\d+)(?:\.html)?/i);
+ if(!match)throw new Error("Use a standard AliExpress product link containing /item/ followed by the product ID.");
+ return "https://www.aliexpress.com/item/"+match[1]+".html";
+}
 async function scrapeAliExpressManaged(url:string):Promise<any>{
  const token=process.env.CRAWLBASE_JS_TOKEN||process.env.CRAWLBASE_TOKEN;
  if(!token)throw new Error("Crawlbase is not configured. Add CRAWLBASE_JS_TOKEN in Vercel Production environment variables.");
- const endpoint=new URL("https://api.crawlbase.com/");
- endpoint.searchParams.set("token",token);
- endpoint.searchParams.set("url",url);
- endpoint.searchParams.set("scraper","aliexpress-product");
- endpoint.searchParams.set("format","json");
- const response=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json"},signal:AbortSignal.timeout(50000),cache:"no-store"});
- const raw=await response.text();
- let data:any=null;
- try{data=JSON.parse(raw);}catch{}
- const cbStatus=response.headers.get("cb_status")||response.headers.get("pc_status")||data?.cb_status||data?.pc_status||null;
- const originalStatus=response.headers.get("original_status")||data?.original_status||null;
- const requestId=response.headers.get("rid")||data?.rid||null;
- if(!response.ok){
-  const detail=String(data?.message||data?.error||data?.body||"").slice(0,300);
-  throw new Error("Crawlbase HTTP "+response.status+(cbStatus?" (cb_status "+cbStatus+")":"")+(originalStatus?" (AliExpress status "+originalStatus+")":"")+(requestId?" [request "+requestId+"]":"")+(detail?": "+detail:"")+". Check Crawlbase scraper access and share this error with Crawlbase support if it persists.");
+ const cleanUrl=canonicalAliExpressProductUrl(url);
+ const delays=[0,1200,3000];
+ let lastError="Crawlbase could not fetch this AliExpress product.";
+ for(let attempt=0;attempt<delays.length;attempt++){
+  if(delays[attempt])await new Promise(resolve=>setTimeout(resolve,delays[attempt]));
+  const endpoint=new URL("https://api.crawlbase.com/");
+  endpoint.searchParams.set("token",token);
+  endpoint.searchParams.set("url",cleanUrl);
+  endpoint.searchParams.set("scraper","aliexpress-product");
+  let response:Response;
+  try{
+   response=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json","Accept-Encoding":"gzip"},signal:AbortSignal.timeout(45000),cache:"no-store"});
+  }catch(error){
+   lastError=error instanceof Error?error.message:"Network error contacting Crawlbase.";
+   if(attempt===delays.length-1)throw new Error("Could not connect to Crawlbase: "+lastError);
+   continue;
+  }
+  const raw=await response.text();
+  let data:any=null;
+  try{data=JSON.parse(raw);}catch{}
+  const cbStatus=response.headers.get("cb_status")||response.headers.get("pc_status")||data?.cb_status||data?.pc_status||null;
+  const originalStatus=response.headers.get("original_status")||data?.original_status||null;
+  const requestId=response.headers.get("rid")||data?.rid||null;
+  const detail=String(data?.message||data?.error||data?.body||(!data?raw:"")).replace(/\s+/g," ").slice(0,220);
+  if(!response.ok|| (cbStatus&&String(cbStatus)!=="200")){
+   const statusText="Crawlbase HTTP "+response.status+(cbStatus?" / crawl status "+cbStatus:"")+(originalStatus?" / AliExpress status "+originalStatus:"")+(requestId?" / request "+requestId:"")+(detail?": "+detail:"");
+   lastError=statusText;
+   const retryable=response.status>=500||["503","599","520","207"].includes(String(cbStatus));
+   if(retryable&&attempt<delays.length-1)continue;
+   throw new Error(statusText+". The product could not be extracted. If this repeats, share the request ID with Crawlbase support.");
+  }
+  // The scraper returns its structured product JSON as the response body.
+  if(data?.body&&typeof data.body==="string"){try{data=JSON.parse(data.body);}catch{}}
+  if(data?.data&&typeof data.data==="object"&&!Array.isArray(data.data))data=data.data;
+  if(data?.product&&typeof data.product==="object")data=data.product;
+  if(!data||typeof data!=="object")throw new Error("Crawlbase returned an empty or invalid product response.");
+  return data;
  }
- if(!data){throw new Error("Crawlbase returned an unreadable response"+(requestId?" [request "+requestId+"]":"")+".");}
- if(cbStatus&&String(cbStatus)!=="200")throw new Error("Crawlbase could not extract this listing (cb_status "+cbStatus+")"+(originalStatus?"; AliExpress returned "+originalStatus:"")+(requestId?"; request "+requestId:"")+".");
- if(data?.error||data?.success===false)throw new Error(String(data.error||data.message||"Crawlbase could not extract this AliExpress product."));
- if(data?.body&&typeof data.body==="string"){try{data=JSON.parse(data.body);}catch{}}
- if(data?.data&&typeof data.data==="object"&&!Array.isArray(data.data))data=data.data;
- return data;
+ throw new Error(lastError);
 }
 function managedImages(value:any):string[]{
  const items=Array.isArray(value)?value:[value];
