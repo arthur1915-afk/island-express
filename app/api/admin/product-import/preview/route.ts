@@ -215,7 +215,7 @@ function managedImages(value:any):string[]{
   if(item===null||item===undefined||depth>7)return;
   if(typeof item==="string"){
    const raw=item.trim().replace(/&amp;/g,"&").replace(/\\u0026/gi,"&");
-   const urls=raw.match(/(?:https?:)?\\/\\/[^\\s"'<>]+/gi)||[];
+   const urls=raw.match(/https?:\/\/[^\s"'<>]+|\/\/[^\s"'<>]+/gi)||[];
    for(const candidate of urls){
     const url=candidate.startsWith("//")?"https:"+candidate:candidate;
     const clean=url.replace(/[),;]+$/,"");
@@ -250,8 +250,8 @@ function findManagedValue(root:any,keys:string[]):any{
 }
 function managedDescription(value:any):string{
  if(typeof value==="string")return value.trim();
- if(Array.isArray(value))return value.map((item:any)=>typeof item==="string"?item:[item?.name??item?.key,item?.value??item?.description].filter(Boolean).join(": ")).filter(Boolean).join("\\n");
- if(value&&typeof value==="object")return Object.entries(value).map(([k,v])=>k+": "+(typeof v==="string"?v:JSON.stringify(v))).join("\\n");
+ if(Array.isArray(value))return value.map((item:any)=>typeof item==="string"?item:[item?.name??item?.key,item?.value??item?.description].filter(Boolean).join(": ")).filter(Boolean).join("\n");
+ if(value&&typeof value==="object")return Object.entries(value).map(([k,v])=>k+": "+(typeof v==="string"?v:JSON.stringify(v))).join("\n");
  return "";
 }
 function managedCurrency(value:any):string{
