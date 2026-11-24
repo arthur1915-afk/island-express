@@ -34,7 +34,7 @@ async function runJob(origin:string, accessToken:string, job:any, db:any) {
 }
 export async function POST(request:NextRequest) {
   try {
-    const bearer=(request.headers.get("authorization")||"").replace(/^Bearer\\s+/i,"");
+    const bearer=(request.headers.get("authorization")||"").replace(/^Bearer\s+/i,"");
     if(!bearer) return NextResponse.json({error:"Sign in as an administrator."},{status:401});
     const {auth,db}=clients();
     const {data:{user}}=await auth.auth.getUser(bearer);
