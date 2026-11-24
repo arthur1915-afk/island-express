@@ -130,6 +130,37 @@ function imageCandidates(html:string,product:any){
  urls.forEach(add);
  return [...new Set(found)].slice(0,12);
 }
+async function scrapeAliExpressManaged(url:string):Promise<any>{
+ const token=process.env.CRAWLBASE_JS_TOKEN||process.env.CRAWLBASE_TOKEN;
+ if(!token)throw new Error("Managed AliExpress importing is not configured yet. Add CRAWLBASE_JS_TOKEN to the Vercel environment variables.");
+ const endpoint=new URL("https://api.crawlbase.com/");
+ endpoint.searchParams.set("token",token);
+ endpoint.searchParams.set("url",url);
+ endpoint.searchParams.set("scraper","aliexpress-product");
+ const response=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json"},signal:AbortSignal.timeout(90000),cache:"no-store"});
+ const raw=await response.text();
+ if(!response.ok)throw new Error("Crawlbase AliExpress service returned HTTP "+response.status+". Check the API token, account credits and scraper access.");
+ let data:any;
+ try{data=JSON.parse(raw);}catch{throw new Error("The managed AliExpress service returned an unreadable response. Please retry shortly.");}
+ if(data?.error||data?.success===false)throw new Error(String(data.error||data.message||"The managed AliExpress service could not extract this product."));
+ if(data?.body&&typeof data.body==="string"){try{data=JSON.parse(data.body);}catch{}}
+ if(data?.data&&typeof data.data==="object"&&!Array.isArray(data.data))data=data.data;
+ return data;
+}
+function managedImages(value:any):string[]{
+ const items=Array.isArray(value)?value:[value];
+ return [...new Set(items.map((item:any)=>typeof item==="string"?item:(item?.url||item?.image_url||item?.src)).filter((v:any)=>typeof v==="string"&&/^https:\/\//i.test(v)))].slice(0,12);
+}
+function managedCurrency(value:any):string{
+ const raw=String(value??"").trim().toUpperCase();
+ const code=raw.match(/\b[A-Z]{3}\b/);
+ if(code)return normaliseCurrencyCode(code[0]);
+ if(raw.includes("$"))return "USD";
+ if(raw.includes("€"))return "EUR";
+ if(raw.includes("£"))return "GBP";
+ if(raw.includes("¥")||raw.includes("￥"))return "CNY";
+ return "";
+}
 export async function POST(request:NextRequest){try{
  const token=(request.headers.get("authorization")||"").replace(/^Bearer\s+/i,"");if(!token)return NextResponse.json({error:"Sign in as an administrator."},{status:401});
  const u=process.env.NEXT_PUBLIC_SUPABASE_URL,a=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,s=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!u||!a||!s)return NextResponse.json({error:"Admin importer is not configured."},{status:500});
@@ -137,6 +168,25 @@ export async function POST(request:NextRequest){try{
  const db=createClient(u,s,{auth:{persistSession:false,autoRefreshToken:false}});const {data:profile}=await db.from("profiles").select("is_admin").eq("id",user.id).single();if(!profile?.is_admin)return NextResponse.json({error:"Administrator access required."},{status:403});
  const body=await request.json();const parsed=new URL(String(body.url||""));if(parsed.protocol!=="https:"||!platform(parsed.hostname.toLowerCase()))return NextResponse.json({error:"Use an HTTPS product URL from AliExpress, SHEIN, iHerb, ASOS or Alibaba."},{status:400});
  if(platform(parsed.hostname.toLowerCase())==="aliexpress.com"){
+  if(process.env.CRAWLBASE_JS_TOKEN||process.env.CRAWLBASE_TOKEN){
+   const managed=await scrapeAliExpressManaged(parsed.toString());
+   const priceValue=managed?.price?.current??managed?.price??managed?.current_price??managed?.sale_price??managed?.min_price;
+   const sourcePrice=parseSupplierPrice(priceValue);
+   const sourceCurrency=managedCurrency(managed?.currency??managed?.price?.currency??priceValue)||"USD";
+   const title=String(managed?.title??managed?.name??"");
+   const description=String(managed?.description??managed?.product_description??managed?.short_description??(Array.isArray(managed?.specifications)?managed.specifications.join("\\n"):""));
+   const images=managedImages(managed?.images??managed?.image_urls??managed?.image);
+   const rawVariants=Array.isArray(managed?.variants)?managed.variants:(Array.isArray(managed?.options)?managed.options:[]);
+   const skuRows=rawVariants.filter((v:any)=>v&&typeof v==="object").map((v:any)=>({...v,attributes:v.attributes??v.properties??v.options??v.label,pricing:v.pricing??{sale_price:v.price??v.current_price??priceValue,currency:v.currency??sourceCurrency},stock:v.stock??v.quantity??v.available_quantity,image_url:v.image_url??v.image}));
+   const fx=sourceCurrency&&Number.isFinite(sourcePrice)&&sourcePrice>0?await getScrRate(sourceCurrency):null;
+   const rate=sourceCurrency==="SCR"?1:fx;
+   const costScr=priceInScr(sourcePrice,sourceCurrency,rate);
+   const variants=await normaliseSkus(skuRows,Number.isFinite(sourcePrice)?sourcePrice:0,sourceCurrency,rate,[]);
+   const shippingSummary=managed?.shippingSummary??managed?.shipping_summary??managed?.shipping;
+   const shippingText=typeof shippingSummary==="string"?shippingSummary:String(shippingSummary?.shippingPrice??shippingSummary?.price??"");
+   if(!title&&!images.length&&!Number.isFinite(sourcePrice))throw new Error("The managed AliExpress service returned no usable product details for this link. Check that the listing is public and try again.");
+   return NextResponse.json({platform:"aliexpress.com",sourceUrl:parsed.toString(),title,description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100,fx:rate?{rate,provider:"Crawlbase managed AliExpress scraper"}:null,shipping:null,shippingMessage:shippingText?"AliExpress shipping details detected ("+shippingText+"). Confirm the final Seychelles delivery fee before importing.":"No verified Seychelles delivery quote was returned. Enter the customer delivery fee manually.",supplierDataSource:"Crawlbase managed AliExpress scraper",variants,supplierDebug:{scraper:"Crawlbase managed API",productKeys:Object.keys(managed||{}),skuCount:rawVariants.length,skuPropertyCount:0,firstSkuAttributes:rawVariants[0]??null,firstSkuProperty:null},specifications:managed?.specifications||[]});
+  }
   const scraped=await scrapeAliExpressPage(parsed.toString());
   const productData=scraped.product||{};
   const priceModule=productData.priceModule||{};
