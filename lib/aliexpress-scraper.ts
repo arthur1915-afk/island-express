@@ -56,17 +56,26 @@ function pickProduct(states: any[]): any {
 }
 
 export async function scrapeAliExpressPage(url: string): Promise<AliExpressPageData> {
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-      "Accept-Language": "en-US,en;q=0.9",
-      "Cache-Control": "no-cache",
-    },
-    signal: AbortSignal.timeout(25000),
-    redirect: "follow",
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "no-cache",
+      },
+      signal: AbortSignal.timeout(25000),
+      redirect: "follow",
+      cache: "no-store",
+    });
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "";
+    if (name === "TimeoutError" || name === "AbortError") {
+      throw new Error("AliExpress did not respond within 25 seconds. Its site may be slow or temporarily blocking server requests. Use Browser-assisted import below to continue.");
+    }
+    throw new Error("IslandXpress could not connect to AliExpress from its server. AliExpress may be blocking automated requests or the connection may be temporarily unavailable. Use Browser-assisted import below to continue.");
+  }
   if (!response.ok) throw new Error("AliExpress returned HTTP " + response.status + ". It may be temporarily limiting automated requests. Try again later or use a product page accessible without signing in.");
   const html = (await response.text()).slice(0, 5000000);
   if (/captcha|verify you are human|访问验证|滑动验证/i.test(html) && html.length < 300000) {
