@@ -140,7 +140,7 @@ async function scrapeAliExpressManaged(url:string):Promise<any>{
  const token=process.env.CRAWLBASE_JS_TOKEN||process.env.CRAWLBASE_TOKEN;
  if(!token)throw new Error("Crawlbase is not configured. Add CRAWLBASE_JS_TOKEN to Vercel Production environment variables, then redeploy.");
  const cleanUrl=canonicalAliExpressProductUrl(url);
- const delays=[0,500];
+ const delays=[0];
  let lastError="Crawlbase did not return product data.";
  for(let attempt=0;attempt<delays.length;attempt++){
   if(delays[attempt])await new Promise(resolve=>setTimeout(resolve,delays[attempt]));
@@ -150,11 +150,11 @@ async function scrapeAliExpressManaged(url:string):Promise<any>{
   endpoint.searchParams.set("scraper","aliexpress-product");
   let response:Response;
   try{
-   response=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json"},signal:AbortSignal.timeout(8000),cache:"no-store"});
+   response=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json"},signal:AbortSignal.timeout(18000),cache:"no-store"});
   }catch(error){
    lastError=error instanceof Error?error.message:"Network error contacting Crawlbase.";
    if(attempt<delays.length-1)continue;
-   throw new Error("Could not connect to Crawlbase after 3 attempts: "+lastError);
+   throw new Error("Crawlbase did not respond within 18 seconds: "+lastError+". The request timed out before product data was returned. Check Crawlbase request logs and scraper access.");
   }
   const raw=await response.text();
   let payload:any=null;
