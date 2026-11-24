@@ -135,91 +135,81 @@ function canonicalAliExpressProductUrl(input:string):string{
  if(!match)throw new Error("Use a standard AliExpress product link containing /item/ followed by the product ID.");
  return "https://www.aliexpress.com/item/"+match[1]+".html";
 }
-function parseCrawlHtml(html:string):any{
- const products:any[]=[];
- const scripts=[...html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
- for(const m of scripts){try{collect(JSON.parse(m[1]),products);}catch{}}
- const product=products[0]||{};
- const offers=Array.isArray(product.offers)?product.offers[0]:(product.offers||{});
- const readMeta=(name:string)=>meta(html,name)||meta(html,name,"name");
- const title=String(product.name||readMeta("og:title")||readMeta("twitter:title")||((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||"").replace(/&amp;/g,"&").trim());
- const desc=product.description||readMeta("og:description")||readMeta("description");
- const price=offers.price||offers.lowPrice||readMeta("product:price:amount")||readMeta("og:price:amount");
- const currency=offers.priceCurrency||readMeta("product:price:currency")||readMeta("og:price:currency");
- const images=imageCandidates(html,product);
- const stateMatches=[...html.matchAll(/(?:window\.__INITIAL_STATE__|window\.__NEXT_DATA__|window\.runParams|window\.pageData|window\.data)\s*=\s*(\{[\s\S]{20,}?)(?:;\s*<\/script>|;\s*<\/|;\s*$)/gi)];
- let embedded:any=null;
- for(const match of stateMatches){try{embedded=JSON.parse(match[1]);break;}catch{}}
- return {title,description:desc,price,currency,images,...(embedded?{embedded}:{}),rawHtml:html};
-}
-function normaliseCrawlResult(raw:any):any{
- let value=raw;
- for(let depth=0;depth<5;depth++){
+function brightDataImages(record:any):string[]{
+ const found:string[]=[];
+ const add=(value:any):void=>{
+  if(!value)return;
   if(typeof value==="string"){
-   const trimmed=value.trim();
-   if(trimmed.startsWith("{")||trimmed.startsWith("[")){try{value=JSON.parse(trimmed);continue;}catch{}}
-   if(/<html|<!doctype html|<head|<body/i.test(trimmed))return parseCrawlHtml(trimmed);
-   break;
+   const s=value.trim();
+   const urls=s.match(/https?:\/\/[^\s"'<>]+/gi)||[];
+   for(const url of urls){const clean=url.replace(/[),;]+$/,"");if(/^https:\/\//i.test(clean)&&!/(sprite|logo|icon|avatar|placeholder)/i.test(clean))found.push(clean);}
+  }else if(Array.isArray(value))value.forEach(add);
+  else if(typeof value==="object"){
+   for(const [key,val] of Object.entries(value)){if(/image|picture|photo|gallery|thumbnail|primary|url|src/i.test(key))add(val);}
   }
-  if(!value||typeof value!=="object"||Array.isArray(value))break;
-  if(value.body!==undefined&&value.body!==null){value=value.body;continue;}
-  if(value.data&&typeof value.data==="object"){value=value.data;continue;}
-  if(value.product&&typeof value.product==="object"){value=value.product;continue;}
-  if(value.result&&typeof value.result==="object"){value=value.result;continue;}
-  break;
- }
- return value;
+ };
+ for(const key of ["images","image_urls","image_url","main_image","primary_image","additional_images","product_images","image","gallery","pictures","thumbnail"])add(record?.[key]);
+ return [...new Set(found)].slice(0,15);
+}
+function brightDataPrice(record:any):{price:number;currency:string}{
+ const candidates=[record?.final_price,record?.sale_price,record?.price,record?.current_price,record?.min_price,record?.original_price];
+ let value:any=null;
+ for(const item of candidates){const parsed=parseSupplierPrice(typeof item==="object"?(item?.value??item?.amount??item?.price):item);if(Number.isFinite(parsed)&&parsed>0){value=item;break;}}
+ const price=parseSupplierPrice(typeof value==="object"?(value?.value??value?.amount??value?.price):value);
+ const currency=normaliseCurrencyCode(record?.currency??record?.price_currency??record?.currency_code??(typeof value==="object"?value?.currency:null)??"");
+ return {price,currency};
+}
+function brightDataDescription(record:any):string{
+ const value=record?.description??record?.product_description??record?.specifications??record?.specs??record?.features??"";
+ if(typeof value==="string")return value.trim();
+ if(Array.isArray(value))return value.map((v:any)=>typeof v==="string"?v:[v?.name??v?.key,v?.value??v?.description].filter(Boolean).join(": ")).filter(Boolean).join("\n");
+ if(value&&typeof value==="object")return Object.entries(value).map(([k,v])=>k+": "+(typeof v==="string"?v:JSON.stringify(v))).join("\n");
+ return "";
 }
 async function scrapeAliExpressManaged(url:string):Promise<any>{
- const token=process.env.CRAWLBASE_JS_TOKEN;
- if(!token)throw new Error("The AliExpress importer requires CRAWLBASE_JS_TOKEN in Vercel Production.");
- const endpoint=new URL("https://api.crawlbase.com/");
- endpoint.searchParams.set("token",token);
- endpoint.searchParams.set("url",canonicalAliExpressProductUrl(url));
- // Autoparse avoids depending on a scraper name that may not be enabled for
- // this Crawlbase account. ajax_wait waits for product data without a fixed delay.
- endpoint.searchParams.set("autoparse","true");
- endpoint.searchParams.set("ajax_wait","true");
+ const token=process.env.BRIGHTDATA_API_TOKEN;
+ if(!token)throw new Error("Bright Data is not configured. Add BRIGHTDATA_API_TOKEN to Vercel Production environment variables and redeploy.");
+ const datasetId=process.env.BRIGHTDATA_ALIEXPRESS_DATASET_ID||"gd_mlj9v75u1w1jvaxvwp";
+ const endpoint=new URL("https://api.brightdata.com/datasets/v3/scrape");
+ endpoint.searchParams.set("dataset_id",datasetId);
  endpoint.searchParams.set("format","json");
- endpoint.searchParams.set("async","true");
- endpoint.searchParams.set("store","true");
- let accepted:Response;
+ const started=Date.now();
+ let response:Response;
  try{
-  accepted=await fetch(endpoint.toString(),{headers:{Accept:"application/json"},signal:AbortSignal.timeout(12000),cache:"no-store"});
- }catch(error){throw new Error("Crawlbase did not accept the request within 12 seconds: "+(error instanceof Error?error.message:"network error"));}
- const acceptedText=await accepted.text();
- let acceptedPayload:any=null;try{acceptedPayload=JSON.parse(acceptedText);}catch{}
- const rid=accepted.headers.get("rid")||acceptedPayload?.rid||acceptedPayload?.request_id||null;
- const cbStatus=accepted.headers.get("cb_status")||accepted.headers.get("pc_status")||acceptedPayload?.cb_status||acceptedPayload?.pc_status||null;
- if(!accepted.ok||(cbStatus&&String(cbStatus)!=="200")||!rid){
-  throw new Error("Crawlbase could not queue the product request."+(cbStatus?" Crawl status "+cbStatus+".":"")+" "+String(acceptedPayload?.message||acceptedPayload?.error||acceptedText).slice(0,180));
- }
- const storage=new URL("https://api.crawlbase.com/storage");
- storage.searchParams.set("token",token);
- storage.searchParams.set("rid",String(rid));
- storage.searchParams.set("format","json");
- const deadline=Date.now()+18000;
- let lastError="";
- while(Date.now()<deadline){
-  await new Promise(resolve=>setTimeout(resolve,1200));
-  let result:Response;
-  try{result=await fetch(storage.toString(),{headers:{Accept:"application/json"},signal:AbortSignal.timeout(5000),cache:"no-store"});}
-  catch(error){lastError=error instanceof Error?error.message:"Storage request failed";continue;}
-  const resultText=await result.text();
-  let stored:any=null;try{stored=JSON.parse(resultText);}catch{}
-  if(result.status===404||result.status===202||stored?.error==="Not Found"||stored?.status==="PROCESSING"||stored?.status==="QUEUED")continue;
-  if(!result.ok){lastError="Storage HTTP "+result.status;continue;}
-  const product=normaliseCrawlResult(stored??resultText);
-  if(product&&typeof product==="object"&&!Array.isArray(product)){
-   const hasTitle=typeof product.title==="string"&&product.title.trim();
-   const hasPrice=product.price!==undefined||product.current_price!==undefined||product.sale_price!==undefined;
-   const hasImages=Array.isArray(product.images)?product.images.length>0:!!product.images||!!product.image;
-   if(hasTitle||hasPrice||hasImages)return product;
-   throw new Error("Crawlbase completed but returned no recognised product fields. Request "+rid+".");
+  response=await fetch(endpoint.toString(),{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify([{url:canonicalAliExpressProductUrl(url)}]),signal:AbortSignal.timeout(25000),cache:"no-store"});
+ }catch(error){throw new Error("Bright Data did not return within 25 seconds: "+(error instanceof Error?error.message:"network error"));}
+ let payload:any=null;
+ const text=await response.text();
+ try{payload=JSON.parse(text);}catch{throw new Error("Bright Data returned an unreadable response. Check the dataset ID and API token permissions.");}
+ if(response.status===202&&payload?.snapshot_id){
+  const snapshot=String(payload.snapshot_id);
+  const deadline=Date.now()+20000;
+  while(Date.now()<deadline){
+   await new Promise(resolve=>setTimeout(resolve,2000));
+   let progress:Response;
+   try{progress=await fetch("https://api.brightdata.com/datasets/v3/progress/"+encodeURIComponent(snapshot),{headers:{"Authorization":"Bearer "+token,"Accept":"application/json"},signal:AbortSignal.timeout(5000),cache:"no-store"});}catch{continue;}
+   if(!progress.ok)continue;
+   const state=await progress.json();
+   if(state?.status==="failed")throw new Error("Bright Data scraping job failed. Check the Bright Data dataset run logs.");
+   if(state?.status!=="ready")continue;
+   const download=await fetch("https://api.brightdata.com/datasets/v3/snapshot/"+encodeURIComponent(snapshot)+"?format=json",{headers:{"Authorization":"Bearer "+token,"Accept":"application/json"},signal:AbortSignal.timeout(10000),cache:"no-store"});
+   if(!download.ok)throw new Error("Bright Data finished the scrape but the result could not be downloaded (HTTP "+download.status+").");
+   payload=await download.json();
+   break;
   }
-  lastError="Stored result did not contain a recognised product payload.";
+  if(payload?.snapshot_id)throw new Error("Bright Data is still processing this product. Please retry shortly.");
+ }else if(!response.ok){
+  const detail=String(payload?.error||payload?.message||text).slice(0,240);
+  throw new Error("Bright Data API error (HTTP "+response.status+"): "+detail);
  }
- throw new Error("AliExpress is taking longer than the 10–20 second import target. Crawlbase request "+rid+" is still processing. Please retry shortly.");
+ const record=Array.isArray(payload)?payload[0]:(Array.isArray(payload?.data)?payload.data[0]:(payload?.data??payload?.result??payload));
+ if(!record||typeof record!=="object"||Array.isArray(record))throw new Error("Bright Data returned no product record.");
+ const price=brightDataPrice(record);
+ const title=String(record.title??record.product_title??record.name??"").trim();
+ const images=brightDataImages(record);
+ const description=brightDataDescription(record);
+ const variants=Array.isArray(record.variants)?record.variants:(Array.isArray(record.skus)?record.skus:[]);
+ return {...record,title,description,images,price:price.price,currency:price.currency,variants,_brightData:{datasetId,elapsedMs:Date.now()-started,recordKeys:Object.keys(record)}};
 }
 function managedImages(value:any):string[]{
  const found:string[]=[];
@@ -285,17 +275,17 @@ export async function POST(request:NextRequest){try{
  const body=await request.json();const parsed=new URL(String(body.url||""));if(parsed.protocol!=="https:"||!platform(parsed.hostname.toLowerCase()))return NextResponse.json({error:"Use an HTTPS product URL from AliExpress, SHEIN, iHerb, ASOS or Alibaba."},{status:400});
  if(platform(parsed.hostname.toLowerCase())==="aliexpress.com"){
   const managed=await scrapeAliExpressManaged(parsed.toString());
-  const priceValue=findManagedValue(managed,["price","current_price","sale_price","salePrice","min_price","minPrice","seller_offer_price"]);
-  const originalPrice=findManagedValue(managed,["original_price","originalPrice","list_price","listPrice"]);
-  const sourcePrice=parseSupplierPrice(typeof priceValue==="object"?(priceValue.current??priceValue.value??priceValue.sale_price??priceValue.amount):priceValue);
-  const currencyInput=findManagedValue(managed,["currency","price_currency","priceCurrency"])??priceValue;
+  const priceValue=managed.price;
+  const originalPrice=managed.original_price??managed.originalPrice??managed.list_price;
+  const sourcePrice=parseSupplierPrice(priceValue);
+  const currencyInput=managed.currency??managed.price_currency??priceValue;
   const sourceCurrency=managedCurrency(currencyInput)||"USD";
-  const rawTitle=findManagedValue(managed,["title","product_title","productTitle","name","subject"]);
+  const rawTitle=managed.title??managed.product_title??managed.name;
   const title=typeof rawTitle==="string"?rawTitle.trim():"";
-  const descriptionValue=findManagedValue(managed,["description","product_description","productDescription","short_description","specifications","specs","product_specs","productSpecs","features","highlights","selling_points","sellingPoints","attributes","property_list","properties","detail"]);
+  const descriptionValue=managed.description??managed.product_description??managed.specifications??managed.specs??managed.features;
   const description=managedDescription(descriptionValue);
-  const images=managedImages(findManagedValue(managed,["images","image_urls","imageUrls","image","main_image","mainImage","gallery","pictures","media","product_images","productImages","image_list","imageList","image_url","imageUrl"]));
-  const rawVariantValue=findManagedValue(managed,["variants","skus","sku_list","skuList","sku_info"]);const rawVariants=Array.isArray(rawVariantValue)?rawVariantValue:[];
+  const images=brightDataImages(managed);
+  const rawVariantValue=managed.variants??managed.skus;const rawVariants=Array.isArray(rawVariantValue)?rawVariantValue:[];
   const skuRows=rawVariants.filter((v:any)=>v&&typeof v==="object"&&(v.price!==undefined||v.sale_price!==undefined||v.sku_id||v.skuId||v.stock!==undefined||v.quantity!==undefined||v.attributes||v.sku_attributes)).map((v:any)=>({...v,attributes:v.attributes??v.sku_attributes??v.properties??v.options??v.label,pricing:v.pricing??{sale_price:v.price??v.current_price??v.sale_price??priceValue,currency:v.currency??sourceCurrency},stock:v.stock??v.quantity??v.available_quantity??v.stock_quantity,image_url:v.image_url??v.image}));
   const fx=sourceCurrency&&Number.isFinite(sourcePrice)&&sourcePrice>0?await getScrRate(sourceCurrency):null;
   const rate=sourceCurrency==="SCR"?1:fx;
@@ -308,7 +298,7 @@ export async function POST(request:NextRequest){try{
   if(!Number.isFinite(sourcePrice)||sourcePrice<=0)throw new Error("Crawlbase did not return a valid product price. No product was created.");
   if(!images.length)throw new Error("Crawlbase did not return any product images. No product was created; check the AliExpress scraper result and request logs.");
   if(descriptionValue&&typeof descriptionValue==="object"&&!description)throw new Error("The supplier description could not be converted into readable text. No product was created.");
-  return NextResponse.json({platform:"aliexpress.com",sourceUrl:canonicalAliExpressProductUrl(parsed.toString()),title,description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,originalSourcePrice:Number.isFinite(originalPriceValue)&&originalPriceValue>0?originalPriceValue:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100,fx:rate?{rate,provider:"open.er-api.com"}:null,shipping:null,shippingMessage:shippingText?"Supplier shipping data detected. Confirm the final delivery fee to Seychelles before importing.":"No verified Seychelles delivery quote was returned. Enter the customer delivery fee manually.",supplierDataSource:"Crawlbase AliExpress Product Scraper",variants,supplierDebug:{scraper:"Crawlbase aliexpress-product",productKeys:Object.keys(managed||{}),skuCount:skuRows.length,skuPropertyCount:0,firstSkuAttributes:skuRows[0]?.attributes??null,firstSkuProperty:null},specifications:findManagedValue(managed,["specifications","specs","attributes","features"])||[]});
+  return NextResponse.json({platform:"aliexpress.com",sourceUrl:canonicalAliExpressProductUrl(parsed.toString()),title,description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,originalSourcePrice:Number.isFinite(originalPriceValue)&&originalPriceValue>0?originalPriceValue:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100,fx:rate?{rate,provider:"open.er-api.com"}:null,shipping:null,shippingMessage:shippingText?"Supplier shipping data detected. Confirm the final delivery fee to Seychelles before importing.":"No verified Seychelles delivery quote was returned. Enter the customer delivery fee manually.",supplierDataSource:"Bright Data AliExpress Scraper",variants,supplierDebug:{scraper:"Bright Data AliExpress dataset",elapsedMs:managed._brightData?.elapsedMs,productKeys:Object.keys(managed||{}),skuCount:skuRows.length,skuPropertyCount:0,firstSkuAttributes:skuRows[0]?.attributes??null,firstSkuProperty:null},specifications:findManagedValue(managed,["specifications","specs","attributes","features"])||[]});
  }
  const response=await fetch(parsed.toString(),{headers:{"User-Agent":"Mozilla/5.0 (compatible; islandXpressProductPreview/1.0)",Accept:"text/html,application/xhtml+xml"},signal:AbortSignal.timeout(12000),redirect:"follow"});if(!response.ok)throw new Error("Supplier page could not be accessed. Enter product details manually.");
  const html=(await response.text()).slice(0,2500000);const products:any[]=[];const scripts=[...html.matchAll(/<script[^>]*type=["\']application\/ld\+json["\'][^>]*>([\s\S]*?)<\/script>/gi)];for(const m of scripts){try{collect(JSON.parse(m[1]),products);}catch{}}
