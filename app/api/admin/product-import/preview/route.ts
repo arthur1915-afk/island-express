@@ -242,7 +242,7 @@ function findManagedValue(root:any,keys:string[]):any{
   seen.add(current);
   if(Array.isArray(current)){queue.push(...current);continue;}
   for(const [key,value] of Object.entries(current)){
-   if(wanted.has(key.toLowerCase())&&value!==null&&value!==undefined&&value!=="")return value;
+   if(wanted.has(key.toLowerCase())&&value!==null&&value!==undefined&&value!==""&&(!Array.isArray(value)||value.length>0)&&(typeof value!=="object"||Array.isArray(value)||Object.keys(value).length>0))return value;
   }
   queue.push(...Object.values(current).filter(v=>v&&typeof v==="object"));
  }
@@ -278,9 +278,9 @@ export async function POST(request:NextRequest){try{
   const currencyInput=findManagedValue(managed,["currency","price_currency","priceCurrency"])??priceValue;
   const sourceCurrency=managedCurrency(currencyInput)||"USD";
   const title=String(findManagedValue(managed,["title","product_title","productTitle","name","subject"])??"").trim();
-  const descriptionValue=findManagedValue(managed,["description","product_description","productDescription","short_description","specifications","specs","features","highlights","selling_points","sellingPoints","attributes","detail"]);
+  const descriptionValue=findManagedValue(managed,["description","product_description","productDescription","short_description","specifications","specs","product_specs","productSpecs","features","highlights","selling_points","sellingPoints","attributes","property_list","properties","detail"]);
   const description=managedDescription(descriptionValue);
-  const images=managedImages(findManagedValue(managed,["images","image_urls","imageUrls","image","main_image","mainImage","gallery","pictures","media","product_images"]));
+  const images=managedImages(findManagedValue(managed,["images","image_urls","imageUrls","image","main_image","mainImage","gallery","pictures","media","product_images","productImages","image_list","imageList","image_url","imageUrl"]));
   const rawVariantValue=findManagedValue(managed,["variants","skus","sku_list","skuList","sku_info"]);const rawVariants=Array.isArray(rawVariantValue)?rawVariantValue:[];
   const skuRows=rawVariants.filter((v:any)=>v&&typeof v==="object"&&(v.price!==undefined||v.sale_price!==undefined||v.sku_id||v.skuId||v.stock!==undefined||v.quantity!==undefined||v.attributes||v.sku_attributes)).map((v:any)=>({...v,attributes:v.attributes??v.sku_attributes??v.properties??v.options??v.label,pricing:v.pricing??{sale_price:v.price??v.current_price??v.sale_price??priceValue,currency:v.currency??sourceCurrency},stock:v.stock??v.quantity??v.available_quantity??v.stock_quantity,image_url:v.image_url??v.image}));
   const fx=sourceCurrency&&Number.isFinite(sourcePrice)&&sourcePrice>0?await getScrRate(sourceCurrency):null;
