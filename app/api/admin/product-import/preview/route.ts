@@ -51,7 +51,7 @@ function parseSupplierPrice(value:any):number{
 }
 async function fetchRateTable(base:string):Promise<{rates:Record<string,number>;updated?:string}|null>{
  try{
-  const response=await fetch("https://open.er-api.com/v6/latest/"+encodeURIComponent(base),{signal:AbortSignal.timeout(9000),cache:"no-store"});
+  const response=await fetch("https://open.er-api.com/v6/latest/"+encodeURIComponent(base),{signal:AbortSignal.timeout(3500),cache:"no-store"});
   if(!response.ok)return null;
   const data=await response.json();
   if(data?.result!=="success"||!data?.rates||typeof data.rates!=="object")return null;
@@ -62,11 +62,10 @@ async function getScrRate(currency:string):Promise<number|null>{
  const code=String(currency||"").trim().toUpperCase();
  if(!/^[A-Z]{3}$/.test(code))return null;
  if(code==="SCR")return 1;
- const direct=await fetchRateTable(code);
+ const [direct,usd]=await Promise.all([fetchRateTable(code),fetchRateTable("USD")]);
  const directRate=Number(direct?.rates?.SCR);
  if(Number.isFinite(directRate)&&directRate>0)return directRate;
  // Cross-rate fallback: convert source currency to USD, then USD to SCR.
- const usd=await fetchRateTable("USD");
  const sourcePerUsd=Number(usd?.rates?.[code]);
  const scrPerUsd=Number(usd?.rates?.SCR);
  if(Number.isFinite(sourcePerUsd)&&sourcePerUsd>0&&Number.isFinite(scrPerUsd)&&scrPerUsd>0){
