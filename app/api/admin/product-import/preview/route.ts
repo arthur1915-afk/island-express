@@ -279,7 +279,7 @@ export async function POST(request:NextRequest){try{
   const originalPrice=managed.original_price??managed.originalPrice??managed.list_price;
   const sourcePrice=parseSupplierPrice(priceValue);
   const currencyInput=managed.currency??managed.price_currency??priceValue;
-  const sourceCurrency=managedCurrency(currencyInput)||"USD";
+  const sourceCurrency=managedCurrency(currencyInput);
   const rawTitle=managed.title??managed.product_title??managed.name;
   const title=typeof rawTitle==="string"?rawTitle.trim():"";
   const descriptionValue=managed.description??managed.product_description??managed.specifications??managed.specs??managed.features;
@@ -294,9 +294,9 @@ export async function POST(request:NextRequest){try{
   const shippingValue=managed?.shipping??managed?.shipping_options??managed?.shippingOptions;
   const shippingText=typeof shippingValue==="string"?shippingValue:shippingValue?JSON.stringify(shippingValue).slice(0,300):"";
   const originalPriceValue=parseSupplierPrice(typeof originalPrice==="object"?(originalPrice.value??originalPrice.amount??originalPrice.current):originalPrice);
-  if(!title||/^(not found|page not found|access denied|error)$/i.test(title))throw new Error("Crawlbase did not return a valid AliExpress product title. The scraper appears to have returned an error or unavailable page.");
-  if(!Number.isFinite(sourcePrice)||sourcePrice<=0)throw new Error("Crawlbase did not return a valid product price. No product was created.");
-  if(!images.length)throw new Error("Crawlbase did not return any product images. No product was created; check the AliExpress scraper result and request logs.");
+  if(!title||/^(not found|page not found|access denied|error)$/i.test(title))throw new Error("Bright Data did not return a valid AliExpress product title. The scraper returned an error or unavailable page.");
+  if(!Number.isFinite(sourcePrice)||sourcePrice<=0)throw new Error("Bright Data did not return a valid product price. No product was created.");\n  if(!sourceCurrency)throw new Error("Bright Data did not identify the product price currency. No product was created to avoid an incorrect SCR conversion.");
+  if(!images.length)throw new Error("Bright Data did not return any product images. No product was created; check the AliExpress dataset output.");
   if(descriptionValue&&typeof descriptionValue==="object"&&!description)throw new Error("The supplier description could not be converted into readable text. No product was created.");
   return NextResponse.json({platform:"aliexpress.com",sourceUrl:canonicalAliExpressProductUrl(parsed.toString()),title,description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,originalSourcePrice:Number.isFinite(originalPriceValue)&&originalPriceValue>0?originalPriceValue:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100,fx:rate?{rate,provider:"open.er-api.com"}:null,shipping:null,shippingMessage:shippingText?"Supplier shipping data detected. Confirm the final delivery fee to Seychelles before importing.":"No verified Seychelles delivery quote was returned. Enter the customer delivery fee manually.",supplierDataSource:"Bright Data AliExpress Scraper",variants,supplierDebug:{scraper:"Bright Data AliExpress dataset",elapsedMs:managed._brightData?.elapsedMs,productKeys:Object.keys(managed||{}),skuCount:skuRows.length,skuPropertyCount:0,firstSkuAttributes:skuRows[0]?.attributes??null,firstSkuProperty:null},specifications:findManagedValue(managed,["specifications","specs","attributes","features"])||[]});
  }
