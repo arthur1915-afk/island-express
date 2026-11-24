@@ -277,7 +277,8 @@ export async function POST(request:NextRequest){try{
   const sourcePrice=parseSupplierPrice(typeof priceValue==="object"?(priceValue.current??priceValue.value??priceValue.sale_price??priceValue.amount):priceValue);
   const currencyInput=findManagedValue(managed,["currency","price_currency","priceCurrency"])??priceValue;
   const sourceCurrency=managedCurrency(currencyInput)||"USD";
-  const title=String(findManagedValue(managed,["title","product_title","productTitle","name","subject"])??"").trim();
+  const rawTitle=findManagedValue(managed,["title","product_title","productTitle","name","subject"]);
+  const title=typeof rawTitle==="string"?rawTitle.trim():"";
   const descriptionValue=findManagedValue(managed,["description","product_description","productDescription","short_description","specifications","specs","product_specs","productSpecs","features","highlights","selling_points","sellingPoints","attributes","property_list","properties","detail"]);
   const description=managedDescription(descriptionValue);
   const images=managedImages(findManagedValue(managed,["images","image_urls","imageUrls","image","main_image","mainImage","gallery","pictures","media","product_images","productImages","image_list","imageList","image_url","imageUrl"]));
@@ -290,7 +291,10 @@ export async function POST(request:NextRequest){try{
   const shippingValue=managed?.shipping??managed?.shipping_options??managed?.shippingOptions;
   const shippingText=typeof shippingValue==="string"?shippingValue:shippingValue?JSON.stringify(shippingValue).slice(0,300):"";
   const originalPriceValue=parseSupplierPrice(typeof originalPrice==="object"?(originalPrice.value??originalPrice.amount??originalPrice.current):originalPrice);
-  if(!title&&!images.length&&(!Number.isFinite(sourcePrice)||sourcePrice<=0))throw new Error("Crawlbase returned product data, but the listing has no usable title, images or price. Check that the AliExpress listing is public and available in your region.");
+  if(!title||/^(not found|page not found|access denied|error)$/i.test(title))throw new Error("Crawlbase did not return a valid AliExpress product title. The scraper appears to have returned an error or unavailable page.");
+  if(!Number.isFinite(sourcePrice)||sourcePrice<=0)throw new Error("Crawlbase did not return a valid product price. No product was created.");
+  if(!images.length)throw new Error("Crawlbase did not return any product images. No product was created; check the AliExpress scraper result and request logs.");
+  if(descriptionValue&&typeof descriptionValue==="object"&&!description)throw new Error("The supplier description could not be converted into readable text. No product was created.");
   return NextResponse.json({platform:"aliexpress.com",sourceUrl:canonicalAliExpressProductUrl(parsed.toString()),title,description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,originalSourcePrice:Number.isFinite(originalPriceValue)&&originalPriceValue>0?originalPriceValue:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100,fx:rate?{rate,provider:"open.er-api.com"}:null,shipping:null,shippingMessage:shippingText?"Supplier shipping data detected. Confirm the final delivery fee to Seychelles before importing.":"No verified Seychelles delivery quote was returned. Enter the customer delivery fee manually.",supplierDataSource:"Crawlbase AliExpress Product Scraper",variants,supplierDebug:{scraper:"Crawlbase aliexpress-product",productKeys:Object.keys(managed||{}),skuCount:skuRows.length,skuPropertyCount:0,firstSkuAttributes:skuRows[0]?.attributes??null,firstSkuProperty:null},specifications:findManagedValue(managed,["specifications","specs","attributes","features"])||[]});
  }
  const response=await fetch(parsed.toString(),{headers:{"User-Agent":"Mozilla/5.0 (compatible; islandXpressProductPreview/1.0)",Accept:"text/html,application/xhtml+xml"},signal:AbortSignal.timeout(12000),redirect:"follow"});if(!response.ok)throw new Error("Supplier page could not be accessed. Enter product details manually.");
