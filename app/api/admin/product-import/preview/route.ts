@@ -133,17 +133,26 @@ function imageCandidates(html:string,product:any){
 }
 async function scrapeAliExpressManaged(url:string):Promise<any>{
  const token=process.env.CRAWLBASE_JS_TOKEN||process.env.CRAWLBASE_TOKEN;
- if(!token)throw new Error("Managed AliExpress importing is not configured yet. Add CRAWLBASE_JS_TOKEN to the Vercel environment variables.");
+ if(!token)throw new Error("Crawlbase is not configured. Add CRAWLBASE_JS_TOKEN in Vercel Production environment variables.");
  const endpoint=new URL("https://api.crawlbase.com/");
  endpoint.searchParams.set("token",token);
  endpoint.searchParams.set("url",url);
  endpoint.searchParams.set("scraper","aliexpress-product");
+ endpoint.searchParams.set("format","json");
  const response=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json"},signal:AbortSignal.timeout(50000),cache:"no-store"});
  const raw=await response.text();
- if(!response.ok)throw new Error("Crawlbase AliExpress service returned HTTP "+response.status+". Check the API token, account credits and scraper access.");
- let data:any;
- try{data=JSON.parse(raw);}catch{throw new Error("The managed AliExpress service returned an unreadable response. Please retry shortly.");}
- if(data?.error||data?.success===false)throw new Error(String(data.error||data.message||"The managed AliExpress service could not extract this product."));
+ let data:any=null;
+ try{data=JSON.parse(raw);}catch{}
+ const cbStatus=response.headers.get("cb_status")||response.headers.get("pc_status")||data?.cb_status||data?.pc_status||null;
+ const originalStatus=response.headers.get("original_status")||data?.original_status||null;
+ const requestId=response.headers.get("rid")||data?.rid||null;
+ if(!response.ok){
+  const detail=String(data?.message||data?.error||data?.body||"").slice(0,300);
+  throw new Error("Crawlbase HTTP "+response.status+(cbStatus?" (cb_status "+cbStatus+")":"")+(originalStatus?" (AliExpress status "+originalStatus+")":"")+(requestId?" [request "+requestId+"]":"")+(detail?": "+detail:"")+". Check Crawlbase scraper access and share this error with Crawlbase support if it persists.");
+ }
+ if(!data){throw new Error("Crawlbase returned an unreadable response"+(requestId?" [request "+requestId+"]":"")+".");}
+ if(cbStatus&&String(cbStatus)!=="200")throw new Error("Crawlbase could not extract this listing (cb_status "+cbStatus+")"+(originalStatus?"; AliExpress returned "+originalStatus:"")+(requestId?"; request "+requestId:"")+".");
+ if(data?.error||data?.success===false)throw new Error(String(data.error||data.message||"Crawlbase could not extract this AliExpress product."));
  if(data?.body&&typeof data.body==="string"){try{data=JSON.parse(data.body);}catch{}}
  if(data?.data&&typeof data.data==="object"&&!Array.isArray(data.data))data=data.data;
  return data;
