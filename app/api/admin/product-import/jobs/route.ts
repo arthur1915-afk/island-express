@@ -13,7 +13,7 @@ async function runJob(origin:string, accessToken:string, job:any, db:any) {
   const update=async(patch:any)=>{await db.from("admin_product_import_jobs").update({...patch,updated_at:new Date().toISOString()}).eq("id",job.id);};
   try {
     await update({status:"processing",stage:"Extracting product",message:"Retrieving product details and images from the supplier."});
-    const previewResponse=await fetch(origin+"/api/admin/product-import/preview",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+accessToken},body:JSON.stringify({url:job.source_url}),signal:AbortSignal.timeout(120000),cache:"no-store"});
+    const previewResponse=await fetch(origin+"/api/admin/product-import/preview",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+accessToken},body:JSON.stringify({url:job.source_url}),signal:AbortSignal.timeout(210000),cache:"no-store"});
     const preview=await previewResponse.json();
     if(!previewResponse.ok) throw new Error(preview.error||"Supplier extraction failed.");
     const title=String(preview.title||"").trim();
