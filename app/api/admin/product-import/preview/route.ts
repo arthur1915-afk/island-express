@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { scrapeAliExpressPage } from "../../../../../lib/aliexpress-scraper";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 const allowed = ["aliexpress.com","shein.com","iherb.com","asos.com","alibaba.com"];
