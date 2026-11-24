@@ -136,77 +136,91 @@ function canonicalAliExpressProductUrl(input:string):string{
  if(!match)throw new Error("Use a standard AliExpress product link containing /item/ followed by the product ID.");
  return "https://www.aliexpress.com/item/"+match[1]+".html";
 }
+function parseCrawlHtml(html:string):any{
+ const products:any[]=[];
+ const scripts=[...html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+ for(const m of scripts){try{collect(JSON.parse(m[1]),products);}catch{}}
+ const product=products[0]||{};
+ const offers=Array.isArray(product.offers)?product.offers[0]:(product.offers||{});
+ const readMeta=(name:string)=>meta(html,name)||meta(html,name,"name");
+ const title=String(product.name||readMeta("og:title")||readMeta("twitter:title")||((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||"").replace(/&amp;/g,"&").trim());
+ const desc=product.description||readMeta("og:description")||readMeta("description");
+ const price=offers.price||offers.lowPrice||readMeta("product:price:amount")||readMeta("og:price:amount");
+ const currency=offers.priceCurrency||readMeta("product:price:currency")||readMeta("og:price:currency");
+ const images=imageCandidates(html,product);
+ const stateMatches=[...html.matchAll(/(?:window\.__INITIAL_STATE__|window\.__NEXT_DATA__|window\.runParams|window\.pageData|window\.data)\s*=\s*(\{[\s\S]{20,}?)(?:;\s*<\/script>|;\s*<\/|;\s*$)/gi)];
+ let embedded:any=null;
+ for(const match of stateMatches){try{embedded=JSON.parse(match[1]);break;}catch{}}
+ return {title,description:desc,price,currency,images,...(embedded?{embedded}:{}),rawHtml:html};
+}
+function normaliseCrawlResult(raw:any):any{
+ let value=raw;
+ for(let depth=0;depth<5;depth++){
+  if(typeof value==="string"){
+   const trimmed=value.trim();
+   if(trimmed.startsWith("{")||trimmed.startsWith("[")){try{value=JSON.parse(trimmed);continue;}catch{}}
+   if(/<html|<!doctype html|<head|<body/i.test(trimmed))return parseCrawlHtml(trimmed);
+   break;
+  }
+  if(!value||typeof value!=="object"||Array.isArray(value))break;
+  if(value.body!==undefined&&value.body!==null){value=value.body;continue;}
+  if(value.data&&typeof value.data==="object"){value=value.data;continue;}
+  if(value.product&&typeof value.product==="object"){value=value.product;continue;}
+  if(value.result&&typeof value.result==="object"){value=value.result;continue;}
+  break;
+ }
+ return value;
+}
 async function scrapeAliExpressManaged(url:string):Promise<any>{
  const token=process.env.CRAWLBASE_JS_TOKEN;
- if(!token)throw new Error("The AliExpress importer requires the Crawlbase JavaScript token. Add the JS token as CRAWLBASE_JS_TOKEN in Vercel Production environment variables (not CRAWLBASE_TOKEN), then redeploy.");
- const cleanUrl=canonicalAliExpressProductUrl(url);
+ if(!token)throw new Error("The AliExpress importer requires CRAWLBASE_JS_TOKEN in Vercel Production.");
  const endpoint=new URL("https://api.crawlbase.com/");
  endpoint.searchParams.set("token",token);
- endpoint.searchParams.set("url",cleanUrl);
- endpoint.searchParams.set("scraper","aliexpress-product");
+ endpoint.searchParams.set("url",canonicalAliExpressProductUrl(url));
+ // Autoparse avoids depending on a scraper name that may not be enabled for
+ // this Crawlbase account. ajax_wait waits for product data without a fixed delay.
+ endpoint.searchParams.set("autoparse","true");
+ endpoint.searchParams.set("ajax_wait","true");
+ endpoint.searchParams.set("format","json");
  endpoint.searchParams.set("async","true");
  endpoint.searchParams.set("store","true");
- // Keep browser rendering enabled through the JavaScript token, but avoid
- // adding a fixed page delay that increases Crawlbase concurrency usage.
  let accepted:Response;
  try{
-  accepted=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json"},signal:AbortSignal.timeout(20000),cache:"no-store"});
- }catch(error){
-  throw new Error("Could not submit the AliExpress crawl to Crawlbase: "+(error instanceof Error?error.message:"network error"));
- }
+  accepted=await fetch(endpoint.toString(),{headers:{Accept:"application/json"},signal:AbortSignal.timeout(12000),cache:"no-store"});
+ }catch(error){throw new Error("Crawlbase did not accept the request within 12 seconds: "+(error instanceof Error?error.message:"network error"));}
  const acceptedText=await accepted.text();
- let acceptedPayload:any=null;
- try{acceptedPayload=JSON.parse(acceptedText);}catch{}
+ let acceptedPayload:any=null;try{acceptedPayload=JSON.parse(acceptedText);}catch{}
  const rid=accepted.headers.get("rid")||acceptedPayload?.rid||acceptedPayload?.request_id||null;
  const cbStatus=accepted.headers.get("cb_status")||accepted.headers.get("pc_status")||acceptedPayload?.cb_status||acceptedPayload?.pc_status||null;
  if(!accepted.ok||(cbStatus&&String(cbStatus)!=="200")||!rid){
-  const detail=String(acceptedPayload?.message||acceptedPayload?.error||acceptedText||"").replace(/\\s+/g," ").slice(0,220);
-  throw new Error("Crawlbase could not queue the AliExpress request."+(cbStatus?" Crawl status "+cbStatus+".":"")+(detail?" "+detail:"")+" Check the Crawlbase dashboard and JavaScript token permissions.");
+  throw new Error("Crawlbase could not queue the product request."+(cbStatus?" Crawl status "+cbStatus+".":"")+" "+String(acceptedPayload?.message||acceptedPayload?.error||acceptedText).slice(0,180));
  }
- // Async mode returns an RID immediately. Retrieve the stored scraper result
- // independently so a slow AliExpress render never holds the initial request open.
  const storage=new URL("https://api.crawlbase.com/storage");
  storage.searchParams.set("token",token);
  storage.searchParams.set("rid",String(rid));
  storage.searchParams.set("format","json");
- const deadline=Date.now()+180000;
- let lastStorageError="";
+ const deadline=Date.now()+18000;
+ let lastError="";
  while(Date.now()<deadline){
-  await new Promise(resolve=>setTimeout(resolve,5000));
+  await new Promise(resolve=>setTimeout(resolve,1200));
   let result:Response;
-  try{
-   result=await fetch(storage.toString(),{headers:{Accept:"application/json"},signal:AbortSignal.timeout(20000),cache:"no-store"});
-  }catch(error){
-   lastStorageError=error instanceof Error?error.message:"Storage request failed";
-   continue;
-  }
+  try{result=await fetch(storage.toString(),{headers:{Accept:"application/json"},signal:AbortSignal.timeout(5000),cache:"no-store"});}
+  catch(error){lastError=error instanceof Error?error.message:"Storage request failed";continue;}
   const resultText=await result.text();
-  let stored:any=null;
-  try{stored=JSON.parse(resultText);}catch{}
+  let stored:any=null;try{stored=JSON.parse(resultText);}catch{}
   if(result.status===404||result.status===202||stored?.error==="Not Found"||stored?.status==="PROCESSING"||stored?.status==="QUEUED")continue;
-  if(!result.ok){
-   lastStorageError="HTTP "+result.status+" "+resultText.slice(0,180);
-   continue;
-  }
-  let product:any=stored??resultText;
-  for(let depth=0;depth<5;depth++){
-   if(typeof product==="string"){try{product=JSON.parse(product);continue;}catch{break;}}
-   if(product&&typeof product==="object"&&product.body!==undefined&&product.body!==null){product=product.body;continue;}
-   if(product&&typeof product==="object"&&product.data&&typeof product.data==="object"){product=product.data;continue;}
-   if(product&&typeof product==="object"&&product.product&&typeof product.product==="object"){product=product.product;continue;}
-   break;
-  }
+  if(!result.ok){lastError="Storage HTTP "+result.status;continue;}
+  const product=normaliseCrawlResult(stored??resultText);
   if(product&&typeof product==="object"&&!Array.isArray(product)){
-   if(product.title||product.name||product.price||product.images?.length||product.image)return product;
-   const keys=Object.keys(product);
-   throw new Error("Crawlbase finished the async crawl but the AliExpress scraper returned no usable product fields. Returned fields: "+keys.slice(0,20).join(", ")+". Request "+rid+".");
+   const hasTitle=typeof product.title==="string"&&product.title.trim();
+   const hasPrice=product.price!==undefined||product.current_price!==undefined||product.sale_price!==undefined;
+   const hasImages=Array.isArray(product.images)?product.images.length>0:!!product.images||!!product.image;
+   if(hasTitle||hasPrice||hasImages)return product;
+   throw new Error("Crawlbase completed but returned no recognised product fields. Request "+rid+".");
   }
-  if(typeof product==="string"&&product.trim()){
-   throw new Error("Crawlbase finished the async crawl but returned page content instead of structured product data. Request "+rid+".");
-  }
-  lastStorageError="Stored result is not ready yet.";
+  lastError="Stored result did not contain a recognised product payload.";
  }
- throw new Error("Crawlbase accepted the AliExpress crawl but no stored result became available within 3 minutes. Request "+rid+". "+lastStorageError+" Check this RID in Crawlbase request logs.");
+ throw new Error("AliExpress is taking longer than the 10–20 second import target. Crawlbase request "+rid+" is still processing. Please retry shortly.");
 }
 function managedImages(value:any):string[]{
  const found:string[]=[];
