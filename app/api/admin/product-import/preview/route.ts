@@ -137,10 +137,10 @@ function canonicalAliExpressProductUrl(input:string):string{
  return "https://www.aliexpress.com/item/"+match[1]+".html";
 }
 async function scrapeAliExpressManaged(url:string):Promise<any>{
- const token=process.env.CRAWLBASE_JS_TOKEN||process.env.CRAWLBASE_TOKEN;
- if(!token)throw new Error("Crawlbase is not configured. Add CRAWLBASE_JS_TOKEN to Vercel Production environment variables, then redeploy.");
+ const token=process.env.CRAWLBASE_JS_TOKEN;
+ if(!token)throw new Error("The AliExpress importer requires the Crawlbase JavaScript token. Add the JS token as CRAWLBASE_JS_TOKEN in Vercel Production environment variables (not CRAWLBASE_TOKEN), then redeploy.");
  const cleanUrl=canonicalAliExpressProductUrl(url);
- const delays=[0,2000];
+ const delays=[0];
  let lastError="Crawlbase did not return product data.";
  for(let attempt=0;attempt<delays.length;attempt++){
   if(delays[attempt])await new Promise(resolve=>setTimeout(resolve,delays[attempt]));
@@ -153,11 +153,11 @@ async function scrapeAliExpressManaged(url:string):Promise<any>{
   endpoint.searchParams.set("page_wait","2000");
   let response:Response;
   try{
-   response=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json"},signal:AbortSignal.timeout(45000),cache:"no-store"});
+   response=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json"},signal:AbortSignal.timeout(90000),cache:"no-store"});
   }catch(error){
    lastError=error instanceof Error?error.message:"Network error contacting Crawlbase.";
    if(attempt<delays.length-1)continue;
-   throw new Error("Crawlbase did not respond within 45 seconds: "+lastError+". The request timed out before product data was returned. Check Crawlbase request logs and scraper access.");
+   throw new Error("Crawlbase did not respond within 90 seconds: "+lastError+". The request timed out before product data was returned. Check Crawlbase request logs and scraper access.");
   }
   const raw=await response.text();
   let payload:any=null;
@@ -170,7 +170,7 @@ async function scrapeAliExpressManaged(url:string):Promise<any>{
    lastError="Crawlbase HTTP "+response.status+(cbStatus?" / crawl status "+cbStatus:"")+(originalStatus?" / AliExpress status "+originalStatus:"")+(requestId?" / request "+requestId:"")+(detail?": "+detail:"");
    const retryable=response.status>=500||["207","503","520","599","521","522","523"].includes(String(cbStatus));
    if(retryable&&attempt<delays.length-1)continue;
-   throw new Error(lastError+". Crawlbase could reach AliExpress, but its scraper could not produce usable product data. The importer now uses JavaScript rendering and one retry; if this persists, the Crawlbase request ID is needed for their support team.");
+   throw new Error(lastError+". Crawlbase could reach AliExpress, but its scraper could not produce usable product data. The request used the configured JavaScript token. If this persists, check Crawlbase request logs and send the request ID to Crawlbase support.");
   }
   let product=payload;
   for(let depth=0;depth<3;depth++){
