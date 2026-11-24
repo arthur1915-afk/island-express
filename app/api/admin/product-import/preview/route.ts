@@ -151,7 +151,7 @@ async function scrapeAliExpressManaged(url:string):Promise<any>{
   endpoint.searchParams.set("scraper","aliexpress-product");
   let response:Response;
   try{
-   response=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json","Accept-Encoding":"gzip"},signal:AbortSignal.timeout(45000),cache:"no-store"});
+   response=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json","Accept-Encoding":"gzip"},signal:AbortSignal.timeout(17000),cache:"no-store"});
   }catch(error){
    lastError=error instanceof Error?error.message:"Network error contacting Crawlbase.";
    if(attempt===delays.length-1)throw new Error("Could not connect to Crawlbase: "+lastError);
