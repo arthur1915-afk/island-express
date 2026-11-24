@@ -16,10 +16,12 @@ async function runJob(origin:string, accessToken:string, job:any, db:any) {
     const previewResponse=await fetch(origin+"/api/admin/product-import/preview",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+accessToken},body:JSON.stringify({url:job.source_url}),signal:AbortSignal.timeout(210000),cache:"no-store"});
     const preview=await previewResponse.json();
     if(!previewResponse.ok) throw new Error(preview.error||"Supplier extraction failed.");
-    const title=String(preview.title||"").trim();
-    if(!title) throw new Error("Supplier did not return a product title; this listing cannot be imported automatically.");
+    const title=typeof preview.title==="string"?preview.title.trim():"";
+    if(!title||/^(not found|page not found|access denied|error)$/i.test(title)) throw new Error("Supplier did not return a valid product title. No product was created.");
     const price=Number(preview.sellingPriceScr);
-    if(!Number.isFinite(price)||price<0) throw new Error("Supplier price could not be converted to SCR. Check the supplier price and currency before importing.");
+    if(!Number.isFinite(price)||price<=0) throw new Error("Supplier price could not be converted to a valid SCR amount. No product was created.");
+    if(!Array.isArray(preview.images)||preview.images.length===0) throw new Error("Supplier did not return product images. No product was created.");
+    if(typeof preview.description!=="string") throw new Error("Supplier description was not readable text. No product was created.");
     await update({stage:"Saving product",message:"Product details extracted. Saving images, variations and pricing to the seller shop."});
     const variants=Array.isArray(preview.variants)?preview.variants:[];
     const stock=variants.length?variants.reduce((sum:number,v:any)=>sum+Math.max(0,Number(v.stock)||0),0):1;
