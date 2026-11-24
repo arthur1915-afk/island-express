@@ -148,12 +148,12 @@ async function scrapeAliExpressManaged(url:string):Promise<any>{
   endpoint.searchParams.set("token",token);
   endpoint.searchParams.set("url",cleanUrl);
   endpoint.searchParams.set("scraper","aliexpress-product");
-  // The JS token authenticates browser rendering, but rendering must also be enabled.
-  endpoint.searchParams.set("javascript","true");
+  // A JavaScript token already selects Crawlbase browser rendering. Do not also
+  // send javascript=true: that switch is intended for callers using a Normal token.
   endpoint.searchParams.set("page_wait","2000");
   let response:Response;
   try{
-   response=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json"},signal:AbortSignal.timeout(90000),cache:"no-store"});
+   response=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json", "Accept-Encoding":"gzip"},signal:AbortSignal.timeout(90000),cache:"no-store"});
   }catch(error){
    lastError=error instanceof Error?error.message:"Network error contacting Crawlbase.";
    if(attempt<delays.length-1)continue;
