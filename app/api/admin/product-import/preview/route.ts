@@ -169,7 +169,8 @@ export async function POST(request:NextRequest){try{
  const db=createClient(u,s,{auth:{persistSession:false,autoRefreshToken:false}});const {data:profile}=await db.from("profiles").select("is_admin").eq("id",user.id).single();if(!profile?.is_admin)return NextResponse.json({error:"Administrator access required."},{status:403});
  const body=await request.json();const parsed=new URL(String(body.url||""));if(parsed.protocol!=="https:"||!platform(parsed.hostname.toLowerCase()))return NextResponse.json({error:"Use an HTTPS product URL from AliExpress, SHEIN, iHerb, ASOS or Alibaba."},{status:400});
  if(platform(parsed.hostname.toLowerCase())==="aliexpress.com"){
-  if(process.env.CRAWLBASE_JS_TOKEN||process.env.CRAWLBASE_TOKEN){
+  if(!(process.env.CRAWLBASE_JS_TOKEN||process.env.CRAWLBASE_TOKEN))throw new Error("Crawlbase is not configured in this Vercel deployment. Add CRAWLBASE_JS_TOKEN to Production environment variables and redeploy.");
+  {
    const managed=await scrapeAliExpressManaged(parsed.toString());
    const priceValue=managed?.price?.current??managed?.price??managed?.current_price??managed?.sale_price??managed?.min_price;
    const sourcePrice=parseSupplierPrice(priceValue);
