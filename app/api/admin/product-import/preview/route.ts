@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { scrapeAliExpressPage } from "../../../../../lib/aliexpress-scraper";
 export const runtime = "nodejs";
+export const maxDuration = 60;
 const allowed = ["aliexpress.com","shein.com","iherb.com","asos.com","alibaba.com"];
 function platform(host:string){return allowed.find(d=>host===d||host.endsWith("."+d))||null;}
 function meta(html:string,key:string,attr="property"){const escaped=key.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");const a=new RegExp(`<meta[^>]+${attr}=[\"']${escaped}[\"'][^>]+content=[\"']([^\"']*)[\"'][^>]*>`,"i");const b=new RegExp(`<meta[^>]+content=[\"']([^\"']*)[\"'][^>]+${attr}=[\"']${escaped}[\"'][^>]*>`,"i");const m=html.match(a)||html.match(b);return (m?.[1]||"").replace(/&amp;/g,"&").replace(/&quot;/g,'"').trim();}
@@ -137,7 +138,7 @@ async function scrapeAliExpressManaged(url:string):Promise<any>{
  endpoint.searchParams.set("token",token);
  endpoint.searchParams.set("url",url);
  endpoint.searchParams.set("scraper","aliexpress-product");
- const response=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json"},signal:AbortSignal.timeout(90000),cache:"no-store"});
+ const response=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json"},signal:AbortSignal.timeout(50000),cache:"no-store"});
  const raw=await response.text();
  if(!response.ok)throw new Error("Crawlbase AliExpress service returned HTTP "+response.status+". Check the API token, account credits and scraper access.");
  let data:any;
