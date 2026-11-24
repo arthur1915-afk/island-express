@@ -166,50 +166,40 @@ function brightDataDescription(record:any):string{
  if(value&&typeof value==="object")return Object.entries(value).map(([k,v])=>k+": "+(typeof v==="string"?v:JSON.stringify(v))).join("\n");
  return "";
 }
-async function scrapeAliExpressManaged(url:string):Promise<any>{
+async function scrapeAliExpressManaged(url:string,snapshotId?:string):Promise<any>{
  const token=process.env.BRIGHTDATA_API_TOKEN;
  if(!token)throw new Error("Bright Data is not configured. Add BRIGHTDATA_API_TOKEN to Vercel Production environment variables and redeploy.");
  const datasetId=process.env.BRIGHTDATA_ALIEXPRESS_DATASET_ID||"gd_mlj9v75u1w1jvaxvwp";
- const endpoint=new URL("https://api.brightdata.com/datasets/v3/scrape");
- endpoint.searchParams.set("dataset_id",datasetId);
- endpoint.searchParams.set("format","json");
  const started=Date.now();
- let response:Response;
- try{
-  response=await fetch(endpoint.toString(),{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({input:[{url:canonicalAliExpressProductUrl(url)}]}),signal:AbortSignal.timeout(25000),cache:"no-store"});
- }catch(error){throw new Error("Bright Data did not return within 25 seconds: "+(error instanceof Error?error.message:"network error"));}
  let payload:any=null;
- const text=await response.text();
- try{payload=JSON.parse(text);}catch{throw new Error("Bright Data API returned HTTP "+response.status+" with a non-JSON response: "+text.replace(/\\s+/g," ").slice(0,300));}
- if(response.status===202&&payload?.snapshot_id){
-  const snapshot=String(payload.snapshot_id);
-  const deadline=Date.now()+20000;
-  while(Date.now()<deadline){
-   await new Promise(resolve=>setTimeout(resolve,2000));
-   let progress:Response;
-   try{progress=await fetch("https://api.brightdata.com/datasets/v3/progress/"+encodeURIComponent(snapshot),{headers:{"Authorization":"Bearer "+token,"Accept":"application/json"},signal:AbortSignal.timeout(5000),cache:"no-store"});}catch{continue;}
-   if(!progress.ok)continue;
-   const state=await progress.json();
-   if(state?.status==="failed")throw new Error("Bright Data scraping job failed. Check the Bright Data dataset run logs.");
-   if(state?.status!=="ready")continue;
-   const download=await fetch("https://api.brightdata.com/datasets/v3/snapshot/"+encodeURIComponent(snapshot)+"?format=json",{headers:{"Authorization":"Bearer "+token,"Accept":"application/json"},signal:AbortSignal.timeout(10000),cache:"no-store"});
-   if(!download.ok)throw new Error("Bright Data finished the scrape but the result could not be downloaded (HTTP "+download.status+").");
-   payload=await download.json();
-   break;
-  }
-  if(payload?.snapshot_id)throw new Error("Bright Data is still processing this product. Please retry shortly.");
- }else if(!response.ok){
-  const detail=String(payload?.error||payload?.message||payload?.detail||text).replace(/\\s+/g," ").slice(0,300);
-  throw new Error("Bright Data API error (HTTP "+response.status+"): "+detail);
+ if(snapshotId){
+  const download=await fetch("https://api.brightdata.com/datasets/v3/snapshot/"+encodeURIComponent(snapshotId)+"?format=json",{headers:{"Authorization":"Bearer "+token,"Accept":"application/json"},signal:AbortSignal.timeout(30000),cache:"no-store"});
+  const raw=await download.text();
+  try{payload=JSON.parse(raw);}catch{throw new Error("Bright Data snapshot download returned HTTP "+download.status+" with an unreadable response: "+raw.replace(/\\s+/g," ").slice(0,300));}
+  if(!download.ok)throw new Error("Bright Data snapshot download failed (HTTP "+download.status+"): "+String(payload?.error||payload?.message||raw).slice(0,300));
+ }else{
+  const endpoint=new URL("https://api.brightdata.com/datasets/v3/trigger");
+  endpoint.searchParams.set("dataset_id",datasetId);
+  endpoint.searchParams.set("format","json");
+  let response:Response;
+  try{
+   response=await fetch(endpoint.toString(),{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({input:[{url:canonicalAliExpressProductUrl(url)}]}),signal:AbortSignal.timeout(15000),cache:"no-store"});
+  }catch(error){throw new Error("Could not submit the AliExpress scrape to Bright Data: "+(error instanceof Error?error.message:"network error"));}
+  const raw=await response.text();
+  try{payload=JSON.parse(raw);}catch{throw new Error("Bright Data trigger returned HTTP "+response.status+" with a non-JSON response: "+raw.replace(/\\s+/g," ").slice(0,300));}
+  if(!response.ok)throw new Error("Bright Data trigger failed (HTTP "+response.status+"): "+String(payload?.error||payload?.message||payload?.detail||raw).replace(/\\s+/g," ").slice(0,300));
+  const id=String(payload?.snapshot_id||payload?.snapshotId||"");
+  if(!id)throw new Error("Bright Data accepted no snapshot ID. Response keys: "+Object.keys(payload||{}).join(", "));
+  return {snapshot_id:id,dataset_id:datasetId,_brightData:{datasetId,submittedAt:Date.now()}};
  }
  const record=Array.isArray(payload)?payload[0]:(Array.isArray(payload?.data)?payload.data[0]:(payload?.data??payload?.result??payload));
- if(!record||typeof record!=="object"||Array.isArray(record))throw new Error("Bright Data returned no product record.");
+ if(!record||typeof record!=="object"||Array.isArray(record))throw new Error("Bright Data snapshot contained no product record. Snapshot response keys: "+Object.keys(payload||{}).join(", "));
  const price=brightDataPrice(record);
  const title=String(record.title??record.product_title??record.name??"").trim();
  const images=brightDataImages(record);
  const description=brightDataDescription(record);
  const variants=Array.isArray(record.variants)?record.variants:(Array.isArray(record.skus)?record.skus:[]);
- return {...record,title,description,images,price:price.price,currency:price.currency,variants,_brightData:{datasetId,elapsedMs:Date.now()-started,recordKeys:Object.keys(record)}};
+ return {...record,title,description,images,price:price.price,currency:price.currency,variants,_brightData:{datasetId,elapsedMs:Date.now()-started,recordKeys:Object.keys(record),snapshotId}};
 }
 function managedImages(value:any):string[]{
  const found:string[]=[];
@@ -274,7 +264,8 @@ export async function POST(request:NextRequest){try{
  const db=createClient(u,s,{auth:{persistSession:false,autoRefreshToken:false}});const {data:profile}=await db.from("profiles").select("is_admin").eq("id",user.id).single();if(!profile?.is_admin)return NextResponse.json({error:"Administrator access required."},{status:403});
  const body=await request.json();const parsed=new URL(String(body.url||""));if(parsed.protocol!=="https:"||!platform(parsed.hostname.toLowerCase()))return NextResponse.json({error:"Use an HTTPS product URL from AliExpress, SHEIN, iHerb, ASOS or Alibaba."},{status:400});
  if(platform(parsed.hostname.toLowerCase())==="aliexpress.com"){
-  const managed=await scrapeAliExpressManaged(parsed.toString());
+  const managed=await scrapeAliExpressManaged(parsed.toString(),typeof body.snapshotId==="string"?body.snapshotId:undefined);
+  if(body.startOnly===true)return NextResponse.json({snapshotId:managed.snapshot_id,datasetId:managed.dataset_id});
   const priceValue=managed.price;
   const originalPrice=managed.original_price??managed.originalPrice??managed.list_price;
   const sourcePrice=parseSupplierPrice(priceValue);
