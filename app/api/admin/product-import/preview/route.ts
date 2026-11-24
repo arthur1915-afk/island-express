@@ -209,8 +209,50 @@ async function scrapeAliExpressManaged(url:string):Promise<any>{
  throw new Error("Crawlbase accepted the AliExpress crawl but no stored result became available within 3 minutes. Request "+rid+". "+lastStorageError+" Check this RID in Crawlbase request logs.");
 }
 function managedImages(value:any):string[]{
- const items=Array.isArray(value)?value:[value];
- return [...new Set(items.map((item:any)=>typeof item==="string"?item:(item?.url||item?.image_url||item?.src)).filter((v:any)=>typeof v==="string"&&/^https:\/\//i.test(v)))].slice(0,12);
+ const found:string[]=[];
+ const seen=new Set<any>();
+ const add=(item:any,depth=0):void=>{
+  if(item===null||item===undefined||depth>7)return;
+  if(typeof item==="string"){
+   const raw=item.trim().replace(/&amp;/g,"&").replace(/\\u0026/gi,"&");
+   const urls=raw.match(/(?:https?:)?\\/\\/[^\\s"'<>]+/gi)||[];
+   for(const candidate of urls){
+    const url=candidate.startsWith("//")?"https:"+candidate:candidate;
+    const clean=url.replace(/[),;]+$/,"");
+    if(/^https:\/\//i.test(clean)&&/(aliexpress-media|alicdn|ae-pic|\.jpg|\.jpeg|\.png|\.webp)/i.test(clean)&&!/(sprite|logo|icon|avatar|placeholder)/i.test(clean))found.push(clean);
+   }
+   return;
+  }
+  if(typeof item!=="object"||seen.has(item))return;
+  seen.add(item);
+  if(Array.isArray(item)){item.forEach(v=>add(v,depth+1));return;}
+  for(const [key,val] of Object.entries(item)){
+   if(/image|picture|photo|gallery|url|src|origin/i.test(key))add(val,depth+1);
+  }
+ };
+ add(value);
+ return [...new Set(found)].slice(0,12);
+}
+function findManagedValue(root:any,keys:string[]):any{
+ const wanted=new Set(keys.map(k=>k.toLowerCase()));
+ const queue=[root];const seen=new Set<any>();
+ while(queue.length){
+  const current=queue.shift();
+  if(!current||typeof current!=="object"||seen.has(current))continue;
+  seen.add(current);
+  if(Array.isArray(current)){queue.push(...current);continue;}
+  for(const [key,value] of Object.entries(current)){
+   if(wanted.has(key.toLowerCase())&&value!==null&&value!==undefined&&value!=="")return value;
+  }
+  queue.push(...Object.values(current).filter(v=>v&&typeof v==="object"));
+ }
+ return undefined;
+}
+function managedDescription(value:any):string{
+ if(typeof value==="string")return value.trim();
+ if(Array.isArray(value))return value.map((item:any)=>typeof item==="string"?item:[item?.name??item?.key,item?.value??item?.description].filter(Boolean).join(": ")).filter(Boolean).join("\\n");
+ if(value&&typeof value==="object")return Object.entries(value).map(([k,v])=>k+": "+(typeof v==="string"?v:JSON.stringify(v))).join("\\n");
+ return "";
 }
 function managedCurrency(value:any):string{
  const raw=String(value??"").trim().toUpperCase();
@@ -230,17 +272,16 @@ export async function POST(request:NextRequest){try{
  const body=await request.json();const parsed=new URL(String(body.url||""));if(parsed.protocol!=="https:"||!platform(parsed.hostname.toLowerCase()))return NextResponse.json({error:"Use an HTTPS product URL from AliExpress, SHEIN, iHerb, ASOS or Alibaba."},{status:400});
  if(platform(parsed.hostname.toLowerCase())==="aliexpress.com"){
   const managed=await scrapeAliExpressManaged(parsed.toString());
-  const priceObject=managed?.price&&typeof managed.price==="object"?managed.price:null;
-  const priceValue=priceObject?.current??priceObject?.sale_price??priceObject?.value??managed?.price??managed?.current_price??managed?.sale_price??managed?.min_price;
-  const originalPrice=priceObject?.original??priceObject?.original_price??managed?.original_price;
-  const sourcePrice=parseSupplierPrice(priceValue);
-  const currencyInput=managed?.currency??priceObject?.currency??managed?.price_currency??priceValue;
+  const priceValue=findManagedValue(managed,["price","current_price","sale_price","salePrice","min_price","minPrice","seller_offer_price"]);
+  const originalPrice=findManagedValue(managed,["original_price","originalPrice","list_price","listPrice"]);
+  const sourcePrice=parseSupplierPrice(typeof priceValue==="object"?(priceValue.current??priceValue.value??priceValue.sale_price??priceValue.amount):priceValue);
+  const currencyInput=findManagedValue(managed,["currency","price_currency","priceCurrency"])??priceValue;
   const sourceCurrency=managedCurrency(currencyInput)||"USD";
-  const title=String(managed?.title??managed?.name??"").trim();
-  const descriptionValue=managed?.description??managed?.product_description??managed?.short_description??managed?.specifications??managed?.specs??"";
-  const description=Array.isArray(descriptionValue)?descriptionValue.map((item:any)=>typeof item==="string"?item:[item?.name,item?.value].filter(Boolean).join(": ")).filter(Boolean).join("\n"):String(descriptionValue||"");
-  const images=managedImages(managed?.images??managed?.image_urls??managed?.image??managed?.main_image);
-  const rawVariants=Array.isArray(managed?.variants)?managed.variants:(Array.isArray(managed?.skus)?managed.skus:[]);
+  const title=String(findManagedValue(managed,["title","product_title","productTitle","name","subject"])??"").trim();
+  const descriptionValue=findManagedValue(managed,["description","product_description","productDescription","short_description","specifications","specs","features","highlights","selling_points","sellingPoints","attributes","detail"]);
+  const description=managedDescription(descriptionValue);
+  const images=managedImages(findManagedValue(managed,["images","image_urls","imageUrls","image","main_image","mainImage","gallery","pictures","media","product_images"]));
+  const rawVariantValue=findManagedValue(managed,["variants","skus","sku_list","skuList","sku_info"]);const rawVariants=Array.isArray(rawVariantValue)?rawVariantValue:[];
   const skuRows=rawVariants.filter((v:any)=>v&&typeof v==="object"&&(v.price!==undefined||v.sale_price!==undefined||v.sku_id||v.skuId||v.stock!==undefined||v.quantity!==undefined||v.attributes||v.sku_attributes)).map((v:any)=>({...v,attributes:v.attributes??v.sku_attributes??v.properties??v.options??v.label,pricing:v.pricing??{sale_price:v.price??v.current_price??v.sale_price??priceValue,currency:v.currency??sourceCurrency},stock:v.stock??v.quantity??v.available_quantity??v.stock_quantity,image_url:v.image_url??v.image}));
   const fx=sourceCurrency&&Number.isFinite(sourcePrice)&&sourcePrice>0?await getScrRate(sourceCurrency):null;
   const rate=sourceCurrency==="SCR"?1:fx;
@@ -248,9 +289,9 @@ export async function POST(request:NextRequest){try{
   const variants=await normaliseSkus(skuRows,Number.isFinite(sourcePrice)?sourcePrice:0,sourceCurrency,rate,[]);
   const shippingValue=managed?.shipping??managed?.shipping_options??managed?.shippingOptions;
   const shippingText=typeof shippingValue==="string"?shippingValue:shippingValue?JSON.stringify(shippingValue).slice(0,300):"";
-  const originalPriceValue=parseSupplierPrice(originalPrice);
+  const originalPriceValue=parseSupplierPrice(typeof originalPrice==="object"?(originalPrice.value??originalPrice.amount??originalPrice.current):originalPrice);
   if(!title&&!images.length&&(!Number.isFinite(sourcePrice)||sourcePrice<=0))throw new Error("Crawlbase returned product data, but the listing has no usable title, images or price. Check that the AliExpress listing is public and available in your region.");
-  return NextResponse.json({platform:"aliexpress.com",sourceUrl:canonicalAliExpressProductUrl(parsed.toString()),title,description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,originalSourcePrice:Number.isFinite(originalPriceValue)&&originalPriceValue>0?originalPriceValue:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100,fx:rate?{rate,provider:"open.er-api.com"}:null,shipping:null,shippingMessage:shippingText?"Supplier shipping data detected. Confirm the final delivery fee to Seychelles before importing.":"No verified Seychelles delivery quote was returned. Enter the customer delivery fee manually.",supplierDataSource:"Crawlbase AliExpress Product Scraper",variants,supplierDebug:{scraper:"Crawlbase aliexpress-product",productKeys:Object.keys(managed||{}),skuCount:skuRows.length,skuPropertyCount:0,firstSkuAttributes:skuRows[0]?.attributes??null,firstSkuProperty:null},specifications:managed?.specifications||managed?.specs||[]});
+  return NextResponse.json({platform:"aliexpress.com",sourceUrl:canonicalAliExpressProductUrl(parsed.toString()),title,description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,originalSourcePrice:Number.isFinite(originalPriceValue)&&originalPriceValue>0?originalPriceValue:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100,fx:rate?{rate,provider:"open.er-api.com"}:null,shipping:null,shippingMessage:shippingText?"Supplier shipping data detected. Confirm the final delivery fee to Seychelles before importing.":"No verified Seychelles delivery quote was returned. Enter the customer delivery fee manually.",supplierDataSource:"Crawlbase AliExpress Product Scraper",variants,supplierDebug:{scraper:"Crawlbase aliexpress-product",productKeys:Object.keys(managed||{}),skuCount:skuRows.length,skuPropertyCount:0,firstSkuAttributes:skuRows[0]?.attributes??null,firstSkuProperty:null},specifications:findManagedValue(managed,["specifications","specs","attributes","features"])||[]});
  }
  const response=await fetch(parsed.toString(),{headers:{"User-Agent":"Mozilla/5.0 (compatible; islandXpressProductPreview/1.0)",Accept:"text/html,application/xhtml+xml"},signal:AbortSignal.timeout(12000),redirect:"follow"});if(!response.ok)throw new Error("Supplier page could not be accessed. Enter product details manually.");
  const html=(await response.text()).slice(0,2500000);const products:any[]=[];const scripts=[...html.matchAll(/<script[^>]*type=["\']application\/ld\+json["\'][^>]*>([\s\S]*?)<\/script>/gi)];for(const m of scripts){try{collect(JSON.parse(m[1]),products);}catch{}}
