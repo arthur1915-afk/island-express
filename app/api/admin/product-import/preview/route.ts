@@ -176,11 +176,11 @@ async function scrapeAliExpressManaged(url:string):Promise<any>{
  const started=Date.now();
  let response:Response;
  try{
-  response=await fetch(endpoint.toString(),{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify([{url:canonicalAliExpressProductUrl(url)}]),signal:AbortSignal.timeout(25000),cache:"no-store"});
+  response=await fetch(endpoint.toString(),{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({input:[{url:canonicalAliExpressProductUrl(url)}]}),signal:AbortSignal.timeout(25000),cache:"no-store"});
  }catch(error){throw new Error("Bright Data did not return within 25 seconds: "+(error instanceof Error?error.message:"network error"));}
  let payload:any=null;
  const text=await response.text();
- try{payload=JSON.parse(text);}catch{throw new Error("Bright Data returned an unreadable response. Check the dataset ID and API token permissions.");}
+ try{payload=JSON.parse(text);}catch{throw new Error("Bright Data API returned HTTP "+response.status+" with a non-JSON response: "+text.replace(/\\s+/g," ").slice(0,300));}
  if(response.status===202&&payload?.snapshot_id){
   const snapshot=String(payload.snapshot_id);
   const deadline=Date.now()+20000;
@@ -199,7 +199,7 @@ async function scrapeAliExpressManaged(url:string):Promise<any>{
   }
   if(payload?.snapshot_id)throw new Error("Bright Data is still processing this product. Please retry shortly.");
  }else if(!response.ok){
-  const detail=String(payload?.error||payload?.message||text).slice(0,240);
+  const detail=String(payload?.error||payload?.message||payload?.detail||text).replace(/\\s+/g," ").slice(0,300);
   throw new Error("Bright Data API error (HTTP "+response.status+"): "+detail);
  }
  const record=Array.isArray(payload)?payload[0]:(Array.isArray(payload?.data)?payload.data[0]:(payload?.data??payload?.result??payload));
