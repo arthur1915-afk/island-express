@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;
 const allowed = ["aliexpress.com","shein.com","iherb.com","asos.com","alibaba.com"];
 function platform(host:string){return allowed.find(d=>host===d||host.endsWith("."+d))||null;}
 function meta(html:string,key:string,attr="property"){const escaped=key.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");const a=new RegExp(`<meta[^>]+${attr}=[\"']${escaped}[\"'][^>]+content=[\"']([^\"']*)[\"'][^>]*>`,"i");const b=new RegExp(`<meta[^>]+content=[\"']([^\"']*)[\"'][^>]+${attr}=[\"']${escaped}[\"'][^>]*>`,"i");const m=html.match(a)||html.match(b);return (m?.[1]||"").replace(/&amp;/g,"&").replace(/&quot;/g,'"').trim();}
@@ -140,60 +140,73 @@ async function scrapeAliExpressManaged(url:string):Promise<any>{
  const token=process.env.CRAWLBASE_JS_TOKEN;
  if(!token)throw new Error("The AliExpress importer requires the Crawlbase JavaScript token. Add the JS token as CRAWLBASE_JS_TOKEN in Vercel Production environment variables (not CRAWLBASE_TOKEN), then redeploy.");
  const cleanUrl=canonicalAliExpressProductUrl(url);
- const delays=[0];
- let lastError="Crawlbase did not return product data.";
- for(let attempt=0;attempt<delays.length;attempt++){
-  if(delays[attempt])await new Promise(resolve=>setTimeout(resolve,delays[attempt]));
-  const endpoint=new URL("https://api.crawlbase.com/");
-  endpoint.searchParams.set("token",token);
-  endpoint.searchParams.set("url",cleanUrl);
-  endpoint.searchParams.set("scraper","aliexpress-product");
-  // A JavaScript token already selects Crawlbase browser rendering. Do not also
-  // send javascript=true: that switch is intended for callers using a Normal token.
-  endpoint.searchParams.set("page_wait","2000");
-  let response:Response;
+ const endpoint=new URL("https://api.crawlbase.com/");
+ endpoint.searchParams.set("token",token);
+ endpoint.searchParams.set("url",cleanUrl);
+ endpoint.searchParams.set("scraper","aliexpress-product");
+ endpoint.searchParams.set("async","true");
+ endpoint.searchParams.set("store","true");
+ // Keep browser rendering enabled through the JavaScript token, but avoid
+ // adding a fixed page delay that increases Crawlbase concurrency usage.
+ let accepted:Response;
+ try{
+  accepted=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json"},signal:AbortSignal.timeout(20000),cache:"no-store"});
+ }catch(error){
+  throw new Error("Could not submit the AliExpress crawl to Crawlbase: "+(error instanceof Error?error.message:"network error"));
+ }
+ const acceptedText=await accepted.text();
+ let acceptedPayload:any=null;
+ try{acceptedPayload=JSON.parse(acceptedText);}catch{}
+ const rid=accepted.headers.get("rid")||acceptedPayload?.rid||acceptedPayload?.request_id||null;
+ const cbStatus=accepted.headers.get("cb_status")||accepted.headers.get("pc_status")||acceptedPayload?.cb_status||acceptedPayload?.pc_status||null;
+ if(!accepted.ok||(cbStatus&&String(cbStatus)!=="200")||!rid){
+  const detail=String(acceptedPayload?.message||acceptedPayload?.error||acceptedText||"").replace(/\\s+/g," ").slice(0,220);
+  throw new Error("Crawlbase could not queue the AliExpress request."+(cbStatus?" Crawl status "+cbStatus+".":"")+(detail?" "+detail:"")+" Check the Crawlbase dashboard and JavaScript token permissions.");
+ }
+ // Async mode returns an RID immediately. Retrieve the stored scraper result
+ // independently so a slow AliExpress render never holds the initial request open.
+ const storage=new URL("https://api.crawlbase.com/storage");
+ storage.searchParams.set("token",token);
+ storage.searchParams.set("rid",String(rid));
+ storage.searchParams.set("format","json");
+ const deadline=Date.now()+240000;
+ let lastStorageError="";
+ while(Date.now()<deadline){
+  await new Promise(resolve=>setTimeout(resolve,5000));
+  let result:Response;
   try{
-   response=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json", "Accept-Encoding":"gzip"},signal:AbortSignal.timeout(90000),cache:"no-store"});
+   result=await fetch(storage.toString(),{headers:{Accept:"application/json"},signal:AbortSignal.timeout(20000),cache:"no-store"});
   }catch(error){
-   lastError=error instanceof Error?error.message:"Network error contacting Crawlbase.";
-   if(attempt<delays.length-1)continue;
-   throw new Error("Crawlbase did not respond within 90 seconds: "+lastError+". The request timed out before product data was returned. Check Crawlbase request logs and scraper access.");
+   lastStorageError=error instanceof Error?error.message:"Storage request failed";
+   continue;
   }
-  const raw=await response.text();
-  let payload:any=null;
-  try{payload=JSON.parse(raw);}catch{}
-  const cbStatus=response.headers.get("cb_status")||response.headers.get("pc_status")||payload?.cb_status||payload?.pc_status||null;
-  const originalStatus=response.headers.get("original_status")||payload?.original_status||null;
-  const requestId=response.headers.get("rid")||payload?.rid||null;
-  if(!response.ok||(cbStatus&&String(cbStatus)!=="200")){
-   const detail=String(payload?.message||payload?.error||(!payload?raw:"")).replace(/\s+/g," ").slice(0,180);
-   lastError="Crawlbase HTTP "+response.status+(cbStatus?" / crawl status "+cbStatus:"")+(originalStatus?" / AliExpress status "+originalStatus:"")+(requestId?" / request "+requestId:"")+(detail?": "+detail:"");
-   const retryable=response.status>=500||["207","503","520","599","521","522","523"].includes(String(cbStatus));
-   if(retryable&&attempt<delays.length-1)continue;
-   throw new Error(lastError+". Crawlbase could reach AliExpress, but its scraper could not produce usable product data. The request used the configured JavaScript token. If this persists, check Crawlbase request logs and send the request ID to Crawlbase support.");
+  const resultText=await result.text();
+  let stored:any=null;
+  try{stored=JSON.parse(resultText);}catch{}
+  if(result.status===404||result.status===202||stored?.error==="Not Found"||stored?.status==="PROCESSING"||stored?.status==="QUEUED")continue;
+  if(!result.ok){
+   lastStorageError="HTTP "+result.status+" "+resultText.slice(0,180);
+   continue;
   }
-  let product=payload;
-  for(let depth=0;depth<3;depth++){
+  let product:any=stored??resultText;
+  for(let depth=0;depth<5;depth++){
    if(typeof product==="string"){try{product=JSON.parse(product);continue;}catch{break;}}
-   // Crawlbase may return its metadata envelope with body already parsed as
-   // an object, or as a JSON string depending on response content negotiation.
-   // Unwrap both forms before looking for product fields.
    if(product&&typeof product==="object"&&product.body!==undefined&&product.body!==null){product=product.body;continue;}
    if(product&&typeof product==="object"&&product.data&&typeof product.data==="object"){product=product.data;continue;}
    if(product&&typeof product==="object"&&product.product&&typeof product.product==="object"){product=product.product;continue;}
    break;
   }
-  if(!product||typeof product!=="object"||Array.isArray(product)){
-   lastError="Crawlbase returned a successful HTTP response but no structured product object."+(requestId?" Request "+requestId:"");
-   if(attempt<delays.length-1)continue;
-   throw new Error(lastError);
+  if(product&&typeof product==="object"&&!Array.isArray(product)){
+   if(product.title||product.name||product.price||product.images?.length||product.image)return product;
+   const keys=Object.keys(product);
+   throw new Error("Crawlbase finished the async crawl but the AliExpress scraper returned no usable product fields. Returned fields: "+keys.slice(0,20).join(", ")+". Request "+rid+".");
   }
-  if(!product.title&&!product.name&&!product.price&&!product.images?.length&&!product.image){
-   throw new Error("Crawlbase reached AliExpress but returned no usable product fields. Returned fields: "+Object.keys(product).slice(0,20).join(", ")+(requestId?" · Request "+requestId:""));
+  if(typeof product==="string"&&product.trim()){
+   throw new Error("Crawlbase finished the async crawl but returned page content instead of structured product data. Request "+rid+".");
   }
-  return product;
+  lastStorageError="Stored result is not ready yet.";
  }
- throw new Error(lastError);
+ throw new Error("Crawlbase accepted the AliExpress crawl but no stored result became available within 4 minutes. Request "+rid+". "+lastStorageError+" Check this RID in Crawlbase request logs.");
 }
 function managedImages(value:any):string[]{
  const items=Array.isArray(value)?value:[value];
