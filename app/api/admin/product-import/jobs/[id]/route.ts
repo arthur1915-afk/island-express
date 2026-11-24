@@ -4,7 +4,7 @@ export const runtime="nodejs";
 export const maxDuration=120;
 export async function GET(request:NextRequest,{params}:{params:{id:string}}){
  try{
-  const bearer=(request.headers.get("authorization")||"").replace(/^Bearer\\s+/i,"");if(!bearer)return NextResponse.json({error:"Sign in as an administrator."},{status:401});
+  const bearer=(request.headers.get("authorization")||"").replace(/^Bearer\s+/i,"");if(!bearer)return NextResponse.json({error:"Sign in as an administrator."},{status:401});
   const url=process.env.NEXT_PUBLIC_SUPABASE_URL,anon=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,key=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!anon||!key)throw new Error("Product importer is not configured.");
   const auth=createClient(url,anon,{auth:{persistSession:false,autoRefreshToken:false}}),db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:{user}}=await auth.auth.getUser(bearer);if(!user)return NextResponse.json({error:"Session expired."},{status:401});
