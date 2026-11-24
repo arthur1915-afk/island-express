@@ -12,10 +12,36 @@ function clients() {
 async function runJob(origin:string, accessToken:string, job:any, db:any) {
   const update=async(patch:any)=>{await db.from("admin_product_import_jobs").update({...patch,updated_at:new Date().toISOString()}).eq("id",job.id);};
   try {
-    await update({status:"processing",stage:"Extracting product",message:"Retrieving product details and images. Most imports should complete in about 10–20 seconds."});
-    const previewResponse=await fetch(origin+"/api/admin/product-import/preview",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+accessToken},body:JSON.stringify({url:job.source_url}),signal:AbortSignal.timeout(30000),cache:"no-store"});
+    await update({status:"processing",stage:"Extracting product",message:"Retrieving product details and images. Bright Data is starting a background scrape; completion time depends on AliExpress."});
+    // Bright Data's /trigger endpoint returns a snapshot ID immediately. Poll the
+    // snapshot independently instead of waiting on the synchronous /scrape endpoint.
+    const startResponse=await fetch(origin+"/api/admin/product-import/preview",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+accessToken},body:JSON.stringify({url:job.source_url,startOnly:true}),signal:AbortSignal.timeout(20000),cache:"no-store"});
+    const started=await startResponse.json();
+    if(!startResponse.ok) throw new Error(started.error||"Could not start the Bright Data scrape.");
+    const snapshotId=String(started.snapshotId||"");
+    if(!snapshotId) throw new Error("Bright Data did not provide a snapshot ID.");
+    await update({stage:"Supplier extraction",message:"Bright Data is collecting the product details. This runs independently of the website request."});
+    const brightDataToken=process.env.BRIGHTDATA_API_TOKEN;
+    if(!brightDataToken) throw new Error("BRIGHTDATA_API_TOKEN is missing from the server environment.");
+    const deadline=Date.now()+240000;
+    let ready=false;
+    let lastStatus="starting";
+    while(Date.now()<deadline){
+      await new Promise(resolve=>setTimeout(resolve,5000));
+      const progressResponse=await fetch("https://api.brightdata.com/datasets/v3/progress/"+encodeURIComponent(snapshotId),{headers:{Authorization:"Bearer "+brightDataToken,Accept:"application/json"},signal:AbortSignal.timeout(10000),cache:"no-store"});
+      const progressText=await progressResponse.text();
+      let progress:any;
+      try{progress=JSON.parse(progressText);}catch{throw new Error("Bright Data progress check returned HTTP "+progressResponse.status+" with an unreadable response.");}
+      if(!progressResponse.ok) throw new Error("Bright Data progress check failed (HTTP "+progressResponse.status+"): "+String(progress.error||progress.message||progressText).slice(0,250));
+      lastStatus=String(progress.status||"unknown");
+      if(lastStatus==="failed") throw new Error("Bright Data reported that the AliExpress scrape failed. Check the Bright Data dataset run log.");
+      if(lastStatus==="ready"){ready=true;break;}
+      await update({stage:"Supplier extraction",message:"Bright Data status: "+lastStatus+". Waiting for the product record…"});
+    }
+    if(!ready) throw new Error("Bright Data is still processing after 4 minutes (snapshot "+snapshotId+"). The scrape was not discarded; please retry later or check this snapshot in Bright Data.");
+    const previewResponse=await fetch(origin+"/api/admin/product-import/preview",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+accessToken},body:JSON.stringify({url:job.source_url,snapshotId}),signal:AbortSignal.timeout(45000),cache:"no-store"});
     const preview=await previewResponse.json();
-    if(!previewResponse.ok) throw new Error(preview.error||"Supplier extraction failed.");
+    if(!previewResponse.ok) throw new Error(preview.error||"Bright Data finished but product extraction failed.");
     const title=typeof preview.title==="string"?preview.title.trim():"";
     if(!title||/^(not found|page not found|access denied|error)$/i.test(title)) throw new Error("Supplier did not return a valid product title. No product was created.");
     const price=Number(preview.sellingPriceScr);
