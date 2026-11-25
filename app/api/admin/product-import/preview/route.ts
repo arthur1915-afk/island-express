@@ -140,8 +140,8 @@ function brightDataImages(record:any):string[]{
  const visit=(value:any,depth=0):void=>{
   if(value==null||depth>8)return;
   if(typeof value==="string"){
-   const urls=value.match(/https?:\\/\\/[^\\s"'<>]+/gi)||[];
-   for(const url of urls){const clean=url.replace(/[),;]+$/,"");if(/^https:\\/\\//i.test(clean)&&/(alicdn|aliexpress-media|ae-pic|\\.jpg|\\.jpeg|\\.png|\\.webp)/i.test(clean)&&!/(sprite|logo|icon|avatar|placeholder)/i.test(clean))found.push(clean);}
+   const urls=value.match(/https?:\/\/[^\s"'<>]+/gi)||[];
+   for(const url of urls){const clean=url.replace(/[),;]+$/,"");if(/^https:\/\//i.test(clean)&&/(alicdn|aliexpress-media|ae-pic|\.jpg|\.jpeg|\.png|\.webp)/i.test(clean)&&!/(sprite|logo|icon|avatar|placeholder)/i.test(clean))found.push(clean);}
    return;
   }
   if(typeof value!=="object"||seen.has(value))return;seen.add(value);
@@ -203,7 +203,7 @@ async function scrapeAliExpressManaged(url:string,snapshotId?:string):Promise<an
  const images=brightDataImages(record);
  const description=brightDataDescription(record);
  const variants=Array.isArray(record.variants)?record.variants:(Array.isArray(record.skus)?record.skus:[]);
- return {...record,title,description,images,price:price.price,currency:price.currency,variants,_brightData:{datasetId,elapsedMs:Date.now()-started,recordKeys:Object.keys(record),recordError:recordError?String(recordError).replace(/\\s+/g," ").slice(0,240):null,snapshotId}};
+ return {...record,title,description,images,price:price.price,currency:price.currency,variants,_brightData:{datasetId,elapsedMs:Date.now()-started,recordKeys:Object.keys(record),recordError:recordError?String(recordError).replace(/\s+/g," ").slice(0,240):null,snapshotId}};
 }
 function managedImages(value:any):string[]{
  const found:string[]=[];
