@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { scrapeAliExpressPage } from "../../../../../lib/aliexpress-scraper";
 export const runtime = "nodejs";
+export const maxDuration = 300;
 const allowed = ["aliexpress.com","shein.com","iherb.com","asos.com","alibaba.com"];
 function platform(host:string){return allowed.find(d=>host===d||host.endsWith("."+d))||null;}
 function meta(html:string,key:string,attr="property"){const escaped=key.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");const a=new RegExp(`<meta[^>]+${attr}=[\"']${escaped}[\"'][^>]+content=[\"']([^\"']*)[\"'][^>]*>`,"i");const b=new RegExp(`<meta[^>]+content=[\"']([^\"']*)[\"'][^>]+${attr}=[\"']${escaped}[\"'][^>]*>`,"i");const m=html.match(a)||html.match(b);return (m?.[1]||"").replace(/&amp;/g,"&").replace(/&quot;/g,'"').trim();}
