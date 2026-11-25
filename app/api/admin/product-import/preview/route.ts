@@ -191,6 +191,42 @@ function managedPriceValue(value:any):any{
  if(value&&typeof value==="object")return value.current??value.current_price??value.sale_price??value.value??value.amount??value.formatted??value.price??value.min??value.min_price;
  return value;
 }
+function flattenSupplierText(value:any):string{
+ if(value===null||value===undefined)return "";
+ if(typeof value==="string"||typeof value==="number")return String(value).trim();
+ if(Array.isArray(value))return value.map(flattenSupplierText).filter(Boolean).join("\\n");
+ if(typeof value==="object"){
+  for(const key of ["html","text","content","description","value","detail","textContent","translatedText","en","english"]){
+   if(value[key]!==undefined){const text=flattenSupplierText(value[key]);if(text)return text;}
+  }
+  return Object.entries(value).map(([key,v])=>{const text=flattenSupplierText(v);return text?key+": "+text:"";}).filter(Boolean).join("\\n");
+ }
+ return "";
+}
+function hasCyrillic(value:string):boolean{return /[\\u0400-\\u04FF]/.test(value);}
+async function translateToEnglish(value:string):Promise<string>{
+ const text=value.trim();if(!text||!hasCyrillic(text))return text;
+ try{
+  const endpoint=new URL("https://translate.googleapis.com/translate_a/single");
+  endpoint.searchParams.set("client","gtx");endpoint.searchParams.set("sl","auto");endpoint.searchParams.set("tl","en");endpoint.searchParams.set("dt","t");endpoint.searchParams.set("q",text.slice(0,4500));
+  const response=await fetch(endpoint.toString(),{signal:AbortSignal.timeout(7000),cache:"no-store"});
+  if(!response.ok)return text;
+  const data=await response.json();
+  const translated=Array.isArray(data?.[0])?data[0].map((part:any)=>Array.isArray(part)?part[0]:"").join("").trim():"";
+  return translated||text;
+ }catch{return text;}
+}
+function aliExpressUrlPrice(url:string):{price:number;currency:string;originalPrice:number|null}|null{
+ try{
+  const raw=new URL(url).searchParams.get("pdp_npi");if(!raw)return null;
+  const parts=raw.split("!");
+  const currency=normaliseCurrencyCode(parts[1]||"");
+  const original=parseSupplierPrice(parts[2]);
+  const current=parseSupplierPrice(parts[3]);
+  if(!/^[A-Z]{3}$/.test(currency)||!Number.isFinite(current)||current<=0)return null;
+  return {price:current,currency,originalPrice:Number.isFinite(original)&&original>0?original:null};
+ }catch{return null;}
+}
 function managedCurrency(value:any):string{
  const raw=String(value??"").trim().toUpperCase();
  const code=raw.match(/\b[A-Z]{3}\b/);
@@ -212,10 +248,18 @@ export async function POST(request:NextRequest){try{
    const managed=await scrapeAliExpressManaged(parsed.toString());
    const priceObject=managedField(managed,["price","pricing","current_price","currentPrice","sale_price","salePrice","min_price","minPrice"]);
    const priceValue=managedPriceValue(priceObject)??managedField(managed,["price_formatted","priceFormatted","formatted_price","formattedPrice"]);
-   const sourcePrice=parseSupplierPrice(priceValue);
-   const sourceCurrency=managedCurrency(managedField(managed,["currency","currency_code","currencyCode","price_currency","priceCurrency"])??(priceObject&&typeof priceObject==="object"?priceObject.currency??priceObject.currency_code:undefined)??priceValue)||"USD";
-   const title=String(managedField(managed,["title","product_title","productTitle","name","subject"])??"");
-   const description=String(managedField(managed,["description","product_description","productDescription","short_description","shortDescription","details"])??(Array.isArray(managed?.specifications)?managed.specifications.map((x:any)=>typeof x==="string"?x:JSON.stringify(x)).join("\\n"):""));
+   const apiPrice=parseSupplierPrice(priceValue);
+   const apiCurrency=managedCurrency(managedField(managed,["currency","currency_code","currencyCode","price_currency","priceCurrency"])??(priceObject&&typeof priceObject==="object"?priceObject.currency??priceObject.currency_code:undefined)??(typeof priceValue==="string"?priceValue:""));
+   // AliExpress embeds its shopper-localised price in pdp_npi. When it explicitly
+   // supplies SCR, use that value instead of guessing the currency of a bare number.
+   const urlPrice=aliExpressUrlPrice(parsed.toString());
+   const useUrlPrice=Boolean(urlPrice?.currency==="SCR");
+   const sourcePrice=useUrlPrice?urlPrice!.price:apiPrice;
+   const sourceCurrency=useUrlPrice?"SCR":(apiCurrency||"");
+   const rawTitle=flattenSupplierText(managedField(managed,["title_en","titleEn","translated_title","translatedTitle","product_title_en","productTitleEn","title","product_title","productTitle","name","subject"]));
+   const rawDescription=flattenSupplierText(managedField(managed,["description_en","descriptionEn","translated_description","translatedDescription","description","product_description","productDescription","short_description","shortDescription","details"])??managed?.specifications);
+   const title=await translateToEnglish(rawTitle);
+   const description=await translateToEnglish(rawDescription);
    const images=managedImages(managedField(managed,["images","image_urls","imageUrls","image","image_url","imageUrl","gallery","product_images","productImages"]));
    const variantValue=managedField(managed,["variants","options","sku","skus","sku_list","skuList"]);
    const rawVariants=Array.isArray(variantValue)?variantValue:(variantValue&&typeof variantValue==="object"?Object.values(variantValue):[]);
@@ -230,7 +274,7 @@ export async function POST(request:NextRequest){try{
     const keys=Object.keys(managed||{}).slice(0,30).join(", ")||"none";
     throw new Error("Crawlbase reached the listing but its product fields were not recognised. Returned fields: "+keys+". Please retry; if it repeats, share the product link and we can inspect the exact response safely.");
    }
-   return NextResponse.json({platform:"aliexpress.com",sourceUrl:parsed.toString(),title,description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100,fx:rate?{rate,provider:"Crawlbase managed AliExpress scraper"}:null,shipping:null,shippingMessage:shippingText?"AliExpress shipping details detected ("+shippingText+"). Confirm the final Seychelles delivery fee before importing.":"No verified Seychelles delivery quote was returned. Enter the customer delivery fee manually.",supplierDataSource:"Crawlbase managed AliExpress scraper",variants,supplierDebug:{scraper:"Crawlbase managed API",productKeys:Object.keys(managed||{}),skuCount:rawVariants.length,skuPropertyCount:0,firstSkuAttributes:rawVariants[0]??null,firstSkuProperty:null},specifications:managed?.specifications||[]});
+   return NextResponse.json({platform:"aliexpress.com",sourceUrl:parsed.toString(),title,description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100,fx:rate?{rate,provider:"Crawlbase managed AliExpress scraper"}:null,shipping:null,shippingMessage:shippingText?"AliExpress shipping details detected ("+shippingText+"). Confirm the final Seychelles delivery fee before importing.":"No verified Seychelles delivery quote was returned. Enter the customer delivery fee manually.",supplierDataSource:"Crawlbase managed AliExpress scraper",variants,supplierDebug:{scraper:"Crawlbase managed API",productKeys:Object.keys(managed||{}),skuCount:rawVariants.length,skuPropertyCount:0,firstSkuAttributes:rawVariants[0]??null,firstSkuProperty:null,priceSource:useUrlPrice?"AliExpress pdp_npi URL price":"Crawlbase managed response",urlPrice:urlPrice??null,apiPrice:Number.isFinite(apiPrice)?apiPrice:null,apiCurrency:apiCurrency||null,rawTitle,descriptionWasStructured:typeof managedField(managed,["description","product_description","productDescription","short_description","shortDescription","details"])==="object"},specifications:managed?.specifications||[]});
   }
   const scraped=await scrapeAliExpressPage(parsed.toString());
   const productData=scraped.product||{};
