@@ -244,6 +244,9 @@ export async function POST(request:NextRequest){try{
  const db=createClient(u,s,{auth:{persistSession:false,autoRefreshToken:false}});const {data:profile}=await db.from("profiles").select("is_admin").eq("id",user.id).single();if(!profile?.is_admin)return NextResponse.json({error:"Administrator access required."},{status:403});
  const body=await request.json();const parsed=new URL(String(body.url||""));if(parsed.protocol!=="https:"||!platform(parsed.hostname.toLowerCase()))return NextResponse.json({error:"Use an HTTPS product URL from AliExpress, SHEIN, iHerb, ASOS or Alibaba."},{status:400});
  if(platform(parsed.hostname.toLowerCase())==="aliexpress.com"){
+  if(!(process.env.CRAWLBASE_JS_TOKEN||process.env.CRAWLBASE_TOKEN)){
+   throw new Error("AliExpress importing requires the paid Crawlbase service. The Crawlbase token is missing from this Vercel deployment. Add CRAWLBASE_JS_TOKEN (or CRAWLBASE_TOKEN) to the Production environment and redeploy. The importer will not use the blocked direct scraper.");
+  }
   if(process.env.CRAWLBASE_JS_TOKEN||process.env.CRAWLBASE_TOKEN){
    let managed:any=null;
    try{managed=await scrapeAliExpressManaged(parsed.toString());}
