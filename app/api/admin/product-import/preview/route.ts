@@ -247,7 +247,11 @@ export async function POST(request:NextRequest){try{
   if(process.env.CRAWLBASE_JS_TOKEN||process.env.CRAWLBASE_TOKEN){
    let managed:any=null;
    try{managed=await scrapeAliExpressManaged(parsed.toString());}
-   catch(error){console.warn("Crawlbase preview failed; trying bounded direct fallback:",error instanceof Error?error.message:"unknown error");}
+   catch(error){
+    const detail=error instanceof Error?error.message:"Unknown Crawlbase error";
+    console.error("Crawlbase managed AliExpress preview failed:",detail);
+    throw new Error("The paid Crawlbase AliExpress scraper could not complete this request. The importer will not switch to the blocked free scraper. "+detail);
+   }
    if(managed){
    const priceObject=managedField(managed,["price","pricing","current_price","currentPrice","sale_price","salePrice","min_price","minPrice"]);
    const priceValue=managedPriceValue(priceObject)??managedField(managed,["price_formatted","priceFormatted","formatted_price","formattedPrice"]);
