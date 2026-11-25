@@ -209,12 +209,15 @@ async function translateToEnglish(value:string):Promise<string>{
  try{
   const endpoint=new URL("https://translate.googleapis.com/translate_a/single");
   endpoint.searchParams.set("client","gtx");endpoint.searchParams.set("sl","auto");endpoint.searchParams.set("tl","en");endpoint.searchParams.set("dt","t");endpoint.searchParams.set("q",text.slice(0,4500));
+  const response=await fetch(endpoint.toString(),{signal:AbortSignal.timeout(9000),cache:"no-store"});
+  if(response.ok){const data=await response.json();const translated=Array.isArray(data?.[0])?data[0].map((part:any)=>Array.isArray(part)?part[0]:"").join("").trim():"";if(translated&&!hasCyrillic(translated))return translated;}
+ }catch{}
+ try{
+  const endpoint=new URL("https://api.mymemory.translated.net/get");endpoint.searchParams.set("q",text.slice(0,450));endpoint.searchParams.set("langpair","ru|en");
   const response=await fetch(endpoint.toString(),{signal:AbortSignal.timeout(7000),cache:"no-store"});
-  if(!response.ok)return text;
-  const data=await response.json();
-  const translated=Array.isArray(data?.[0])?data[0].map((part:any)=>Array.isArray(part)?part[0]:"").join("").trim():"";
-  return translated||text;
- }catch{return text;}
+  if(response.ok){const data=await response.json();const translated=String(data?.responseData?.translatedText||"").trim();if(translated&&!hasCyrillic(translated))return translated;}
+ }catch{}
+ return text;
 }
 function aliExpressUrlPrice(url:string):{price:number;currency:string;originalPrice:number|null}|null{
  try{
@@ -267,13 +270,25 @@ export async function POST(request:NextRequest){try{
    const sourcePrice=useUrlPrice?urlPrice!.price:apiPrice;
    const sourceCurrency=useUrlPrice?"SCR":(apiCurrency||"");
    const rawTitle=flattenSupplierText(managedField(managed,["title_en","titleEn","translated_title","translatedTitle","product_title_en","productTitleEn","title","product_title","productTitle","name","subject"]));
-   const rawDescription=flattenSupplierText(managedField(managed,["description_en","descriptionEn","translated_description","translatedDescription","description","product_description","productDescription","short_description","shortDescription","details"])??managed?.specifications);
+   const rawDescription=flattenSupplierText(managedField(managed,["description_en","descriptionEn","translated_description","translatedDescription","description","descriptionText","description_text","descriptionHtml","description_html","product_description","productDescription","short_description","shortDescription","details"])??managed?.specifications);
    const title=await translateToEnglish(rawTitle);
    const description=await translateToEnglish(rawDescription);
    const images=managedImages(managedField(managed,["images","image_urls","imageUrls","image","image_url","imageUrl","gallery","product_images","productImages"]));
-   const variantValue=managedField(managed,["variants","options","sku","skus","sku_list","skuList"]);
+   const variantValue=managedField(managed,["variants","variant_options","variantOptions","sku","skus","sku_list","skuList"]);
    const rawVariants=Array.isArray(variantValue)?variantValue:(variantValue&&typeof variantValue==="object"?Object.values(variantValue):[]);
    const skuRows=rawVariants.filter((v:any)=>v&&typeof v==="object").map((v:any)=>({...v,attributes:v.attributes??v.properties??v.options??v.label,pricing:v.pricing??{sale_price:v.price??v.current_price??priceValue,currency:v.currency??sourceCurrency},stock:v.stock??v.quantity??v.available_quantity,image_url:v.image_url??v.image}));
+   const optionGroups=managedField(managed,["options","sku_properties","skuProperties","properties"]);
+   if(!skuRows.length&&Array.isArray(optionGroups)){
+    for(const group of optionGroups){
+     if(!group||typeof group!=="object")continue;
+     const groupName=String(group.name??group.title??group.propertyName??group.label??"Option");
+     const values=group.values??group.options??group.items??group.children??[];
+     if(Array.isArray(values))for(const value of values){
+      const label=typeof value==="string"?value:String(value?.name??value?.label??value?.value??"");
+      if(label)skuRows.push({label,attributes:{[groupName]:label},price:priceValue,currency:sourceCurrency,stock:0,image_url:value?.image??value?.imageUrl??null});
+     }
+    }
+   }
    const fx=sourceCurrency&&Number.isFinite(sourcePrice)&&sourcePrice>0?await getScrRate(sourceCurrency):null;
    const rate=sourceCurrency==="SCR"?1:fx;
    const costScr=priceInScr(sourcePrice,sourceCurrency,rate);
