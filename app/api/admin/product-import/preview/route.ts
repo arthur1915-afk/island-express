@@ -138,7 +138,7 @@ async function scrapeAliExpressManaged(url:string):Promise<any>{
  endpoint.searchParams.set("token",token);
  endpoint.searchParams.set("url",url);
  endpoint.searchParams.set("scraper","aliexpress-product");
- const response=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json"},signal:AbortSignal.timeout(120000),cache:"no-store"});
+ const response=await fetch(endpoint.toString(),{method:"GET",headers:{Accept:"application/json"},signal:AbortSignal.timeout(25000),cache:"no-store"});
  const raw=await response.text();
  if(!response.ok)throw new Error("Crawlbase AliExpress service returned HTTP "+response.status+". Check the Crawlbase token, credits and scraper access.");
  let data:any;
