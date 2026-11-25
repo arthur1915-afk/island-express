@@ -252,7 +252,7 @@ export async function POST(request:NextRequest){try{
   }
   if(process.env.CRAWLBASE_JS_TOKEN||process.env.CRAWLBASE_TOKEN){
    let managed:any=null;
-   try{managed=await scrapeAliExpressManaged(parsed.toString());}
+   try{const crawlUrl=new URL(parsed.toString());crawlUrl.searchParams.set("lang","en_US");managed=await scrapeAliExpressManaged(crawlUrl.toString());}
    catch(error){
     const detail=error instanceof Error?error.message:"Unknown Crawlbase error";
     console.error("Crawlbase managed AliExpress preview failed:",detail);
