@@ -52,7 +52,7 @@ function parseSupplierPrice(value:any):number{
 }
 async function fetchRateTable(base:string):Promise<{rates:Record<string,number>;updated?:string}|null>{
  try{
-  const response=await fetch("https://open.er-api.com/v6/latest/"+encodeURIComponent(base),{signal:AbortSignal.timeout(9000),cache:"no-store"});
+  const response=await fetch("https://open.er-api.com/v6/latest/"+encodeURIComponent(base),{signal:AbortSignal.timeout(5000),cache:"no-store"});
   if(!response.ok)return null;
   const data=await response.json();
   if(data?.result!=="success"||!data?.rates||typeof data.rates!=="object")return null;
@@ -214,7 +214,7 @@ async function translateToEnglish(value:string):Promise<string>{
  }catch{}
  try{
   const endpoint=new URL("https://api.mymemory.translated.net/get");endpoint.searchParams.set("q",text.slice(0,450));endpoint.searchParams.set("langpair","ru|en");
-  const response=await fetch(endpoint.toString(),{signal:AbortSignal.timeout(7000),cache:"no-store"});
+  const response=await fetch(endpoint.toString(),{signal:AbortSignal.timeout(3500),cache:"no-store"});
   if(response.ok){const data=await response.json();const translated=String(data?.responseData?.translatedText||"").trim();if(translated&&!hasCyrillic(translated))return translated;}
  }catch{}
  return text;
@@ -271,8 +271,7 @@ export async function POST(request:NextRequest){try{
    const sourceCurrency=useUrlPrice?"SCR":(apiCurrency||"");
    const rawTitle=flattenSupplierText(managedField(managed,["title_en","titleEn","translated_title","translatedTitle","product_title_en","productTitleEn","title","product_title","productTitle","name","subject"]));
    const rawDescription=flattenSupplierText(managedField(managed,["description_en","descriptionEn","translated_description","translatedDescription","description","descriptionText","description_text","descriptionHtml","description_html","product_description","productDescription","short_description","shortDescription","details"])??managed?.specifications);
-   const title=await translateToEnglish(rawTitle);
-   const description=await translateToEnglish(rawDescription);
+   const [title,description]=await Promise.all([translateToEnglish(rawTitle),translateToEnglish(rawDescription)]);
    const images=managedImages(managedField(managed,["images","image_urls","imageUrls","image","image_url","imageUrl","gallery","product_images","productImages"]));
    const variantValue=managedField(managed,["variants","variant_options","variantOptions","sku","skus","sku_list","skuList"]);
    const rawVariants=Array.isArray(variantValue)?variantValue:(variantValue&&typeof variantValue==="object"?Object.values(variantValue):[]);
