@@ -194,16 +194,16 @@ function managedPriceValue(value:any):any{
 function flattenSupplierText(value:any):string{
  if(value===null||value===undefined)return "";
  if(typeof value==="string"||typeof value==="number")return String(value).trim();
- if(Array.isArray(value))return value.map(flattenSupplierText).filter(Boolean).join("\\n");
+ if(Array.isArray(value))return value.map(flattenSupplierText).filter(Boolean).join("\n");
  if(typeof value==="object"){
   for(const key of ["html","text","content","description","value","detail","textContent","translatedText","en","english"]){
    if(value[key]!==undefined){const text=flattenSupplierText(value[key]);if(text)return text;}
   }
-  return Object.entries(value).map(([key,v])=>{const text=flattenSupplierText(v);return text?key+": "+text:"";}).filter(Boolean).join("\\n");
+  return Object.entries(value).map(([key,v])=>{const text=flattenSupplierText(v);return text?key+": "+text:"";}).filter(Boolean).join("\n");
  }
  return "";
 }
-function hasCyrillic(value:string):boolean{return /[\\u0400-\\u04FF]/.test(value);}
+function hasCyrillic(value:string):boolean{return /[\u0400-\u04FF]/.test(value);}
 async function translateToEnglish(value:string):Promise<string>{
  const text=value.trim();if(!text||!hasCyrillic(text))return text;
  try{
