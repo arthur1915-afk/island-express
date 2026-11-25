@@ -136,27 +136,25 @@ function canonicalAliExpressProductUrl(input:string):string{
  return "https://www.aliexpress.com/item/"+match[1]+".html";
 }
 function brightDataImages(record:any):string[]{
- const found:string[]=[];
- const add=(value:any):void=>{
-  if(!value)return;
+ const found:string[]=[];const seen=new Set<any>();
+ const visit=(value:any,depth=0):void=>{
+  if(value==null||depth>8)return;
   if(typeof value==="string"){
-   const s=value.trim();
-   const urls=s.match(/https?:\/\/[^\s"'<>]+/gi)||[];
-   for(const url of urls){const clean=url.replace(/[),;]+$/,"");if(/^https:\/\//i.test(clean)&&!/(sprite|logo|icon|avatar|placeholder)/i.test(clean))found.push(clean);}
-  }else if(Array.isArray(value))value.forEach(add);
-  else if(typeof value==="object"){
-   for(const [key,val] of Object.entries(value)){if(/image|picture|photo|gallery|thumbnail|primary|url|src/i.test(key))add(val);}
+   const urls=value.match(/https?:\\/\\/[^\\s"'<>]+/gi)||[];
+   for(const url of urls){const clean=url.replace(/[),;]+$/,"");if(/^https:\\/\\//i.test(clean)&&/(alicdn|aliexpress-media|ae-pic|\\.jpg|\\.jpeg|\\.png|\\.webp)/i.test(clean)&&!/(sprite|logo|icon|avatar|placeholder)/i.test(clean))found.push(clean);}
+   return;
   }
+  if(typeof value!=="object"||seen.has(value))return;seen.add(value);
+  if(Array.isArray(value)){value.forEach(v=>visit(v,depth+1));return;}
+  for(const [key,val] of Object.entries(value)){if(/image|picture|photo|gallery|thumbnail|primary|cover|url|src/i.test(key)||val&&typeof val==="object")visit(val,depth+1);}
  };
- for(const key of ["images","image_urls","image_url","main_image","primary_image","additional_images","product_images","image","gallery","pictures","thumbnail"])add(record?.[key]);
- return [...new Set(found)].slice(0,15);
+ visit(record);return [...new Set(found)].slice(0,15);
 }
 function brightDataPrice(record:any):{price:number;currency:string}{
- const candidates=[record?.final_price,record?.sale_price,record?.price,record?.current_price,record?.min_price,record?.original_price];
- let value:any=null;
- for(const item of candidates){const parsed=parseSupplierPrice(typeof item==="object"?(item?.value??item?.amount??item?.price):item);if(Number.isFinite(parsed)&&parsed>0){value=item;break;}}
- const price=parseSupplierPrice(typeof value==="object"?(value?.value??value?.amount??value?.price):value);
- const currency=normaliseCurrencyCode(record?.currency??record?.price_currency??record?.currency_code??(typeof value==="object"?value?.currency:null)??"");
+ const value=findManagedValue(record,["final_price","sale_price","current_price","min_price","price","original_price","product_price","app_sale_price","target_sale_price"]);
+ const raw=typeof value==="object"&&value!==null?(value.value??value.amount??value.price??value.formatted_price):value;
+ const price=parseSupplierPrice(raw);
+ const currency=normaliseCurrencyCode(findManagedValue(record,["currency","price_currency","currency_code"])??(typeof value==="object"&&value!==null?value.currency:null)??"");
  return {price,currency};
 }
 function brightDataDescription(record:any):string{
@@ -192,14 +190,20 @@ async function scrapeAliExpressManaged(url:string,snapshotId?:string):Promise<an
   if(!id)throw new Error("Bright Data accepted no snapshot ID. Response keys: "+Object.keys(payload||{}).join(", "));
   return {snapshot_id:id,dataset_id:datasetId,_brightData:{datasetId,submittedAt:Date.now()}};
  }
- const record=Array.isArray(payload)?payload[0]:(Array.isArray(payload?.data)?payload.data[0]:(payload?.data??payload?.result??payload));
+ let record:any=payload;
+ for(let depth=0;depth<5;depth++){
+  if(Array.isArray(record)){record=record[0];continue;}
+  if(record&&typeof record==="object"){const nested=record.data??record.results??record.result??record.records??record.products??record.items;if(nested!==undefined&&nested!==record){record=nested;continue;}}
+  break;
+ }
  if(!record||typeof record!=="object"||Array.isArray(record))throw new Error("Bright Data snapshot contained no product record. Snapshot response keys: "+Object.keys(payload||{}).join(", "));
+ const recordError=findManagedValue(record,["error","error_message","errorMessage","message"]);
  const price=brightDataPrice(record);
- const title=String(record.title??record.product_title??record.name??"").trim();
+ const title=String(findManagedValue(record,["title","product_title","product_name","name","item_title"])??"").trim();
  const images=brightDataImages(record);
  const description=brightDataDescription(record);
  const variants=Array.isArray(record.variants)?record.variants:(Array.isArray(record.skus)?record.skus:[]);
- return {...record,title,description,images,price:price.price,currency:price.currency,variants,_brightData:{datasetId,elapsedMs:Date.now()-started,recordKeys:Object.keys(record),snapshotId}};
+ return {...record,title,description,images,price:price.price,currency:price.currency,variants,_brightData:{datasetId,elapsedMs:Date.now()-started,recordKeys:Object.keys(record),recordError:recordError?String(recordError).replace(/\\s+/g," ").slice(0,240):null,snapshotId}};
 }
 function managedImages(value:any):string[]{
  const found:string[]=[];
@@ -271,7 +275,7 @@ export async function POST(request:NextRequest){try{
   const sourcePrice=parseSupplierPrice(priceValue);
   const currencyInput=managed.currency??managed.price_currency??priceValue;
   const sourceCurrency=managedCurrency(currencyInput);
-  const rawTitle=managed.title??managed.product_title??managed.name;
+  const rawTitle=managed.title??managed.product_title??managed.product_name??managed.name??managed.item_title;
   const title=typeof rawTitle==="string"?rawTitle.trim():"";
   const descriptionValue=managed.description??managed.product_description??managed.specifications??managed.specs??managed.features;
   const description=managedDescription(descriptionValue);
@@ -285,7 +289,11 @@ export async function POST(request:NextRequest){try{
   const shippingValue=managed?.shipping??managed?.shipping_options??managed?.shippingOptions;
   const shippingText=typeof shippingValue==="string"?shippingValue:shippingValue?JSON.stringify(shippingValue).slice(0,300):"";
   const originalPriceValue=parseSupplierPrice(typeof originalPrice==="object"?(originalPrice.value??originalPrice.amount??originalPrice.current):originalPrice);
-  if(!title||/^(not found|page not found|access denied|error)$/i.test(title))throw new Error("Bright Data did not return a valid AliExpress product title. The scraper returned an error or unavailable page.");
+  if(!title||/^(not found|page not found|access denied|error)$/i.test(title)){
+   const keys=(managed._brightData?.recordKeys||Object.keys(managed||{})).slice(0,35).join(", ")||"none";
+   const detail=managed._brightData?.recordError||"No recognised title field was found.";
+   throw new Error("Bright Data returned no usable product title. "+detail+" Record fields: "+keys+". Verify the selected dataset is an AliExpress product-detail scraper.");
+  }
   if(!Number.isFinite(sourcePrice)||sourcePrice<=0)throw new Error("Bright Data did not return a valid product price. No product was created.");
   if(!sourceCurrency)throw new Error("Bright Data did not identify the product price currency. No product was created to avoid an incorrect SCR conversion.");
   if(!images.length)throw new Error("Bright Data did not return any product images. No product was created; check the AliExpress dataset output.");
