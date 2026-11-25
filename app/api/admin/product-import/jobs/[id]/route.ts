@@ -11,6 +11,12 @@ export async function GET(request:NextRequest,{params}:{params:{id:string}}){
   const {data:profile}=await db.from("profiles").select("is_admin").eq("id",user.id).single();if(!profile?.is_admin)return NextResponse.json({error:"Administrator access required."},{status:403});
   const {data:job,error}=await db.from("admin_product_import_jobs").select("id,status,stage,message,product_id,error,created_at,updated_at,shop_id,source_url,snapshot_id").eq("id",params.id).eq("imported_by",user.id).single();
   if(error||!job)return NextResponse.json({error:"Import job not found."},{status:404});
+  if(job.status==="finalizing"&&Date.now()-new Date(job.updated_at).getTime()>5*60*1000){
+   // Do not automatically retry product creation: the previous request may have
+   // saved the product before being interrupted. Stop the job and require a
+   // product-list check before retrying, avoiding accidental duplicate listings.
+   await db.from("admin_product_import_jobs").update({status:"failed",stage:"Finalization interrupted",message:"Product saving took too long and the result could not be confirmed. Check the product list before starting another import to avoid duplicates.",error:"The finalization request exceeded its 5-minute recovery window. Check whether the product was created before retrying.",updated_at:new Date().toISOString()}).eq("id",job.id).eq("status","finalizing");
+  }
   if(job.status==="processing"&&job.snapshot_id){
    const token=process.env.BRIGHTDATA_API_TOKEN;if(!token)throw new Error("BRIGHTDATA_API_TOKEN is missing on the server.");
    const progressResponse=await fetch("https://api.brightdata.com/datasets/v3/progress/"+encodeURIComponent(job.snapshot_id),{headers:{Authorization:"Bearer "+token,Accept:"application/json"},signal:AbortSignal.timeout(10000),cache:"no-store"});
