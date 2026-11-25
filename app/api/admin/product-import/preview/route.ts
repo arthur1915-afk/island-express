@@ -179,6 +179,7 @@ async function scrapeAliExpressManaged(url:string,snapshotId?:string):Promise<an
   const endpoint=new URL("https://api.brightdata.com/datasets/v3/trigger");
   endpoint.searchParams.set("dataset_id",datasetId);
   endpoint.searchParams.set("format","json");
+  endpoint.searchParams.set("include_errors","true");
   let response:Response;
   try{
    response=await fetch(endpoint.toString(),{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({input:[{url:canonicalAliExpressProductUrl(url)}]}),signal:AbortSignal.timeout(15000),cache:"no-store"});
