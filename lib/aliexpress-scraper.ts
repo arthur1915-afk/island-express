@@ -65,14 +65,14 @@ export async function scrapeAliExpressPage(url: string): Promise<AliExpressPageD
         "Accept-Language": "en-US,en;q=0.9",
         "Cache-Control": "no-cache",
       },
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(15000),
       redirect: "follow",
       cache: "no-store",
     });
   } catch (error) {
     const name = error instanceof Error ? error.name : "";
     if (name === "TimeoutError" || name === "AbortError") {
-      throw new Error("AliExpress did not respond within 25 seconds. Its site may be slow or temporarily blocking server requests. Use Browser-assisted import below to continue.");
+      throw new Error("AliExpress did not respond within 15 seconds. Its site may be slow or temporarily blocking server requests. Use Browser-assisted import below to continue.");
     }
     throw new Error("IslandXpress could not connect to AliExpress from its server. AliExpress may be blocking automated requests or the connection may be temporarily unavailable. Use Browser-assisted import below to continue.");
   }
