@@ -154,7 +154,11 @@ function brightDataPrice(record:any):{price:number;currency:string}{
  const value=findManagedValue(record,["final_price","sale_price","current_price","min_price","price","original_price","product_price","app_sale_price","target_sale_price"]);
  const raw=typeof value==="object"&&value!==null?(value.value??value.amount??value.price??value.formatted_price):value;
  const price=parseSupplierPrice(raw);
- const currency=normaliseCurrencyCode(findManagedValue(record,["currency","price_currency","currency_code"])??(typeof value==="object"&&value!==null?value.currency:null)??"");
+ const currencyValue=findManagedValue(record,["currency","price_currency","currency_code","price_currency_code"])
+  || (typeof value==="object"&&value!==null?(value.currency||value.currency_code||value.formatted_price||value.display_price):null)
+  || findManagedValue(record,["formatted_price","display_price","price_text","price_formatted"])
+  || "";
+ const currency=managedCurrency(currencyValue);
  return {price,currency};
 }
 function brightDataDescription(record:any):string{
@@ -274,7 +278,10 @@ export async function POST(request:NextRequest){try{
   const priceValue=managed.price;
   const originalPrice=managed.original_price??managed.originalPrice??managed.list_price;
   const sourcePrice=parseSupplierPrice(priceValue);
-  const currencyInput=managed.currency??managed.price_currency??priceValue;
+  // The normalised field may intentionally be an empty string when the dataset
+  // omits currency. Do not let that empty value mask a usable raw currency or
+  // formatted price elsewhere in the Bright Data record.
+  const currencyInput=managed.currency||managed.price_currency||findManagedValue(managed,["currency","price_currency","currency_code","price_currency_code","formatted_price","display_price","price_text","price_formatted"])||priceValue;
   const sourceCurrency=managedCurrency(currencyInput);
   const rawTitle=managed.title??managed.product_title??managed.product_name??managed.name??managed.item_title;
   const title=typeof rawTitle==="string"?rawTitle.trim():"";
