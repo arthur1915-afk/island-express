@@ -274,13 +274,21 @@ function managedDescription(value:any):string{
  return "";
 }
 function managedCurrency(value:any):string{
+ if(value&&typeof value==="object"){
+  const nested=value.code??value.currency_code??value.currencyCode??value.iso_code??value.isoCode??value.name??value.currency??value.symbol;
+  if(nested!==undefined&&nested!==value)return managedCurrency(nested);
+  return "";
+ }
  const raw=String(value??"").trim().toUpperCase();
  const code=raw.match(/\b[A-Z]{3}\b/);
  if(code)return normaliseCurrencyCode(code[0]);
- if(raw.includes("$"))return "USD";
+ if(raw.includes("US$")||raw.includes("＄")&&raw.includes("US"))return "USD";
+ if(raw.includes("CN¥")||raw.includes("CNY")||raw.includes("RMB")||raw.includes("RENMINBI"))return "CNY";
+ if(raw.includes("JP¥")||raw.includes("JPY"))return "JPY";
  if(raw.includes("€"))return "EUR";
  if(raw.includes("£"))return "GBP";
- if(raw.includes("¥")||raw.includes("￥"))return "CNY";
+ // A bare "$" or "¥" is ambiguous (USD/CAD/AUD/SGD, or CNY/JPY).
+ // Do not guess and risk converting a supplier price incorrectly.
  return "";
 }
 export async function POST(request:NextRequest){try{
