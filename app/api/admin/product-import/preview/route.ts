@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { scrapeAliExpressPage } from "../../../../../lib/aliexpress-scraper";
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 60;
 const allowed = ["aliexpress.com","shein.com","iherb.com","asos.com","alibaba.com"];
 function platform(host:string){return allowed.find(d=>host===d||host.endsWith("."+d))||null;}
 function meta(html:string,key:string,attr="property"){const escaped=key.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");const a=new RegExp(`<meta[^>]+${attr}=[\"']${escaped}[\"'][^>]+content=[\"']([^\"']*)[\"'][^>]*>`,"i");const b=new RegExp(`<meta[^>]+content=[\"']([^\"']*)[\"'][^>]+${attr}=[\"']${escaped}[\"'][^>]*>`,"i");const m=html.match(a)||html.match(b);return (m?.[1]||"").replace(/&amp;/g,"&").replace(/&quot;/g,'"').trim();}
@@ -245,7 +245,10 @@ export async function POST(request:NextRequest){try{
  const body=await request.json();const parsed=new URL(String(body.url||""));if(parsed.protocol!=="https:"||!platform(parsed.hostname.toLowerCase()))return NextResponse.json({error:"Use an HTTPS product URL from AliExpress, SHEIN, iHerb, ASOS or Alibaba."},{status:400});
  if(platform(parsed.hostname.toLowerCase())==="aliexpress.com"){
   if(process.env.CRAWLBASE_JS_TOKEN||process.env.CRAWLBASE_TOKEN){
-   const managed=await scrapeAliExpressManaged(parsed.toString());
+   let managed:any=null;
+   try{managed=await scrapeAliExpressManaged(parsed.toString());}
+   catch(error){console.warn("Crawlbase preview failed; trying bounded direct fallback:",error instanceof Error?error.message:"unknown error");}
+   if(managed){
    const priceObject=managedField(managed,["price","pricing","current_price","currentPrice","sale_price","salePrice","min_price","minPrice"]);
    const priceValue=managedPriceValue(priceObject)??managedField(managed,["price_formatted","priceFormatted","formatted_price","formattedPrice"]);
    const apiPrice=parseSupplierPrice(priceValue);
@@ -275,6 +278,7 @@ export async function POST(request:NextRequest){try{
     throw new Error("Crawlbase reached the listing but its product fields were not recognised. Returned fields: "+keys+". Please retry; if it repeats, share the product link and we can inspect the exact response safely.");
    }
    return NextResponse.json({platform:"aliexpress.com",sourceUrl:parsed.toString(),title,description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100,fx:rate?{rate,provider:"Crawlbase managed AliExpress scraper"}:null,shipping:null,shippingMessage:shippingText?"AliExpress shipping details detected ("+shippingText+"). Confirm the final Seychelles delivery fee before importing.":"No verified Seychelles delivery quote was returned. Enter the customer delivery fee manually.",supplierDataSource:"Crawlbase managed AliExpress scraper",variants,supplierDebug:{scraper:"Crawlbase managed API",productKeys:Object.keys(managed||{}),skuCount:rawVariants.length,skuPropertyCount:0,firstSkuAttributes:rawVariants[0]??null,firstSkuProperty:null,priceSource:useUrlPrice?"AliExpress pdp_npi URL price":"Crawlbase managed response",urlPrice:urlPrice??null,apiPrice:Number.isFinite(apiPrice)?apiPrice:null,apiCurrency:apiCurrency||null,rawTitle,descriptionWasStructured:typeof managedField(managed,["description","product_description","productDescription","short_description","shortDescription","details"])==="object"},specifications:managed?.specifications||[]});
+   }
   }
   const scraped=await scrapeAliExpressPage(parsed.toString());
   const productData=scraped.product||{};
