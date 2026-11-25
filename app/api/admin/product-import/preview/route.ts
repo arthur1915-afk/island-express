@@ -208,7 +208,24 @@ async function scrapeAliExpressManaged(url:string,snapshotId?:string):Promise<an
  const images=brightDataImages(record);
  const description=brightDataDescription(record);
  const variants=Array.isArray(record.variants)?record.variants:(Array.isArray(record.skus)?record.skus:[]);
- return {...record,title,description,images,price:price.price,currency:price.currency,variants,_brightData:{datasetId,elapsedMs:Date.now()-started,recordKeys:Object.keys(record),recordError:recordError?String(recordError).replace(/\s+/g," ").slice(0,240):null,snapshotId}};
+ // Preserve the supplier's original fields. In particular, never overwrite
+ // record.currency with an empty parsed value: the POST handler may need the
+ // original currency string/symbol to identify the source currency.
+ const rawCurrencyCandidates={
+  currency:record.currency??null,
+  price_currency:record.price_currency??null,
+  currency_code:record.currency_code??null,
+  price_currency_code:record.price_currency_code??null,
+  price:record.price??null,
+  final_price:record.final_price??null,
+  sale_price:record.sale_price??null,
+  current_price:record.current_price??null,
+  formatted_price:record.formatted_price??null,
+  display_price:record.display_price??null,
+  price_text:record.price_text??null,
+  price_formatted:record.price_formatted??null
+ };
+ return {...record,title,description,images,price:price.price,_normalisedPriceCurrency:price.currency,variants,_brightData:{datasetId,elapsedMs:Date.now()-started,recordKeys:Object.keys(record),rawCurrencyCandidates,recordError:recordError?String(recordError).replace(/\s+/g," ").slice(0,240):null,snapshotId}};
 }
 function managedImages(value:any):string[]{
  const found:string[]=[];
@@ -281,7 +298,11 @@ export async function POST(request:NextRequest){try{
   // The normalised field may intentionally be an empty string when the dataset
   // omits currency. Do not let that empty value mask a usable raw currency or
   // formatted price elsewhere in the Bright Data record.
-  const currencyInput=managed.currency||managed.price_currency||findManagedValue(managed,["currency","price_currency","currency_code","price_currency_code","formatted_price","display_price","price_text","price_formatted"])||priceValue;
+  const currencyInput=managed._normalisedPriceCurrency
+   || managed.currency
+   || managed.price_currency
+   || findManagedValue(managed,["currency","price_currency","currency_code","price_currency_code","formatted_price","display_price","price_text","price_formatted"])
+   || priceValue;
   const sourceCurrency=managedCurrency(currencyInput);
   const rawTitle=managed.title??managed.product_title??managed.product_name??managed.name??managed.item_title;
   const title=typeof rawTitle==="string"?rawTitle.trim():"";
@@ -303,7 +324,11 @@ export async function POST(request:NextRequest){try{
    throw new Error("Bright Data returned no usable product title. "+detail+" Record fields: "+keys+". Verify the selected dataset is an AliExpress product-detail scraper.");
   }
   if(!Number.isFinite(sourcePrice)||sourcePrice<=0)throw new Error("Bright Data did not return a valid product price. No product was created.");
-  if(!sourceCurrency)throw new Error("Bright Data did not identify the product price currency. No product was created to avoid an incorrect SCR conversion.");
+  if(!sourceCurrency){
+   const candidates=managed._brightData?.rawCurrencyCandidates||{};
+   const diagnostic=Object.entries(candidates).filter(([,v])=>v!==null&&v!==undefined).map(([k,v])=>k+"="+(typeof v==="object"?JSON.stringify(v):String(v))).join("; ").slice(0,500);
+   throw new Error("Bright Data returned a price but its currency could not be identified. Checked currency, price_currency, currency_code, price_currency_code and formatted price fields. Raw supplier values: "+(diagnostic||"none present at record level")+". No product was created.");
+  }
   if(!images.length)throw new Error("Bright Data did not return any product images. No product was created; check the AliExpress dataset output.");
   if(descriptionValue&&typeof descriptionValue==="object"&&!description)throw new Error("The supplier description could not be converted into readable text. No product was created.");
   return NextResponse.json({platform:"aliexpress.com",sourceUrl:canonicalAliExpressProductUrl(parsed.toString()),title,description,images,sourcePrice:Number.isFinite(sourcePrice)&&sourcePrice>0?sourcePrice:null,originalSourcePrice:Number.isFinite(originalPriceValue)&&originalPriceValue>0?originalPriceValue:null,sourceCurrency:sourceCurrency||null,exchangeRate:rate,costScr,sellingPriceScr:costScr===null?null:Math.round(costScr*MARKUP_MULTIPLIER*100)/100,fx:rate?{rate,provider:"open.er-api.com"}:null,shipping:null,shippingMessage:shippingText?"Supplier shipping data detected. Confirm the final delivery fee to Seychelles before importing.":"No verified Seychelles delivery quote was returned. Enter the customer delivery fee manually.",supplierDataSource:"Bright Data AliExpress Scraper",variants,supplierDebug:{scraper:"Bright Data AliExpress dataset",elapsedMs:managed._brightData?.elapsedMs,productKeys:Object.keys(managed||{}),skuCount:skuRows.length,skuPropertyCount:0,firstSkuAttributes:skuRows[0]?.attributes??null,firstSkuProperty:null},specifications:findManagedValue(managed,["specifications","specs","attributes","features"])||[]});
